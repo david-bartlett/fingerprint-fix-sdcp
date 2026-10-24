@@ -103,7 +103,9 @@ At every boot, a small service compares fprintd's records with the templates act
 
 - It runs **before fprintd starts**, so nothing else can use the sensor while it checks, and nothing needs pausing. It runs in parallel with the rest of the boot — only fprintd waits for it, and only for the second or two it takes — so boot is not slower.
 - If a fingerprint's template is gone, the login check shows **Fingerprint Removed From Sensor** (once per boot) naming the finger, at the first login after the wipe — before you try to use it.
-- It does not delete anything. Enrol the finger again; fprintd replaces the dead record.
+- It **clears only the dead fingers' records**, so your desktop's fingerprint settings show them as not enrolled and you can simply add them again. Fingerprints still on the sensor are not touched. (Windows normally removes every Linux fingerprint, so in practice that is usually all of them.)
+- Cleared records are **moved, not deleted**, to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the last 5 are kept). They are useless once the template is gone, but if the check were ever wrong they could be moved back.
+- Each Linux install that shared the fingerprint clears its own dead record at its own next boot.
 - A removed fingerprint cannot be restored from an export — the export only points at the template on the sensor, and the template is what was deleted.
 
 The check is a small C program (`sensor-check.c`) that the installer builds against the egismoc SDCP library. It gives up after a few seconds if the sensor does not appear, and never fails the boot. Its output is in `journalctl -u samsung-galaxybook-fprint-sdcp-boot-check`.
@@ -196,6 +198,7 @@ session include system-local-login
 - `/usr/local/lib/libfprint-egismoc-sdcp/sensor-check` — boot-time sensor check program
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh` and `/etc/systemd/system/samsung-galaxybook-fprint-sdcp-boot-check.service` — runs it at boot, before fprintd
 - `/run/samsung-galaxybook/fprint-sdcp-boot-status` — boot check result (cleared at every boot)
+- `/var/lib/samsung-galaxybook/removed-fingerprints/` — records cleared by the boot check (last 5 boots that cleared any)
 - `~/.cache/samsung-galaxybook/fprint-sdcp-boot-shown` — remembers the boot check message was shown this boot
 
 ## Credits

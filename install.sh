@@ -75,6 +75,7 @@ FPRINT_SENSOR_CHECK="${FPRINT_LIB_DIR}/sensor-check"
 FPRINT_BOOT_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh"
 FPRINT_BOOT_CHECK_SVC="samsung-galaxybook-fprint-sdcp-boot-check.service"
 FPRINT_BOOT_STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
+FPRINT_REMOVED_DIR="${FPRINT_STATE_DIR}/removed-fingerprints"
 
 # Old fingerprint-fix (feature/sdcp-v2 installed over the system libfprint)
 OLD_MARKER="/etc/samsung-galaxybook-libfprint-sdcp-v2.installed"
@@ -336,6 +337,7 @@ rm -f "${FPRINT_DROPIN}"
 rmdir "${FPRINT_DROPIN_DIR}" 2>/dev/null || true
 rm -rf "${FPRINT_LIB_DIR}"
 rm -f "${FPRINT_SYSLIB_HASH}" "${FPRINT_MARKER}"
+rm -rf "${FPRINT_REMOVED_DIR}"
 rmdir "${FPRINT_STATE_DIR}" 2>/dev/null || true
 systemctl disable "${FPRINT_BOOT_CHECK_SVC}" 2>/dev/null || true
 rm -f "/etc/systemd/system/${FPRINT_MONITOR_SVC}" "/etc/systemd/system/${FPRINT_BOOT_CHECK_SVC}" \\
@@ -562,16 +564,36 @@ FINGERS=(unknown left-thumb left-index-finger left-middle-finger left-ring-finge
          left-little-finger right-thumb right-index-finger right-middle-finger
          right-ring-finger right-little-finger)
 LOST=()
-while read -r _tag _user _finger; do
+# Dead records are MOVED (not deleted) to a dated safety folder, so a false
+# alarm could be undone by moving them back. The last 5 folders are kept.
+REMOVED="${FPRINT_REMOVED_DIR}/\$(date +%Y-%m-%d_%H%M%S)"
+ALL_CLEARED=true
+while read -r _tag _user _finger _path; do
     [[ "\$_tag" == "MISSING" ]] || continue
-    [[ "\$_finger" =~ ^([1-9]|10)\$ ]] && _finger="\${FINGERS[\$_finger]}"
-    LOST+=("\${_finger} (\${_user})")
+    _name="\$_finger"
+    [[ "\$_finger" =~ ^([1-9]|10)\$ ]] && _name="\${FINGERS[\$_finger]}"
+    LOST+=("\${_name} (\${_user})")
+    # Only ever touch records inside fprintd's own folder.
+    _done=false
+    if [[ "\$_path" == /var/lib/fprint/* && "\$_path" != *..* && -f "\$_path" ]]; then
+        _dest="\$REMOVED/\${_path#/var/lib/fprint/}"
+        mkdir -p "\$(dirname "\$_dest")" && mv -f "\$_path" "\$_dest" \\
+            && echo "Moved dead record \$_path to \$_dest" && _done=true
+    fi
+    \$_done || { ALL_CLEARED=false; echo "Did not clear record: \$_path"; }
 done <<< "\$OUT"
 [[ \${#LOST[@]} -gt 0 ]] || exit 0
+chmod -R go-rwx "${FPRINT_REMOVED_DIR}" 2>/dev/null
+ls -1dt "${FPRINT_REMOVED_DIR}"/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf
 _list=\$(printf '%s, ' "\${LOST[@]}"); _list="\${_list%, }"
+if \$ALL_CLEARED; then
+    _next="They have been cleared from this system — please enrol them again."
+else
+    _next="Please remove them in your fingerprint settings (or run: fprintd-delete USER) and enrol them again."
+fi
 printf '%s\n%s\n%s\n' "dialog-warning" \\
     "Samsung Galaxy Book — Fingerprint Removed From Sensor" \\
-    "These fingerprints are no longer stored on the sensor: \${_list}. This usually happens after booting Windows with its fingerprint device enabled. Please enrol them again." \\
+    "These fingerprints are no longer stored on the sensor: \${_list}. This usually happens after booting Windows with its fingerprint device enabled. \${_next}" \\
     > "\$STATUS"
 chmod 644 "\$STATUS"
 exit 0

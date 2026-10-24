@@ -9,7 +9,8 @@
  * Built by install.sh against the egismoc SDCP libfprint it installs, and run
  * at boot BEFORE fprintd starts, so it has the sensor to itself.
  *
- * Output:  one line per lost fingerprint:  MISSING <user> <finger-number>
+ * Output:  one line per lost fingerprint:
+ *            MISSING <user> <finger-number> <record-path>
  * Exit:    0 = all records found on the sensor (or nothing enrolled)
  *          1 = at least one record has no template on the sensor
  *          2 = could not check (no sensor, open/list failed, ...)
@@ -72,6 +73,7 @@ load_records (const char *store, const char *driver, const char *device_id)
           /* Keep where the record came from for the report */
           g_object_set_data_full (G_OBJECT (print), "user", g_strdup (user), g_free);
           g_object_set_data_full (G_OBJECT (print), "finger", g_strdup (finger), g_free);
+          g_object_set_data_full (G_OBJECT (print), "path", g_strdup (path), g_free);
           g_ptr_array_add (records, print);
         }
     }
@@ -142,9 +144,10 @@ main (void)
 
       if (!found)
         {
-          g_print ("MISSING %s %s\n",
+          g_print ("MISSING %s %s %s\n",
                    (const char *) g_object_get_data (G_OBJECT (record), "user"),
-                   (const char *) g_object_get_data (G_OBJECT (record), "finger"));
+                   (const char *) g_object_get_data (G_OBJECT (record), "finger"),
+                   (const char *) g_object_get_data (G_OBJECT (record), "path"));
           missing++;
         }
     }

@@ -38,6 +38,7 @@ FPRINT_POLKIT_RULE="/etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-moni
 FPRINT_BOOT_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh"
 FPRINT_BOOT_CHECK_SVC="samsung-galaxybook-fprint-sdcp-boot-check.service"
 FPRINT_BOOT_STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
+FPRINT_REMOVED_DIR="${FPRINT_STATE_DIR}/removed-fingerprints"
 
 echo
 echo "╔════════════════════════════════════════════════════════════╗"
@@ -143,6 +144,7 @@ fi
 step "Fingerprint Step 4: Removing state files"
 rm -f "$FPRINT_MARKER" "$FPRINT_SYSLIB_HASH" /run/samsung-galaxybook/fprint-sdcp-status \
       "$FPRINT_BOOT_STATUS"
+rm -rf "$FPRINT_REMOVED_DIR"
 rmdir /run/samsung-galaxybook 2>/dev/null || true
 rmdir "$FPRINT_STATE_DIR" 2>/dev/null || true
 # PAM fingerprint authentication is left enabled on purpose.
