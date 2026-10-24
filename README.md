@@ -2,7 +2,7 @@
 
 Enables fingerprint authentication on Samsung Galaxy Book laptops with an EgisTec SDCP fingerprint sensor. It builds **only the egismoc driver** from [libfprint-egismoc-sdcp](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp), pinned to a tested commit, and points fprintd at it. **The distro's libfprint is not replaced.**
 
-This is the successor to [`fingerprint-fix`](../fingerprint-fix/), which builds the unmerged `feature/sdcp-v2` branch and installs it over the system libfprint.
+This is the successor to `fingerprint-fix`, which built the unmerged `feature/sdcp-v2` branch and installed it over the system libfprint. That fix has been removed from the repo; it is kept under the [`fingerprint-fix-final`](https://github.com/david-bartlett/samsung-galaxybook-fixes/tree/fingerprint-fix-final/extras/fingerprint-fix) tag. Installing this fix migrates an existing `fingerprint-fix` install automatically.
 
 ## The Problem
 
