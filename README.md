@@ -67,7 +67,7 @@ fprintd-delete "$USER" && fprintd-enroll
 sudo bash uninstall.sh
 ```
 
-It asks whether to delete enrolled fingerprints first (default: keep), while the SDCP driver is still loaded so the templates are removed from the sensor too. Set `DELETE_PRINTS=1` or `DELETE_PRINTS=0` to answer non-interactively. Then it removes the drop-in, the library and the monitor. Nothing needs reinstalling because the distro libfprint was never replaced. PAM fingerprint authentication is left enabled.
+It asks whether to delete enrolled fingerprints first (default: keep; no answer within 30 seconds also keeps them), while the SDCP driver is still loaded so the templates are removed from the sensor too. Set `DELETE_PRINTS=1` or `DELETE_PRINTS=0` to answer non-interactively. Then it removes the drop-in, the library and the monitor. Nothing needs reinstalling because the distro libfprint was never replaced. PAM fingerprint authentication is left enabled.
 
 To switch it off temporarily instead:
 

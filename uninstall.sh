@@ -62,7 +62,9 @@ else
     _delete="${DELETE_PRINTS:-}"
     if [[ -z "$_delete" ]]; then
         if [[ -t 0 ]]; then
-            read -r -p "Delete enrolled fingerprints now (also frees them on the sensor)? [y/N] " _ans
+            if ! read -r -t 30 -p "Delete enrolled fingerprints now (also frees them on the sensor)? [y/N] (No in 30s) " _ans; then
+                echo; info "No answer — keeping enrolled fingerprints"; _ans=n
+            fi
             [[ "${_ans,,}" == y* ]] && _delete=1 || _delete=0
         else
             _delete=0
