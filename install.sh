@@ -35,9 +35,20 @@ error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 step()  { echo -e "\n${BLUE}══ $* ${NC}"; }
 
 # ── Source pin ────────────────────────────────────────────────────────────────
-# Change these two lines (after testing) to move to a newer commit.
+# PINNED_COMMIT is the tested build everyone gets by default. Change it (after
+# testing) to move to a newer commit.
+#   sudo bash install.sh                     → builds PINNED_COMMIT
+#   sudo SDCP_COMMIT=latest bash install.sh  → builds the newest commit on
+#                                              SDCP_BRANCH (untested)
 SDCP_REPO_URL="https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp.git"
-SDCP_COMMIT="c4880d057e80c7095eb02d227c860ae8d8ddfe54"   # egismoc-sdcp, 2026-10-16
+SDCP_BRANCH="egismoc-sdcp"
+PINNED_COMMIT="c4880d057e80c7095eb02d227c860ae8d8ddfe54"   # egismoc-sdcp, 2026-10-16
+case "${SDCP_COMMIT:-}" in
+    "")     SDCP_COMMIT="$PINNED_COMMIT" ;;
+    latest) ;;
+    *)      echo "ERROR: SDCP_COMMIT can only be 'latest' (or left unset for the tested build)."
+            exit 1 ;;
+esac
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 FPRINT_LIB_DIR="/usr/local/lib/libfprint-egismoc-sdcp"
@@ -212,15 +223,31 @@ else
 fi
 
 # ── Step 5: Fetch the pinned source ───────────────────────────────────────────
-step "Fingerprint Step 5: Fetching libfprint-egismoc-sdcp at ${SDCP_COMMIT:0:12}"
 rm -rf "$FPRINT_BUILD_DIR"
 mkdir -p "$FPRINT_BUILD_DIR"
 git -C "$FPRINT_BUILD_DIR" init -q
 git -C "$FPRINT_BUILD_DIR" remote add origin "$SDCP_REPO_URL"
-git -C "$FPRINT_BUILD_DIR" fetch -q --depth 1 origin "$SDCP_COMMIT" \
-    || error "Could not fetch commit ${SDCP_COMMIT} from:\n  ${SDCP_REPO_URL}\n  Check your internet connection. If the repository or commit has been\n  removed, this fix needs updating."
-git -C "$FPRINT_BUILD_DIR" checkout -q FETCH_HEAD
-info "✓ Source at commit ${SDCP_COMMIT:0:12}"
+if [[ "$SDCP_COMMIT" == "latest" ]]; then
+    step "Fingerprint Step 5: Fetching the LATEST libfprint-egismoc-sdcp ($SDCP_BRANCH)"
+    git -C "$FPRINT_BUILD_DIR" fetch -q --depth 1 origin "$SDCP_BRANCH" \
+        || error "Could not fetch branch ${SDCP_BRANCH} from:\n  ${SDCP_REPO_URL}\n  Check your internet connection. If the branch has been removed,\n  run the installer without SDCP_COMMIT to build the tested commit."
+    git -C "$FPRINT_BUILD_DIR" checkout -q FETCH_HEAD
+    SDCP_COMMIT=$(git -C "$FPRINT_BUILD_DIR" rev-parse HEAD)
+    SDCP_LABEL="latest"
+    if [[ "$SDCP_COMMIT" == "$PINNED_COMMIT" ]]; then
+        info "The latest commit is the tested one (${SDCP_COMMIT:0:12})"
+        SDCP_LABEL="pinned"
+    else
+        warn "Building ${SDCP_COMMIT:0:12} ($(git -C "$FPRINT_BUILD_DIR" log -1 --format=%cs)) —\n       newer than the tested ${PINNED_COMMIT:0:12} and NOT tested on Galaxy Books.\n       To go back, run the installer without SDCP_COMMIT (enrolments are kept)."
+    fi
+else
+    step "Fingerprint Step 5: Fetching libfprint-egismoc-sdcp at ${SDCP_COMMIT:0:12}"
+    git -C "$FPRINT_BUILD_DIR" fetch -q --depth 1 origin "$SDCP_COMMIT" \
+        || error "Could not fetch commit ${SDCP_COMMIT} from:\n  ${SDCP_REPO_URL}\n  Check your internet connection. If the repository or commit has been\n  removed, this fix needs updating."
+    git -C "$FPRINT_BUILD_DIR" checkout -q FETCH_HEAD
+    SDCP_LABEL="pinned"
+fi
+info "✓ Source at commit ${SDCP_COMMIT:0:12} (${SDCP_LABEL})"
 
 # ── Step 6: Build only the egismoc driver ─────────────────────────────────────
 step "Fingerprint Step 6: Building libfprint (egismoc driver only)"
@@ -269,7 +296,7 @@ if [[ -n "$SYSLIB" ]]; then
     sha256sum "$SYSLIB" | awk '{print $1}' > "$FPRINT_SYSLIB_HASH"
     chmod 644 "$FPRINT_SYSLIB_HASH"
 fi
-echo "${SDCP_COMMIT:0:12} (installed $(date '+%Y-%m-%d'))" > "$FPRINT_MARKER"
+echo "${SDCP_COMMIT:0:12} ${SDCP_LABEL} (installed $(date '+%Y-%m-%d'))" > "$FPRINT_MARKER"
 info "✓ Marker and distro libfprint hash stored"
 
 # ── Step 10: Monitor — cleanup helper, scripts, polkit rule, services ─────────

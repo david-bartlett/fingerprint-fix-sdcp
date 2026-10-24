@@ -15,7 +15,7 @@ These sensors are Windows Hello readers that expect the host to use Microsoft's 
 | Base | [libfprint-TOD v1.95.2+tod1](https://gitlab.freedesktop.org/3v1n0/libfprint/-/tree/v1.95.2+tod1) — the released shared SDCP core (Benjamin Berg, Joshua Grisham, Marco Trevisan) |
 | Driver | Joshua Grisham's Egis SDCP driver from libfprint [MR !547](https://gitlab.freedesktop.org/libfprint/libfprint/-/merge_requests/547) / `feature/sdcp-v2`, ported onto that core by Abdallah Alkanani |
 | Extra fixes | Fresh random nonce for every identify, full certificate-chain, attestation and identity-MAC checks, bounds-checked responses, clean failed opens and suspend; Roman2K's longer finger wait for `05a5`; Philip Walsh's ET171 fixes |
-| Pinned commit | `c4880d057e80` on branch `egismoc-sdcp` (2026-10-16) — set in `install.sh` (`SDCP_COMMIT`) |
+| Pinned commit | `c4880d057e80` on branch `egismoc-sdcp` (2026-10-16) — set in `install.sh` (`PINNED_COMMIT`); `SDCP_COMMIT=latest` builds the newest commit instead |
 
 See the upstream [`SDCP.md`](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp/blob/egismoc-sdcp/libfprint/drivers/egismoc/SDCP.md) for the protocol mapping and trust rules.
 
@@ -46,6 +46,14 @@ It does **not** delete `/var/lib/fprint`. Deleting fprintd's records by hand lea
 ```bash
 sudo bash install.sh
 ```
+
+This builds the tested, pinned commit. To try the newest upstream commit instead (not tested on Galaxy Books):
+
+```bash
+sudo SDCP_COMMIT=latest bash install.sh
+```
+
+The installer says when the newest commit is newer than the tested one. To go back, run `sudo bash install.sh` again — enrolled fingerprints are kept either way. `/etc/samsung-galaxybook-egismoc-sdcp.installed` records which commit is installed and whether it was `pinned` or `latest`.
 
 No reboot needed. Then test with `fprintd-verify`, or enrol:
 
