@@ -13,6 +13,8 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
     echo "Please run as root: sudo bash install.sh"
     exit 1
@@ -607,6 +609,35 @@ else
     else
         warn "PAM activation could not be verified — run manually: sudo pam-auth-update"
     fi
+fi
+
+# ── Step 13: Optionally import fingerprints exported from another install ─────
+# FPRINT_IMPORT=/path/to/fprint-<user>.tgz answers this without asking.
+step "Fingerprint Step 13: Importing fingerprints from another install (optional)"
+_import="${FPRINT_IMPORT:-}"
+_has_prints=false
+[[ -n "$(find /var/lib/fprint -type f 2>/dev/null | head -1)" ]] && _has_prints=true
+if [[ -z "$_import" ]]; then
+    if $_has_prints; then
+        info "Fingerprints already enrolled on this install — skipping import"
+    elif [[ -t 0 ]]; then
+        echo "  If you exported fingerprints on another install of this laptop"
+        echo "  (export-fingerprint.sh), you can use them here without enrolling."
+        if ! read -r -t 30 -p "  Path to fprint-<user>.tgz (Enter to skip, skips in 30s): " _import; then
+            echo; _import=""
+        fi
+    fi
+fi
+if [[ -n "$_import" ]]; then
+    # "~/..." typed at the prompt means the user's home, not root's
+    # shellcheck disable=SC2088  # matching a literal "~/" on purpose
+    if [[ "$_import" == "~/"* && -n "$FPRINT_USER" ]]; then
+        _import="$(getent passwd "$FPRINT_USER" | cut -d: -f6)/${_import#\~/}"
+    fi
+    bash "$SCRIPT_DIR/import-fingerprint.sh" "$_import" \
+        || warn "Import failed — the fix is installed. Fix the problem above and run:\n       sudo bash $SCRIPT_DIR/import-fingerprint.sh FILE.tgz"
+elif ! $_has_prints; then
+    info "No import — enrol fingerprints as shown below"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────

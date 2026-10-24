@@ -38,6 +38,7 @@ Find your reader's ID with `lsusb | grep 1c7a`.
 6. Installs the library to `/usr/local/lib/libfprint-egismoc-sdcp/` and adds a systemd drop-in so **only fprintd** loads it (`LD_LIBRARY_PATH`)
 7. Configures PAM (Fedora: authselect; Ubuntu/Debian/Mint: pam-auth-update; Arch: see below)
 8. Installs a login-time monitor (see below)
+9. Offers to import fingerprints exported from another install on this laptop (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
 
 It does **not** delete `/var/lib/fprint`. Deleting fprintd's records by hand leaves the templates on the sensor as orphans.
 
@@ -99,7 +100,34 @@ Notifications are written to `/run/samsung-galaxybook/fprint-sdcp-status` and sh
 The sensor has a single template store shared by every OS:
 
 - **Windows** removes templates it did not create when its biometric service starts, so booting Windows with the sensor enabled deletes your Linux enrolments. Disable the fingerprint device in Windows Device Manager if you dual-boot.
-- **fprintd** deletes an unknown template when you enrol a finger that matches it, and deletes unknown templates when the sensor is full. Enrolling the same finger in two Linux installs breaks the first one — use a different finger per install, or copy `/var/lib/fprint/<user>/` between installs so they share one template.
+- **fprintd** deletes an unknown template when you enrol a finger that matches it, and deletes unknown templates when the sensor is full. Enrolling the same finger in two Linux installs breaks the first one — use a different finger per install, or share one enrolment between installs (below).
+
+## Sharing Fingerprints Between Linux Installs
+
+Several Linux installs on the same laptop can share one enrolment instead of each enrolling the same finger (which would make them delete each other's templates). fprintd's record for a finger holds only the ID of its template on the sensor — no fingerprint image and no secret — so the same record works on every install that runs this fix.
+
+**On the install where the finger is enrolled:**
+
+```bash
+sudo bash export-fingerprint.sh          # writes ~/fprint-<user>.tgz
+```
+
+**On the other install** (fix installed, nothing enrolled for that user, same username):
+
+```bash
+sudo bash import-fingerprint.sh ~/fprint-<user>.tgz
+fprintd-verify
+```
+
+The installer also offers this at the end: enter the path when asked, or set `FPRINT_IMPORT=/path/to/fprint-<user>.tgz`. It skips the question if fingerprints are already enrolled.
+
+The import refuses records made on a different sensor, records for a user who does not exist on this install, and archives containing anything other than fingerprint records. It never overwrites existing fingerprints, because that would orphan their templates on the sensor.
+
+**Once installs share fingerprints:**
+
+- **Do not enrol the same finger on any of them.** fprintd would delete the other installs' template.
+- **Answer N to deleting fingerprints when uninstalling** on one of them, or the others lose them too.
+- **Export again after deleting or re-enrolling** — an old export points at templates that no longer exist.
 
 ## Enabling Fingerprint Authentication on Arch (manual)
 
