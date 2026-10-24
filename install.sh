@@ -405,12 +405,13 @@ if [[ -n "$SENSOR_ON_BUS" ]] && ! check_fprintd_functional; then
         "dialog-error"
 fi
 MONITOREOF
-sed -i -e "s|__FPRINT_LIB__|${FPRINT_LIB}|" \
-       -e "s|__FPRINT_DROPIN__|${FPRINT_DROPIN}|" \
-       -e "s|__FPRINT_MARKER__|${FPRINT_MARKER}|" \
-       -e "s|__FPRINT_SYSLIB_HASH__|${FPRINT_SYSLIB_HASH}|" \
-       -e "s|__FPRINT_CLEANUP__|${FPRINT_CLEANUP}|" \
-       -e "s|__HARDWARE_USB_ID__|${HARDWARE_USB_ID}|" "$FPRINT_CHECK_SCRIPT"
+# '#' as the sed separator: paths contain '/' and HARDWARE_USB_ID contains '|'.
+sed -i -e "s#__FPRINT_LIB__#${FPRINT_LIB}#" \
+       -e "s#__FPRINT_DROPIN__#${FPRINT_DROPIN}#" \
+       -e "s#__FPRINT_MARKER__#${FPRINT_MARKER}#" \
+       -e "s#__FPRINT_SYSLIB_HASH__#${FPRINT_SYSLIB_HASH}#" \
+       -e "s#__FPRINT_CLEANUP__#${FPRINT_CLEANUP}#" \
+       -e "s#__HARDWARE_USB_ID__#${HARDWARE_USB_ID}#" "$FPRINT_CHECK_SCRIPT"
 chown root:root "$FPRINT_CHECK_SCRIPT"; chmod 755 "$FPRINT_CHECK_SCRIPT"
 
 # User check script — run by a user timer 10s after login.
