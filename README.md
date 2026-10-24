@@ -23,7 +23,7 @@ See the upstream [`SDCP.md`](https://github.com/abdallah-alkanani/libfprint-egis
 
 | USB ID | Galaxy Book Model | Status |
 | --- | --- | --- |
-| `1c7a:05a5` | Galaxy Book 4 / Book 5 Pro | In the driver's device list; reported working with MR !547 builds. **Not yet confirmed with this exact build** |
+| `1c7a:05a5` | Galaxy Book 4 / Book 5 Pro | **Confirmed working** on Galaxy Book 5 Pro 14" (940XHA), Fedora 45, 2026-10-24 — including an existing enrolment migrated from `fingerprint-fix` without re-enrolling |
 | `1c7a:05a1` | Galaxy Book 3 / Book 4 (ETU905A80-E) | Tested upstream with this build (597 logins through `pam_fprintd`) |
 
 Find your reader's ID with `lsusb | grep 1c7a`.

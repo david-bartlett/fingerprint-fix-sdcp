@@ -136,8 +136,6 @@ step "Fingerprint Step 1: Checking sensor is present"
 [[ -z "$SENSOR_ON_BUS" ]] && \
     error "EgisTec SDCP fingerprint sensor not found on USB bus.\nExpected: 1c7a:05a5 (Galaxy Book 5) or 1c7a:05a1 (Galaxy Book 3/4)\nRun 'lsusb' to check what USB devices are present."
 info "✓ Sensor found: $SENSOR_ON_BUS"
-[[ "$SENSOR_ON_BUS" == *"1c7a:05a5"* ]] && \
-    warn "1c7a:05a5 is in this driver's device list but has not yet been confirmed\n       with this exact build. Please report whether it works."
 
 # ── Step 2: Install dependencies ─────────────────────────────────────────────
 step "Fingerprint Step 2: Installing dependencies"
