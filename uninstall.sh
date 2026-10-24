@@ -35,6 +35,9 @@ FPRINT_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-monitor.sh"
 FPRINT_USER_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-user-check.sh"
 FPRINT_CLEANUP="/usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh"
 FPRINT_POLKIT_RULE="/etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
+FPRINT_BOOT_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh"
+FPRINT_BOOT_CHECK_SVC="samsung-galaxybook-fprint-sdcp-boot-check.service"
+FPRINT_BOOT_STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
 
 echo
 echo "╔════════════════════════════════════════════════════════════╗"
@@ -92,7 +95,9 @@ info "✓ fprintd now uses the distro libfprint (it was never replaced)"
 
 # ── Step 3: Remove the monitor ────────────────────────────────────────────────
 step "Fingerprint Step 3: Removing the fingerprint monitor"
-rm -f "$FPRINT_POLKIT_RULE" "/etc/systemd/system/${FPRINT_MONITOR_SVC}"
+systemctl disable "$FPRINT_BOOT_CHECK_SVC" 2>/dev/null || true
+rm -f "$FPRINT_POLKIT_RULE" "/etc/systemd/system/${FPRINT_MONITOR_SVC}" \
+      "/etc/systemd/system/${FPRINT_BOOT_CHECK_SVC}"
 systemctl daemon-reload 2>/dev/null || true
 for USER_HOME in /home/*/; do
     USER_NAME=$(basename "$USER_HOME")
@@ -105,13 +110,14 @@ for USER_HOME in /home/*/; do
             systemctl --user disable --now "${FPRINT_USER_CHECK_TIMER}" 2>/dev/null || true
     fi
     rm -f "$USER_TIMER" "$USER_SVC" \
-        "${USER_HOME}.config/systemd/user/graphical-session.target.wants/${FPRINT_USER_CHECK_TIMER}"
+        "${USER_HOME}.config/systemd/user/graphical-session.target.wants/${FPRINT_USER_CHECK_TIMER}" \
+        "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-boot-shown"
     [[ -n "$USER_ID" ]] && sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/${USER_ID}" \
         systemctl --user daemon-reload 2>/dev/null || true
     info "Removed user timer and service for $USER_NAME"
 done
-rm -f "$FPRINT_CHECK_SCRIPT" "$FPRINT_USER_CHECK_SCRIPT" "$FPRINT_CLEANUP"
-info "✓ Monitor removed"
+rm -f "$FPRINT_CHECK_SCRIPT" "$FPRINT_USER_CHECK_SCRIPT" "$FPRINT_BOOT_CHECK_SCRIPT" "$FPRINT_CLEANUP"
+info "✓ Monitor and boot-time sensor check removed"
 
 # Shared graphical session helper — remove only if no other fix uses it.
 SESSION_HELPER_USERS="/etc/samsung-galaxybook/session-helper.d"
@@ -135,7 +141,8 @@ fi
 
 # ── Step 4: Remove state files ────────────────────────────────────────────────
 step "Fingerprint Step 4: Removing state files"
-rm -f "$FPRINT_MARKER" "$FPRINT_SYSLIB_HASH" /run/samsung-galaxybook/fprint-sdcp-status
+rm -f "$FPRINT_MARKER" "$FPRINT_SYSLIB_HASH" /run/samsung-galaxybook/fprint-sdcp-status \
+      "$FPRINT_BOOT_STATUS"
 rmdir /run/samsung-galaxybook 2>/dev/null || true
 rmdir "$FPRINT_STATE_DIR" 2>/dev/null || true
 # PAM fingerprint authentication is left enabled on purpose.

@@ -37,7 +37,7 @@ Find your reader's ID with `lsusb | grep 1c7a`.
 5. Fetches the pinned commit and builds the egismoc driver only (`-Ddrivers=egismoc -Dtod=false`)
 6. Installs the library to `/usr/local/lib/libfprint-egismoc-sdcp/` and adds a systemd drop-in so **only fprintd** loads it (`LD_LIBRARY_PATH`)
 7. Configures PAM (Fedora: authselect; Ubuntu/Debian/Mint: pam-auth-update; Arch: see below)
-8. Installs a login-time monitor (see below)
+8. Installs a login-time monitor and a boot-time sensor check (see below)
 9. Offers to import fingerprints exported from another install on this laptop (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
 
 It does **not** delete `/var/lib/fprint`. Deleting fprintd's records by hand leaves the templates on the sensor as orphans.
@@ -94,6 +94,19 @@ A user timer fires 10 seconds after login and starts a root service (allowed by 
 - notifies you if fprintd cannot see the sensor at all.
 
 Notifications are written to `/run/samsung-galaxybook/fprint-sdcp-status` and shown by the user check script in your own session.
+
+## Boot-Time Sensor Check
+
+Windows Hello deletes templates it did not create when Windows boots with its fingerprint device enabled, so your Linux fingerprints can vanish from the sensor while their records remain. Without a check, the fingerprint just stops working with no explanation.
+
+At every boot, a small service compares fprintd's records with the templates actually stored on the sensor:
+
+- It runs **before fprintd starts**, so nothing else can use the sensor while it checks, and nothing needs pausing. It runs in parallel with the rest of the boot — only fprintd waits for it, and only for the second or two it takes — so boot is not slower.
+- If a fingerprint's template is gone, the login check shows **Fingerprint Removed From Sensor** (once per boot) naming the finger, at the first login after the wipe — before you try to use it.
+- It does not delete anything. Enrol the finger again; fprintd replaces the dead record.
+- A removed fingerprint cannot be restored from an export — the export only points at the template on the sensor, and the template is what was deleted.
+
+The check is a small C program (`sensor-check.c`) that the installer builds against the egismoc SDCP library. It gives up after a few seconds if the sensor does not appear, and never fails the boot. Its output is in `journalctl -u samsung-galaxybook-fprint-sdcp-boot-check`.
 
 ## Dual-Boot Warning
 
@@ -180,6 +193,10 @@ session include system-local-login
 - `/etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules`
 - `/etc/samsung-galaxybook-egismoc-sdcp.installed` — marker (pinned commit and install date)
 - `/var/lib/samsung-galaxybook/libfprint-system.sha256` — distro libfprint hash, to spot updates
+- `/usr/local/lib/libfprint-egismoc-sdcp/sensor-check` — boot-time sensor check program
+- `/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh` and `/etc/systemd/system/samsung-galaxybook-fprint-sdcp-boot-check.service` — runs it at boot, before fprintd
+- `/run/samsung-galaxybook/fprint-sdcp-boot-status` — boot check result (cleared at every boot)
+- `~/.cache/samsung-galaxybook/fprint-sdcp-boot-shown` — remembers the boot check message was shown this boot
 
 ## Credits
 

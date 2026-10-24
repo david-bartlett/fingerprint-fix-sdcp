@@ -70,6 +70,12 @@ FPRINT_USER_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-user-che
 FPRINT_CLEANUP="/usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh"
 FPRINT_POLKIT_RULE="/etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
 
+# Boot-time check that enrolled fingerprints are still stored on the sensor
+FPRINT_SENSOR_CHECK="${FPRINT_LIB_DIR}/sensor-check"
+FPRINT_BOOT_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh"
+FPRINT_BOOT_CHECK_SVC="samsung-galaxybook-fprint-sdcp-boot-check.service"
+FPRINT_BOOT_STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
+
 # Old fingerprint-fix (feature/sdcp-v2 installed over the system libfprint)
 OLD_MARKER="/etc/samsung-galaxybook-libfprint-sdcp-v2.installed"
 OLD_HASH_FILE="/var/lib/samsung-galaxybook/libfprint.sha256"
@@ -262,9 +268,26 @@ meson compile -C build || error "Build failed"
 [[ -f build/libfprint/libfprint-2.so.2.0.0 ]] || error "Build finished but libfprint-2.so.2.0.0 was not produced"
 info "Build complete"
 
+# The boot-time sensor check helper, linked against this build. The runpath
+# makes it load the library from FPRINT_LIB_DIR, never the distro libfprint.
+SENSOR_CHECK_BUILT=false
+# shellcheck disable=SC2046  # pkg-config output must be word-split
+if gcc -O2 -Wall -o build/sensor-check "$SCRIPT_DIR/sensor-check.c" \
+        -Ilibfprint -Ibuild/libfprint \
+        $(pkg-config --cflags glib-2.0 gio-2.0 gobject-2.0 gusb) \
+        -Lbuild/libfprint -lfprint-2 \
+        $(pkg-config --libs glib-2.0 gio-2.0 gobject-2.0) \
+        -Wl,-rpath,"$FPRINT_LIB_DIR"; then
+    SENSOR_CHECK_BUILT=true
+    info "Sensor check helper built"
+else
+    warn "Could not build the sensor check helper — the fix works, but you won't be told\n       if fingerprints are removed from the sensor (e.g. by Windows)."
+fi
+
 # ── Step 7: Install the library and the fprintd drop-in ───────────────────────
 step "Fingerprint Step 7: Installing the library for fprintd only"
 install -Dm755 build/libfprint/libfprint-2.so.2.0.0 "$FPRINT_LIB"
+$SENSOR_CHECK_BUILT && install -m755 build/sensor-check "$FPRINT_SENSOR_CHECK"
 command -v restorecon >/dev/null 2>&1 && restorecon -R "$FPRINT_LIB_DIR" 2>/dev/null || true
 cd /
 rm -rf "$FPRINT_BUILD_DIR"
@@ -314,16 +337,19 @@ rmdir "${FPRINT_DROPIN_DIR}" 2>/dev/null || true
 rm -rf "${FPRINT_LIB_DIR}"
 rm -f "${FPRINT_SYSLIB_HASH}" "${FPRINT_MARKER}"
 rmdir "${FPRINT_STATE_DIR}" 2>/dev/null || true
-rm -f "/etc/systemd/system/${FPRINT_MONITOR_SVC}" "${FPRINT_POLKIT_RULE}"
+systemctl disable "${FPRINT_BOOT_CHECK_SVC}" 2>/dev/null || true
+rm -f "/etc/systemd/system/${FPRINT_MONITOR_SVC}" "/etc/systemd/system/${FPRINT_BOOT_CHECK_SVC}" \\
+      "${FPRINT_POLKIT_RULE}" "${FPRINT_BOOT_STATUS}"
 systemctl daemon-reload 2>/dev/null || true
 for _home in /home/*/; do
     _udir="\${_home}.config/systemd/user"
     rm -f "\${_udir}/${FPRINT_USER_CHECK_TIMER}" "\${_udir}/${FPRINT_USER_CHECK_SVC}" \\
-          "\${_udir}/graphical-session.target.wants/${FPRINT_USER_CHECK_TIMER}"
+          "\${_udir}/graphical-session.target.wants/${FPRINT_USER_CHECK_TIMER}" \\
+          "\${_home}.cache/samsung-galaxybook/fprint-sdcp-boot-shown"
 done
 rm -f /etc/samsung-galaxybook/session-helper.d/fingerprint-fix-sdcp
 # /run/samsung-galaxybook/fprint-sdcp-status is left for the user check script.
-rm -f "${FPRINT_CHECK_SCRIPT}" "${FPRINT_USER_CHECK_SCRIPT}" "${FPRINT_CLEANUP}"
+rm -f "${FPRINT_CHECK_SCRIPT}" "${FPRINT_USER_CHECK_SCRIPT}" "${FPRINT_BOOT_CHECK_SCRIPT}" "${FPRINT_CLEANUP}"
 CLEANEOF
 chown root:root "$FPRINT_CLEANUP"
 chmod 750 "$FPRINT_CLEANUP"
@@ -445,15 +471,35 @@ chown root:root "$FPRINT_CHECK_SCRIPT"; chmod 755 "$FPRINT_CHECK_SCRIPT"
 cat > "$FPRINT_USER_CHECK_SCRIPT" << USERCHECKEOF
 #!/bin/bash
 # Samsung Galaxy Book — egismoc SDCP fingerprint fix user check (runs as user)
-# Starts the root monitor (allowed by polkit), then shows any notification it left.
+# 1. Starts the root monitor (allowed by polkit) and shows any notification it left.
+# 2. Shows the result of the boot-time sensor check, once per boot.
+# Status files: line 1 = icon, line 2 = title, line 3 = message.
 FPRINT_STATUS_FILE="/run/samsung-galaxybook/fprint-sdcp-status"
+FPRINT_BOOT_STATUS="${FPRINT_BOOT_STATUS}"
 [[ -f "${FPRINT_MARKER}" ]] || exit 0
-systemctl start ${FPRINT_MONITOR_SVC} || exit 0
-[[ -s "\$FPRINT_STATUS_FILE" ]] || exit 0
-{ IFS= read -r ICON; IFS= read -r TITLE; IFS= read -r MSG; } < "\$FPRINT_STATUS_FILE"
-[[ -n "\$TITLE" ]] || exit 0
-notify-send -t 0 -a "Samsung Galaxy Book Fixes" -i "\${ICON:-dialog-information}" "\$TITLE" "\$MSG" \\
-    || logger -t samsung-galaxybook-fprint-sdcp-user-check "notify-send failed: \$TITLE: \$MSG"
+
+show() {
+    local ICON TITLE MSG
+    { IFS= read -r ICON; IFS= read -r TITLE; IFS= read -r MSG; } < "\$1"
+    [[ -n "\$TITLE" ]] || return 0
+    notify-send -t 0 -a "Samsung Galaxy Book Fixes" -i "\${ICON:-dialog-information}" "\$TITLE" "\$MSG" \\
+        || logger -t samsung-galaxybook-fprint-sdcp-user-check "notify-send failed: \$TITLE: \$MSG"
+}
+
+if systemctl start ${FPRINT_MONITOR_SVC}; then
+    [[ -s "\$FPRINT_STATUS_FILE" ]] && show "\$FPRINT_STATUS_FILE"
+fi
+
+# The boot check result lives until the next reboot; show it once per boot,
+# not at every login.
+if [[ -s "\$FPRINT_BOOT_STATUS" ]]; then
+    SHOWN="\${XDG_CACHE_HOME:-\$HOME/.cache}/samsung-galaxybook/fprint-sdcp-boot-shown"
+    BOOT_ID=\$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
+    if [[ "\$(cat "\$SHOWN" 2>/dev/null)" != "\$BOOT_ID" ]]; then
+        show "\$FPRINT_BOOT_STATUS"
+        mkdir -p "\$(dirname "\$SHOWN")" && echo "\$BOOT_ID" > "\$SHOWN"
+    fi
+fi
 USERCHECKEOF
 chown root:root "$FPRINT_USER_CHECK_SCRIPT"; chmod 755 "$FPRINT_USER_CHECK_SCRIPT"
 
@@ -481,6 +527,82 @@ StandardError=journal
 SVCEOF
 systemctl daemon-reload
 info "✓ Monitor service and polkit rule installed"
+
+# Boot-time sensor check — runs before fprintd, so it has the sensor to itself.
+# Its result is written to FPRINT_BOOT_STATUS and shown by the login check.
+cat > "$FPRINT_BOOT_CHECK_SCRIPT" << BOOTCHECKEOF
+#!/bin/bash
+# Samsung Galaxy Book — check enrolled fingerprints are still on the sensor
+# (runs at boot as root, before fprintd). Never fails the boot.
+SENSOR_CHECK="${FPRINT_SENSOR_CHECK}"
+STATUS="${FPRINT_BOOT_STATUS}"
+[[ -f "${FPRINT_MARKER}" && -x "\$SENSOR_CHECK" ]] || exit 0
+mkdir -p "\$(dirname "\$STATUS")"; chmod 755 "\$(dirname "\$STATUS")"
+rm -f "\$STATUS"
+
+# Nothing enrolled at all: nothing to check.
+[[ -n "\$(find /var/lib/fprint -type f 2>/dev/null | head -1)" ]] || exit 0
+
+# Wait up to 8 seconds for the sensor to appear on USB.
+found=false
+for _ in \$(seq 1 40); do
+    for d in /sys/bus/usb/devices/*; do
+        [[ "\$(cat "\$d/idVendor" 2>/dev/null)" == "1c7a" ]] || continue
+        [[ "\$(cat "\$d/idProduct" 2>/dev/null)" =~ ^05a[15]\$ ]] && found=true && break 2
+    done
+    sleep 0.2
+done
+\$found || { echo "Fingerprint sensor not found — skipping check"; exit 0; }
+
+OUT=\$(timeout 8 "\$SENSOR_CHECK" 2>&1); RC=\$?
+echo "\$OUT"
+[[ \$RC -eq 1 ]] || exit 0
+
+FINGERS=(unknown left-thumb left-index-finger left-middle-finger left-ring-finger
+         left-little-finger right-thumb right-index-finger right-middle-finger
+         right-ring-finger right-little-finger)
+LOST=()
+while read -r _tag _user _finger; do
+    [[ "\$_tag" == "MISSING" ]] || continue
+    [[ "\$_finger" =~ ^([1-9]|10)\$ ]] && _finger="\${FINGERS[\$_finger]}"
+    LOST+=("\${_finger} (\${_user})")
+done <<< "\$OUT"
+[[ \${#LOST[@]} -gt 0 ]] || exit 0
+_list=\$(printf '%s, ' "\${LOST[@]}"); _list="\${_list%, }"
+printf '%s\n%s\n%s\n' "dialog-warning" \\
+    "Samsung Galaxy Book — Fingerprint Removed From Sensor" \\
+    "These fingerprints are no longer stored on the sensor: \${_list}. This usually happens after booting Windows with its fingerprint device enabled. Please enrol them again." \\
+    > "\$STATUS"
+chmod 644 "\$STATUS"
+exit 0
+BOOTCHECKEOF
+chown root:root "$FPRINT_BOOT_CHECK_SCRIPT"; chmod 755 "$FPRINT_BOOT_CHECK_SCRIPT"
+
+cat > "/etc/systemd/system/${FPRINT_BOOT_CHECK_SVC}" << BOOTSVCEOF
+[Unit]
+Description=Samsung Galaxy Book — check enrolled fingerprints are still on the sensor
+# Runs in parallel with the rest of the boot; only fprintd waits for it, so
+# nothing else can use the sensor while it is being checked.
+Before=fprintd.service
+After=systemd-udevd.service local-fs.target
+ConditionPathExists=${FPRINT_MARKER}
+
+[Service]
+Type=oneshot
+ExecStart=${FPRINT_BOOT_CHECK_SCRIPT}
+TimeoutStartSec=15
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+BOOTSVCEOF
+systemctl daemon-reload
+if $SENSOR_CHECK_BUILT; then
+    systemctl enable "$FPRINT_BOOT_CHECK_SVC" >/dev/null 2>&1 \
+        && info "✓ Boot-time sensor check enabled" \
+        || warn "Could not enable ${FPRINT_BOOT_CHECK_SVC}"
+fi
 
 FPRINT_USER=$(loginctl list-sessions --no-legend 2>/dev/null | awk '$4 == "seat0" {print $3}' | head -1)
 FPRINT_USER_ID=$(id -u "$FPRINT_USER" 2>/dev/null || true)
