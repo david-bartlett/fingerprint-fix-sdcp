@@ -159,6 +159,38 @@ The import refuses records made on a different sensor, users who don't exist on 
 - **Answer N to deleting fingerprints when uninstalling** on one of them, or the others lose them too.
 - **Export again after deleting or re-enrolling** — an old export points at templates that no longer exist.
 
+## Fingerprint Manager
+
+A small window for looking after the fingerprints on the sensor, with the fix installed:
+
+```bash
+python3 fingerprint-manager.py      # run as yourself, not with sudo
+```
+
+It asks for your password once per session (pkexec) and then shows:
+
+- **Fingerprints on this install** — every user's enrolled fingers, and whether each one is still stored on the sensor or is a dead record (its template was re-enrolled elsewhere or removed by Windows).
+- **Templates on the sensor** — every template, and which user and finger on this install uses it. Templates not used here may belong to another Linux install, another user or Windows Hello; one install can't tell which, so they are never deleted without a warning.
+
+What it can do:
+
+| Button | What it does |
+|---|---|
+| Test fingerprint | Runs `fprintd-verify` for you |
+| Remove dead records | Moves records whose template is gone; the sensor is not touched |
+| Remove from this install… | Moves the selected records; the template stays, so installs sharing it keep working |
+| Delete from sensor… | Deletes the selected templates from the sensor (and moves aside any record here that used them) |
+| Export… / Import… | Runs `export-fingerprint.sh` / `import-fingerprint.sh` with all their checks; importing over your existing fingerprints uses `--replace` |
+| Wipe sensor… | Deletes every template on the sensor (every Linux install and Windows Hello) after you type WIPE; moves every record here aside |
+
+Records are never deleted: removed ones go to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the last 5 are kept). Each sensor job stops fprintd for a moment, as the sensor can only be used by one program at a time.
+
+Keep `fingerprint-manager.py` and `fingerprint-manager-helper.py` in this folder with the import/export scripts. It needs PyGObject with GTK 3 and libfprint's GObject introspection data:
+
+- Fedora: `sudo dnf install python3-gobject gtk3` (introspection data comes with libfprint)
+- Debian / Ubuntu / Mint / MX: `sudo apt install python3-gi gir1.2-gtk-3.0 gir1.2-fprint-2.0`
+- Arch / CachyOS: `sudo pacman -S python-gobject gtk3` (introspection data comes with libfprint)
+
 ## Fingerprint for sudo and Admin Prompts on Arch-Based Distros
 
 Arch, CachyOS, Manjaro, EndeavourOS and other Arch-based distros have no authselect or pam-auth-update, so the installer asks:
