@@ -83,6 +83,10 @@ FINGERS = ["right-index-finger", "right-middle-finger", "right-thumb", "right-ri
 GREEN, RED, AMBER = "#26a269", "#c01c28", "#e5a50a"
 
 
+class NoAccess(RuntimeError):
+    """The root helper couldn't start: no administrator access was given."""
+
+
 # ── The root helper, started once ─────────────────────────────────────────────
 class Helper:
     def __init__(self):
@@ -110,12 +114,11 @@ class Helper:
             rc = self.proc.wait()
             self.proc = None
             if "authentication agent" in err.lower():
-                raise RuntimeError("No password prompt is available: this desktop has no polkit "
-                                   "authentication agent running.\nStart one (e.g. polkit-gnome or "
-                                   "lxpolkit) or log in to a full desktop, then press Refresh.")
+                raise NoAccess("No password prompt is available: this desktop has no polkit "
+                               "authentication agent running. Start one (e.g. polkit-gnome or "
+                               "lxpolkit) or log in to a full desktop.")
             if rc in (126, 127):
-                raise RuntimeError("Authentication was cancelled or refused.\n"
-                                   "Press Refresh to try again.")
+                raise NoAccess("The password prompt was cancelled or the password was refused.")
             raise RuntimeError(err or f"The helper did not start (exit code {rc}).")
 
     def call(self, action, **kw):
@@ -1177,6 +1180,9 @@ class Manager(Gtk.Window):
         def work():
             try:
                 res, err = self.helper.call(action, **kw), None
+            except NoAccess as e:
+                GLib.idle_add(no_access, str(e))
+                return
             except Exception as e:
                 res, err = None, str(e)
             GLib.idle_add(finish, res, err)
@@ -1189,7 +1195,33 @@ class Manager(Gtk.Window):
                 done(res, err)
             return False
 
+        def no_access(why):
+            self.busy = False
+            self.spinner.stop()
+            self._update_buttons()
+            self._no_access(why)
+            return False
+
         threading.Thread(target=work, daemon=True).start()
+
+    def _no_access(self, why):
+        """Without administrator access the window can't do anything, so offer
+        to try again or close it."""
+        d = Gtk.MessageDialog(transient_for=self, modal=True,
+                              message_type=Gtk.MessageType.WARNING, buttons=Gtk.ButtonsType.NONE,
+                              text="The Fingerprint Manager needs administrator access")
+        d.format_secondary_text(why + "\n\nIt reads and manages the fingerprint sensor, "
+                                "which only an administrator can do.")
+        d.add_button("Close", Gtk.ResponseType.CLOSE)
+        d.add_button("Try again", Gtk.ResponseType.OK).get_style_context().add_class(
+            "suggested-action")
+        d.set_default_response(Gtk.ResponseType.OK)
+        again = d.run() == Gtk.ResponseType.OK
+        d.destroy()
+        if again:
+            self.refresh()
+        else:
+            self.destroy()
 
     def error(self, err):
         """Show a script/helper error: its key line, full text under Details…"""
