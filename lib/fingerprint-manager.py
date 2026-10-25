@@ -784,7 +784,7 @@ class Manager(Gtk.Window):
             if rec["on_sensor"]:
                 item("Test", lambda: self.on_test(None, rec=rec), mine,
                      None if mine else "You can only test your own fingers")
-                item(f"Remove from {OS_NAME}…", lambda: self.on_remove_selected(None))
+                item(f"Remove from {OS_NAME}", lambda: self.on_remove_selected(None))
             else:
                 item("Remove dead record…", lambda: self.on_remove_dead(None, [rec]))
                 if mine:
