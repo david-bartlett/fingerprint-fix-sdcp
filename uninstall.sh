@@ -109,13 +109,17 @@ rm -rf "$FPRINT_LIB_DIR"       # includes the Galaxy Book Fingerprint Manager (m
 MGR_ID="galaxybook-fingerprint-manager"
 rm -f "/usr/local/bin/${MGR_ID}" "/usr/local/share/applications/${MGR_ID}.desktop" \
       "/usr/local/share/applications/io.github.david_bartlett.GalaxyBookFingerprintManager.desktop" \
+      "/usr/share/applications/io.github.david_bartlett.GalaxyBookFingerprintManager.desktop" \
       "/usr/local/share/icons/hicolor/scalable/apps/${MGR_ID}.svg" \
       "/usr/share/polkit-1/actions/io.github.david-bartlett.${MGR_ID}.policy"
 # Refresh the icon cache only if there is one (none is fine: GTK then reads the folder).
 [[ -f /usr/local/share/icons/hicolor/icon-theme.cache ]] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
     && gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor 2>/dev/null || true
-command -v update-desktop-database >/dev/null 2>&1 \
-    && update-desktop-database -q /usr/local/share/applications 2>/dev/null || true
+if command -v update-desktop-database >/dev/null 2>&1; then
+    update-desktop-database -q /usr/share/applications 2>/dev/null || true
+    [[ -d /usr/local/share/applications ]] \
+        && update-desktop-database -q /usr/local/share/applications 2>/dev/null || true
+fi
 systemctl daemon-reload
 systemctl restart fprintd 2>/dev/null || true
 info "✓ fprintd now uses the distro libfprint (it was never replaced)"
