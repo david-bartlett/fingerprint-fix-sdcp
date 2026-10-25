@@ -536,10 +536,12 @@ class Manager(Gtk.Window):
                                   activate_on_single_click=True)
         self.tcards.get_style_context().add_class("fpm-cards")
         self.tcards.connect("child-activated", self._on_tcard_clicked)
+        self.tcards.connect("button-press-event", self._tpl_menu)
         self.trows = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE,
                                  activate_on_single_click=True)
         self.trows.get_style_context().add_class("fpm-list")
         self.trows.connect("row-activated", self._on_tcard_clicked)
+        self.trows.connect("button-press-event", self._tpl_menu)
         self.tpl_views = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         # every page as tall as the tallest, so the window never changes height
         for name, widget in (("icons", self.tcards), ("list", self.trows)):
@@ -823,28 +825,37 @@ class Manager(Gtk.Window):
         GLib.timeout_add(120, go)
         return False
 
-    def _finger_menu(self, child, event):
-        """Right-click menu for a finger: what you can do with that one."""
-        if child is None or self.busy or self.status is None:
-            return False
+    def _popup(self, entries, event):
+        """Show a right-click menu. entries: (label, callback, sensitive, tooltip)."""
         menu = Gtk.Menu()
         menu.get_style_context().add_class("fpm-menu")
         menu.set_reserve_toggle_size(False)            # no empty check-box column
-
-        def item(label, cb, sensitive=True, tip=None):
+        for label, cb, sensitive, tip in entries:
             if menu.get_children():                    # a two-tone line between options
                 sep = Gtk.SeparatorMenuItem()
                 sep.get_style_context().add_class("fpm-menu-sep")
                 menu.append(sep)
             mi = Gtk.MenuItem(label="")
             # a mark before each option, to set them apart
-            mi.get_child().set_markup(MENU_MARK + "  "
-                                      + GLib.markup_escape_text(label))
+            mi.get_child().set_markup(MENU_MARK + "  " + GLib.markup_escape_text(label))
             mi.set_sensitive(sensitive)
             if tip:
                 mi.set_tooltip_text(tip)
-            mi.connect("activate", lambda *_: GLib.idle_add(lambda: cb() and False))
+            mi.connect("activate", lambda _m, cb=cb: GLib.idle_add(lambda: cb() and False))
             menu.append(mi)
+        menu.show_all()
+        menu.attach_to_widget(self, None)
+        menu.popup_at_pointer(event)
+        return True
+
+    def _finger_menu(self, child, event):
+        """Right-click menu for a finger: what you can do with that one."""
+        if child is None or self.busy or self.status is None:
+            return False
+        entries = []
+
+        def item(label, cb, sensitive=True, tip=None):
+            entries.append((label, cb, sensitive, tip))
 
         empty = getattr(child, "empty_finger", None)
         key = getattr(child, "key", None)
@@ -852,12 +863,21 @@ class Manager(Gtk.Window):
         if empty:
             item(f"Enrol {long_finger(empty).lower()}…",
                  lambda: self.on_enrol(None, finger=empty), self.enrol_ok)
+            item("Restore removed record…", lambda: self.restore_finger(empty),
+                 tip="Put back a record of this finger that was removed earlier, "
+                     "if its template is still on the sensor")
         elif rec is not None:
             self._set_selection({key})
             mine = rec["user"] == self.status["user"]
             if rec["on_sensor"]:
                 item("Test", lambda: self.on_test(None, rec=rec), mine,
                      None if mine else "You can only test your own fingers")
+                if mine:
+                    item("Enrol again…", lambda: self.enrol_again(rec),
+                         tip="Replace this finger with a fresh enrolment — "
+                             "useful if it doesn't match reliably")
+                if self.sensor_item.get_active() and rec.get("template"):
+                    item("Show on sensor", lambda: self.show_template(rec["template"]))
                 item(f"Remove from {OS_NAME}", lambda: self.on_remove_selected(None))
             else:
                 item("Remove dead record…", lambda: self.on_remove_dead(None, [rec]))
@@ -866,10 +886,76 @@ class Manager(Gtk.Window):
                          tip="Remove the dead record, then enrol the finger again")
         else:
             return False
-        menu.show_all()
-        menu.attach_to_widget(self, None)
-        menu.popup_at_pointer(event)
-        return True
+        return self._popup(entries, event)
+
+    def _tpl_menu(self, widget, event):
+        """Right-click a template on the Sensor tab: select it and show a menu."""
+        if event.type != Gdk.EventType.BUTTON_PRESS or event.button != 3:
+            return False
+        if widget is self.tcards:
+            child = self.tcards.get_child_at_pos(int(event.x), int(event.y))
+        else:
+            child = self.trows.get_row_at_y(int(event.y))
+        tid = getattr(child, "tid", None)
+        if tid is None or self.busy or self.status is None:
+            return False                                   # a free slot
+        self._set_tsel({tid})
+        t = next((t for t in self.templates if t["id"] == tid), {})
+        keys = [tuple(k) for k in t.get("keys", [])]
+        entries = []
+        if keys:
+            entries.append(("Show finger", lambda: self.show_finger(keys[0]), True, None))
+        entries.append(("Delete from sensor…", lambda: self.on_delete_templates(None),
+                        self.status["features"].get("STORAGE_DELETE", False), None))
+        return self._popup(entries, event)
+
+    def show_template(self, tid):
+        """From a finger: the Sensor tab with its template selected."""
+        self.stack.set_visible_child_name("sensor")
+        self._set_tsel({tid})
+
+    def show_finger(self, key):
+        """From a template: the Fingerprints tab with its finger selected."""
+        self.stack.set_visible_child_name("fingers")
+        if key[0] != self.status["user"]:
+            self._set_view("list", save=False)    # other users' fingers are only in the list
+        self._set_selection({key})
+
+    def enrol_again(self, rec):
+        """Replace one of your fingers: delete its template, then enrol it afresh."""
+        name = long_finger(rec["name"]).lower()
+        if not self.confirm(f"Enrol your {name} again?",
+                            f"Its template is deleted from the sensor and you enrol the "
+                            f"finger afresh. Any other distro sharing this finger stops "
+                            f"matching it until you export from here and import there again.",
+                            "Enrol again"):
+            return
+        if not rec.get("template"):
+            return self.reenrol(rec)
+
+        def done(_res, err):
+            if err:
+                return self.refresh(lambda: self.error(err))
+            self.refresh(lambda: self.status and self.on_enrol(None, finger=rec["name"]))
+        self.run_job("delete_templates", done, ids=[rec["template"]])
+
+    def restore_finger(self, name):
+        """Put back the newest removed record of one of your fingers, if its
+        template is still on the sensor."""
+        me = self.status["user"]
+
+        def listed(res, err):
+            if err:
+                return self.error(err)
+            recs = [r for r in res["records"]
+                    if r["user"] == me and r["name"] == name and r["on_sensor"]
+                    and r["user_ok"] and not r["exists"]]
+            if not recs:
+                return self.message(f"There is no removed record of your "
+                                    f"{long_finger(name).lower()} that can be put back "
+                                    f"(its template is no longer on the sensor).")
+            self.undo_remove([recs[0]["path"]], what="Restored")
+        self.run_job("list_moved", listed)
 
     def _on_fingers_key(self, _w, event):
         """Delete key: remove the selected finger (as the right-click menu does)."""
@@ -1220,7 +1306,7 @@ class Manager(Gtk.Window):
                                               details=(res.get("output") or "") + extra or None))
         return done
 
-    def undo_remove(self, paths):
+    def undo_remove(self, paths, what="Undone"):
         """Put records back that Remove has just moved aside."""
         self._hide_message()
 
@@ -1228,7 +1314,7 @@ class Manager(Gtk.Window):
             if err:
                 return self.refresh(lambda: self.error(err))
             n, k = len(res["restored"]), len(res["skipped"])
-            text = f"Undone — put back {n} record(s)." if n else "Nothing was put back."
+            text = f"{what} — put back {n} record(s)." if n else "Nothing was put back."
             if k:
                 text += f" {k} could not be put back."
             details = "\n".join((["Put back: " + ", ".join(res["restored"])] if n else [])

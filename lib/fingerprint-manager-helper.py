@@ -234,13 +234,16 @@ def do_status(_req):
         chip = dev.list_prints_sync(None) if st["features"]["STORAGE_LIST"] else []
     records = read_records(serial)
     for p in chip:
-        users = [f"{r['user']} {r['name']}" for r in records
-                 if r["print"] is not None and p.equal(r["print"])]
-        st["templates"].append({"id": short_id(p), "used_by": users})
+        users = [r for r in records if r["print"] is not None and p.equal(r["print"])]
+        st["templates"].append({"id": short_id(p),
+                                "used_by": [f"{r['user']} {r['name']}" for r in users],
+                                "keys": [[r["user"], r["finger"]] for r in users]})
     for r in records:
         on = None if r["print"] is None else any(r["print"].equal(p) for p in chip)
+        tid = next((short_id(p) for p in chip
+                    if r["print"] is not None and r["print"].equal(p)), None)
         st["records"].append({"user": r["user"], "finger": r["finger"], "name": r["name"],
-                              "path": r["path"], "on_sensor": on,
+                              "path": r["path"], "on_sensor": on, "template": tid,
                               "enrolled": enroll_date(r["print"]) if r["print"] else "",
                               "error": r.get("error")})
     st["templates"].sort(key=lambda t: (not t["used_by"], t["id"]))
