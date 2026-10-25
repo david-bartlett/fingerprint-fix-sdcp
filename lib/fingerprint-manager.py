@@ -480,8 +480,8 @@ class Manager(Gtk.Window):
         page.pack_start(top, False, False, 0)
         self.slots_bar = Gtk.ProgressBar()
         page.pack_start(self.slots_bar, False, False, 0)
-        hint = Gtk.Label(label="Grey = not used by this install: another Linux install, another "
-                               "user or Windows Hello. Dashed = free.", xalign=0, wrap=True)
+        hint = Gtk.Label(label=f"Grey = not used by {OS_NAME}: another distro, Windows Hello, or "
+                               "left over from a reinstall. Dashed = free.", xalign=0, wrap=True)
         hint.get_style_context().add_class("fpm-hint")
         page.pack_start(hint, False, False, 0)
         self.tcards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=True,
@@ -662,7 +662,7 @@ class Manager(Gtk.Window):
             else:
                 kind, pill = "unknown", "Not used here"
                 title, long_title = "Unknown", "Unknown template"
-                sub = "Another install?"
+                sub = "Another distro?"
             # card
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             box.get_style_context().add_class("fpm-fcard")
@@ -677,8 +677,9 @@ class Manager(Gtk.Window):
             child.tid = t["id"]
             child.set_tooltip_text(f"Template {t['id']}"
                                    + (f" — used by {', '.join(t['used_by'])}" if t["used_by"]
-                                      else " — not used by this install: another Linux install, "
-                                           "another user, or Windows Hello"))
+                                      else f" — not used by {OS_NAME}: probably another distro; "
+                                           "it could also be Windows Hello's own, or left over "
+                                           "from a reinstall"))
             child.add(box)
             self.tcards.add(child)
             # row
@@ -1529,9 +1530,9 @@ class Manager(Gtk.Window):
                         "They stop working here and on every other install sharing them. "
                         "Their records here are moved aside.")
         if unused:
-            text.append(f"{len(unused)} template(s) not used by this install. They may belong to "
-                        "another Linux install, another user, or Windows Hello — fingerprint "
-                        "login stops working there until you enrol again.")
+            text.append(f"{len(unused)} template(s) not used by {OS_NAME}. They may belong to "
+                        "another distro or to Windows Hello (or be left over from a reinstall) — "
+                        "fingerprint login stops working there until you enrol again.")
         if self.confirm(f"Delete {len(rows)} template(s) from the sensor?",
                         "\n\n".join(text) + "\n\nThis can't be undone.", "Delete"):
             self.run_job("delete_templates", self.after_job("Deleted from the sensor"),
