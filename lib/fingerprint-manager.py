@@ -36,7 +36,7 @@ try:
     from gi.repository import GLib
     GLib.set_prgname(APP_ID)
     GLib.set_application_name("Galaxy Book Fingerprint Manager")
-    from gi.repository import Gtk, Pango
+    from gi.repository import Gtk, Gdk, Pango
 except (ImportError, ValueError) as e:
     sys.exit(f"Fingerprint Manager needs PyGObject with GTK 3 ({e}).\n"
              "  Fedora:  sudo dnf install python3-gobject gtk3\n"
@@ -359,7 +359,7 @@ class Manager(Gtk.Window):
         self.enrol_ok = False
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         top = Gtk.Box(spacing=6)
-        hint = Gtk.Label(label="Your fingers on this install. Click one to test or remove it; click again to deselect.",
+        hint = Gtk.Label(label="Click a finger to select it (again to deselect); double-click to test it.",
                          xalign=0, wrap=True)
         hint.get_style_context().add_class("dim-label")
         hint.get_style_context().add_class("fpm-hint")
@@ -376,10 +376,12 @@ class Manager(Gtk.Window):
                                  activate_on_single_click=True)
         self.cards.get_style_context().add_class("fpm-cards")
         self.cards.connect("child-activated", self._on_card_clicked)
+        self.cards.connect("button-press-event", self._on_fingers_double_click)
         self.rows = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE,
                                 activate_on_single_click=True)
         self.rows.get_style_context().add_class("fpm-list")
         self.rows.connect("row-activated", self._on_card_clicked)
+        self.rows.connect("button-press-event", self._on_fingers_double_click)
         self.rec_views = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         for name, widget in (("icons", self.cards), ("list", self.rows)):
             sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
@@ -389,9 +391,10 @@ class Manager(Gtk.Window):
         page.pack_start(self.rec_views, True, True, 0)
 
         row = Gtk.Box(spacing=6)
-        self.test_btn = self._button(row, "Test fingerprint", self.on_test,
-                                     "Test the selected finger — or, with none selected, "
-                                     "any of your fingers, as login and sudo do")
+        self.test_btn = self._button(row, "Test all fingerprints", self.on_test,
+                                     "Touch the sensor with any of your fingers — checked against "
+                                     "all of them, as login and sudo do. Double-click a finger to "
+                                     "test just that one.")
         self.unlink_btn = Gtk.Button(label="Remove…")
         self.unlink_btn.set_tooltip_text("Remove the selected fingerprints from this install only — "
                                          "the sensor keeps them, so installs sharing them keep working")
@@ -646,6 +649,34 @@ class Manager(Gtk.Window):
         key = getattr(child, "key", None)
         if key is not None:
             self._set_selection(set() if key in self.sel_keys else {key})
+
+    def _on_fingers_double_click(self, widget, event):
+        """Double-click a finger card or row: test that finger."""
+        if event.type != Gdk.EventType._2BUTTON_PRESS or event.button != 1:
+            return False
+        if widget is self.cards:
+            child = self.cards.get_child_at_pos(int(event.x), int(event.y))
+        else:
+            child = self.rows.get_row_at_y(int(event.y))
+        key = getattr(child, "key", None)
+        rec = next((r for r in self.records if (r["user"], r["finger"]) == key), None)
+        if rec is None or self.busy or self.status is None:
+            return False
+
+        def go():
+            self._set_selection({key})        # the two clicks toggled it; keep it selected
+            if rec["user"] != self.status["user"]:
+                self.message("You can only test your own fingers.", Gtk.MessageType.WARNING)
+            elif not rec["on_sensor"]:
+                self.message(f"{short_finger(rec['name'])} is no longer on the sensor, so it "
+                             "can't be tested — remove it, then import or enrol it again.",
+                             Gtk.MessageType.WARNING)
+            else:
+                self.on_test(None, rec=rec)
+            return False
+        # after the second click's release has toggled the selection
+        GLib.timeout_add(120, go)
+        return False
 
     def _set_selection(self, keys):
         """Keep both views showing the same selection."""
@@ -967,10 +998,8 @@ class Manager(Gtk.Window):
         The helper asks the sensor directly: fprintd only reports match / no
         match when it checks all fingers, never which finger it was."""
         me = self.status["user"]
-        if rec is not None:
-            picked = [[rec["user"], rec["name"], rec["enrolled"], "", rec["finger"], 1]]
-        else:
-            picked = [r for r in self._selected_recs() if r[0] == me and r[5]]
+        # The button tests all your fingers; double-clicking a finger passes it as rec.
+        picked = [[rec["user"], rec["name"], rec["enrolled"], "", rec["finger"], 1]] if rec else []
         finger = picked[0][4] if picked else None
         what = picked[0][1] if picked else "any of your fingers (as login and sudo do)"
 
