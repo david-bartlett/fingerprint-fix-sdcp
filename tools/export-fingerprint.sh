@@ -75,7 +75,8 @@ chmod 600 "$OUT"
 NAMES=()
 for f in "${FILES[@]}"; do
     n=$(basename "$f")
-    [[ "$n" =~ ^([1-9]|10)$ ]] && NAMES+=("${FINGERS[$n]}") || NAMES+=("$n")
+    # fprintd names records by finger number in hex: 1-9, a = right little finger
+    [[ "$n" =~ ^[1-9a]$ ]] && NAMES+=("${FINGERS[$((16#$n))]}") || NAMES+=("$n")
 done
 info "Exported ${NAMES[*]} for ${USER_NAME} to ${OUT}"
 echo

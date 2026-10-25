@@ -101,7 +101,7 @@ while read -r perms _ _ _ _ path; do
         d|-) ;;
         *) error "Archive contains something other than files and folders: $path" ;;
     esac
-    [[ "$path" =~ ^([a-z_][a-z0-9_.-]*)(/egismoc(/([A-Za-z0-9._-]+)(/([0-9]+))?)?)?$ ]] \
+    [[ "$path" =~ ^([a-z_][a-z0-9_.-]*)(/egismoc(/([A-Za-z0-9._-]+)(/([1-9a]))?)?)?$ ]] \
         || error "Unexpected path in archive: $path"
     u="${BASH_REMATCH[1]}"; s="${BASH_REMATCH[4]}"; f="${BASH_REMATCH[6]}"
     [[ -z "$SRC_USER" || "$SRC_USER" == "$u" ]] || error "Archive contains records for more than one user."
@@ -195,7 +195,7 @@ NAMES=()
 for f in "$TMP/ready"/*; do
     n=$(basename "$f")
     install -m 600 -o root -g root "$f" "$DEST/egismoc/$SERIAL/$n"
-    NAMES+=("${FINGERS[$n]}")
+    NAMES+=("${FINGERS[$((16#$n))]}")      # hex: a = right little finger
 done
 command -v restorecon >/dev/null 2>&1 && restorecon -R "$DEST" 2>/dev/null || true
 

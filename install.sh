@@ -608,7 +608,8 @@ ALL_CLEARED=true
 while read -r _tag _user _finger _path; do
     [[ "\$_tag" == "MISSING" ]] || continue
     _name="\$_finger"
-    [[ "\$_finger" =~ ^([1-9]|10)\$ ]] && _name="\${FINGERS[\$_finger]}"
+    # fprintd names records by finger number in hex: 1-9, a = right little finger
+    [[ "\$_finger" =~ ^[1-9a]\$ ]] && _name="\${FINGERS[\$((16#\$_finger))]}"
     LOST+=("\${_name} (\${_user})")
     # Only ever touch records inside fprintd's own folder.
     _done=false

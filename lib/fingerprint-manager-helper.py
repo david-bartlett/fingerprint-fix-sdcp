@@ -107,8 +107,13 @@ def fix_state():
     return ok, marker
 
 
+# fprintd names each record file by the finger's number in hex: 1-9, then
+# "a" for the right little finger (10).
+FINGER_FILE = r"[1-9a]"
+
+
 def finger_name(n):
-    return FINGERS[int(n)] if n.isdigit() and 0 < int(n) <= 10 else n
+    return FINGERS[int(n, 16)] if re.fullmatch(FINGER_FILE, n) else n
 
 
 def short_id(p):
@@ -248,7 +253,7 @@ def do_remove_records(req):
     _, serial = sensor_usb()
     wanted = {(r["user"], r["finger"]) for r in req.get("records", [])}
     paths = [f"{STORE}/{u}/egismoc/{serial}/{f}" for u, f in wanted
-             if re.fullmatch(r"[a-z_][a-z0-9_.-]*", u) and re.fullmatch(r"[0-9]+", f)]
+             if re.fullmatch(r"[a-z_][a-z0-9_.-]*", u) and re.fullmatch(FINGER_FILE, f)]
     moved = move_records(paths)
     subprocess.run(["systemctl", "restart", "fprintd"], capture_output=True)
     return {"moved": moved}
@@ -378,7 +383,7 @@ def moved_records(serial):
                 continue
             date, user = os.path.relpath(path, root).split("/")[:2]
             finger = os.path.basename(path)
-            if not (re.fullmatch(r"[a-z_][a-z0-9_.-]*", user) and re.fullmatch(r"[0-9]+", finger)):
+            if not (re.fullmatch(r"[a-z_][a-z0-9_.-]*", user) and re.fullmatch(FINGER_FILE, finger)):
                 continue
             rec = {"kind": kind, "date": date, "user": user, "finger": finger,
                    "name": finger_name(finger), "path": path, "print": None}
