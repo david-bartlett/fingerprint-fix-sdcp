@@ -24,11 +24,13 @@ import sys
 import threading
 import json
 
-# The app ID: on Wayland the panel/taskbar takes the window's icon from the
-# .desktop file with this name (install.sh installs it), and ignores icons set
-# on the window itself. It must be set before GTK starts, i.e. before Gtk is
-# imported. It is also the icon's name.
-APP_ID = "galaxybook-fingerprint-manager"
+# The application ID. It makes the window a single instance (a second launch
+# brings the running window forward instead), and on Wayland it is the
+# window's app ID: the panel/taskbar takes the window's icon from the .desktop
+# file with this name (install.sh installs it). It is also set as the program
+# name before GTK starts, so X11 desktops match the window to it too.
+APP_ID = "io.github.david_bartlett.GalaxyBookFingerprintManager"
+ICON_NAME = "galaxybook-fingerprint-manager"     # the icon, and the settings folder name
 
 try:
     import gi
@@ -36,7 +38,8 @@ try:
     from gi.repository import GLib
     GLib.set_prgname(APP_ID)
     GLib.set_application_name("Galaxy Book Fingerprint Manager")
-    from gi.repository import Gtk, Gdk, Pango
+    from gi.repository import Gtk, Gdk, Gio, Pango
+    Gdk.set_program_class(APP_ID)     # X11 WM_CLASS, matched by StartupWMClass
 except (ImportError, ValueError) as e:
     sys.exit(f"Fingerprint Manager needs PyGObject with GTK 3 ({e}).\n"
              "  Fedora:  sudo dnf install python3-gobject gtk3\n"
@@ -47,6 +50,10 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 HELPER = os.path.join(HERE, "fingerprint-manager-helper.py")
 TITLE = "Galaxy Book Fingerprint Manager"
 EXPORT_NAME = "fingerprint-export.tgz"
+# Cards view: all ten fingers, right hand then left (index … little, thumb).
+GRID_FINGERS = ["right-index-finger", "right-middle-finger", "right-ring-finger",
+                "right-little-finger", "right-thumb", "left-index-finger",
+                "left-middle-finger", "left-ring-finger", "left-little-finger", "left-thumb"]
 FINGERS = ["right-index-finger", "right-middle-finger", "right-thumb", "right-ring-finger",
            "right-little-finger", "left-index-finger", "left-middle-finger", "left-thumb",
            "left-ring-finger", "left-little-finger"]
@@ -144,6 +151,8 @@ list.fpm-list row { padding: 0; margin-bottom: 6px; background-color: transparen
 list.fpm-list row:selected, list.fpm-list row:hover, list.fpm-list row:active { background-color: transparent; }
 list.fpm-list row.fpm-selected .fpm-lcard { border-color: @theme_selected_bg_color;
                                         background-color: alpha(@theme_selected_bg_color, 0.10); }
+.fpm-empty { background-color: transparent; border: 1px dashed alpha(@theme_fg_color, 0.30); }
+.fpm-empty label { color: alpha(@theme_fg_color, 0.55); }
 .fpm-free { background-color: transparent; border: 1px dashed alpha(@theme_fg_color, 0.30); }
 .fpm-free label { color: alpha(@theme_fg_color, 0.45); }
 .fpm-id { font-family: monospace; font-size: 80%; }
@@ -155,7 +164,7 @@ SENSOR_SLOTS = 10
 
 # ── fingerprint pictures, names and the remembered view ─────────────────────
 SETTINGS = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
-                        APP_ID, "settings")
+                        ICON_NAME, "settings")
 
 
 def load_view():
@@ -186,7 +195,7 @@ FP_PATHS = [
     ((30, 36), [(30.5, 42, 29.5, 47, 27, 52)]),
 ]
 FP_COLOURS = {"ok": (0.149, 0.635, 0.412), "dead": (0.878, 0.106, 0.141),
-              "unknown": (0.60, 0.60, 0.59), "add": (0.208, 0.518, 0.894)}
+              "unknown": (0.60, 0.60, 0.59), "empty": (0.74, 0.74, 0.73), "add": (0.208, 0.518, 0.894)}
 
 
 try:                                  # drawing needs PyGObject's cairo support
@@ -260,10 +269,10 @@ def summarise(text):
 
 
 class Manager(Gtk.Window):
-    def __init__(self):
-        super().__init__(title=TITLE)
-        self.set_default_size(560, 600)
-        self.set_icon_name(APP_ID)
+    def __init__(self, application=None):
+        super().__init__(title=TITLE, application=application)
+        self.set_default_size(620, 680)
+        self.set_icon_name(ICON_NAME)
         self.helper = Helper()
         self.status = None
         self.busy = False
@@ -359,7 +368,7 @@ class Manager(Gtk.Window):
         self.enrol_ok = False
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         top = Gtk.Box(spacing=6)
-        hint = Gtk.Label(label="Click a finger to select it (again to deselect); double-click to test it.",
+        hint = Gtk.Label(label="Click a finger to select it, or a grey one to enrol it. Double-click to test.",
                          xalign=0, wrap=True)
         hint.get_style_context().add_class("dim-label")
         hint.get_style_context().add_class("fpm-hint")
@@ -368,10 +377,15 @@ class Manager(Gtk.Window):
         switch, self.view_icons, self.view_list = self._view_switch()
         top.pack_end(switch, False, False, 0)
         page.pack_start(top, False, False, 0)
+        self.others_note = Gtk.Label(xalign=0, wrap=True)   # other users: list view only
+        self.others_note.get_style_context().add_class("dim-label")
+        self.others_note.get_style_context().add_class("fpm-hint")
+        self.others_note.set_no_show_all(True)
+        page.pack_start(self.others_note, False, False, 0)
 
         # Selection is ours, not GTK's: a click toggles a card/row on and off.
         self.cards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=True,
-                                 min_children_per_line=2, max_children_per_line=4,
+                                 min_children_per_line=5, max_children_per_line=5,
                                  column_spacing=4, row_spacing=4, valign=Gtk.Align.START,
                                  activate_on_single_click=True)
         self.cards.get_style_context().add_class("fpm-cards")
@@ -641,10 +655,17 @@ class Manager(Gtk.Window):
     def _on_card_clicked(self, _box, child):
         """Click a finger card or row: select it (only one at a time), or
         deselect it if it is already selected. The Enrol card / row opens
-        enrolment."""
-        if getattr(child, "is_add", False):
-            if self.enrol_ok:
-                GLib.idle_add(lambda: self.on_enrol(None) and False)
+        enrolment; a grey (not enrolled) finger opens it with that finger."""
+        if getattr(child, "is_add", False) or getattr(child, "empty_finger", None):
+            finger = getattr(child, "empty_finger", None)
+            if self.enrol_ok and not getattr(self, "_enrol_pending", False):
+                self._enrol_pending = True        # a double click opens it only once
+
+                def open_enrol():
+                    self._enrol_pending = False
+                    self.on_enrol(None, finger=finger)
+                    return False
+                GLib.timeout_add(250, open_enrol)
             return
         key = getattr(child, "key", None)
         if key is not None:
@@ -707,37 +728,62 @@ class Manager(Gtk.Window):
             lbl.get_style_context().add_class(c)
         return lbl
 
+    def _finger_card(self, r):
+        """Card for one of your enrolled fingers."""
+        kind, status = rec_kind(r)
+        when = nice_date(r["enrolled"])
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        box.get_style_context().add_class("fpm-fcard")
+        over = Gtk.Overlay()
+        over.add(FingerprintIcon(kind, 40))
+        if kind == "dead":
+            over.add_overlay(Gtk.Label(label="⚠", halign=Gtk.Align.END, valign=Gtk.Align.START))
+        box.pack_start(over, False, False, 2)
+        box.pack_start(self._label(short_finger(r["name"]), "fpm-name",
+                                   justify=Gtk.Justification.CENTER, wrap=True), False, False, 0)
+        box.pack_start(self._label(f"Enrolled {when}" if when else " ", "dim-label", "fpm-small"),
+                       False, False, 0)
+        box.pack_start(self._pill(kind, status), False, False, 4)
+        child = Gtk.FlowBoxChild()
+        child.key = (r["user"], r["finger"])
+        child.set_tooltip_text(long_finger(r["name"])
+                               + (f", enrolled {nice_date(r['enrolled'], True)}" if r["enrolled"] else "")
+                               + " — double-click to test")
+        child.add(box)
+        return child
+
+    def _empty_card(self, name):
+        """Card for a finger you haven't enrolled: click it to enrol it."""
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        for c in ("fpm-fcard", "fpm-empty"):
+            box.get_style_context().add_class(c)
+        box.pack_start(FingerprintIcon("empty", 40), False, False, 2)
+        box.pack_start(self._label(short_finger(name), "fpm-name",
+                                   justify=Gtk.Justification.CENTER, wrap=True), False, False, 0)
+        box.pack_start(self._label("Not enrolled", "fpm-small"), False, False, 0)
+        child = Gtk.FlowBoxChild()
+        child.empty_finger = name
+        child.set_tooltip_text(long_finger(name) + " — click to enrol it")
+        child.add(box)
+        return child
+
     def _fill_records(self, records, me):
         self.records = records
-        many_users = len({r["user"] for r in records}) > 1
         self.enrol_ok = len([r for r in records if r["user"] == me]) < 10
         for w in self.cards.get_children() + self.rows.get_children():
             w.destroy()
+        # cards: all ten of your fingers (grey = not enrolled); other users: list only
+        mine = {r["name"]: r for r in records if r["user"] == me}
+        for name in GRID_FINGERS + [n for n in mine if n not in GRID_FINGERS]:
+            r = mine.get(name)
+            self.cards.add(self._finger_card(r) if r else self._empty_card(name))
+        others = sorted({r["user"] for r in records if r["user"] != me})
+        self.others_note.set_text("Fingerprints of " + ", ".join(others)
+                                  + " are shown in the list view." if others else "")
+        self.others_note.set_visible(bool(others))
         for r in records:
             kind, status = rec_kind(r)
             key = (r["user"], r["finger"])
-            when = nice_date(r["enrolled"])
-            # card
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-            box.get_style_context().add_class("fpm-fcard")
-            over = Gtk.Overlay()
-            over.add(FingerprintIcon(kind, 56))
-            if kind == "dead":
-                warn = Gtk.Label(label="⚠", halign=Gtk.Align.END, valign=Gtk.Align.START)
-                over.add_overlay(warn)
-            box.pack_start(over, False, False, 2)
-            box.pack_start(self._label(short_finger(r["name"]), "fpm-name",
-                                       justify=Gtk.Justification.CENTER, wrap=True), False, False, 0)
-            sub = (f"{r['user']} · {when}" if many_users else
-                   (f"Enrolled {when}" if when else ""))
-            box.pack_start(self._label(sub, "dim-label", "fpm-small"), False, False, 0)
-            box.pack_start(self._pill(kind, status), False, False, 4)
-            child = Gtk.FlowBoxChild()
-            child.key = key
-            child.set_tooltip_text(f"{long_finger(r['name'])} — {r['user']}"
-                                   + (f", enrolled {nice_date(r['enrolled'], True)}" if r["enrolled"] else ""))
-            child.add(box)
-            self.cards.add(child)
             # row
             hb = Gtk.Box(spacing=10)
             hb.get_style_context().add_class("fpm-lcard")
@@ -761,18 +807,7 @@ class Manager(Gtk.Window):
             row.add(hb)
             self.rows.add(row)
         if self.enrol_ok:
-            # "Enrol a finger" card and row
-            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-            for c in ("fpm-fcard", "fpm-add"):
-                box.get_style_context().add_class(c)
-            box.pack_start(self._label("＋", "fpm-plus", height_request=58), False, False, 0)
-            box.pack_start(self._label("Enrol a finger", "fpm-name"), False, False, 0)
-            box.pack_start(self._label("Up to 10", "fpm-small"), False, False, 0)
-            child = Gtk.FlowBoxChild()
-            child.is_add = True
-            child.set_tooltip_text("Enrol a new finger for you on this install")
-            child.add(box)
-            self.cards.add(child)
+            # "Enrol a finger" row (in the cards view the grey fingers do this)
             hb = Gtk.Box(spacing=10)
             for c in ("fpm-lcard", "fpm-add"):
                 hb.get_style_context().add_class(c)
@@ -1080,7 +1115,7 @@ class Manager(Gtk.Window):
             self.helper.cancel()
         d.destroy()
 
-    def on_enrol(self, _btn):
+    def on_enrol(self, _btn, finger=None):
         """Enrol a new finger for the user with fprintd-enroll, with progress."""
         if not shutil.which("fprintd-enroll"):
             return self.message("fprintd-enroll is not installed.", Gtk.MessageType.ERROR)
@@ -1104,8 +1139,8 @@ class Manager(Gtk.Window):
         pick.pack_start(Gtk.Label(label="Finger:"), False, False, 0)
         combo = Gtk.ComboBoxText()
         for f in free:
-            combo.append_text(f)
-        combo.set_active(0)
+            combo.append(f, long_finger(f))
+        combo.set_active(free.index(finger) if finger in free else 0)
         pick.pack_start(combo, True, True, 0)
         area.pack_start(pick, False, False, 0)
 
@@ -1146,7 +1181,7 @@ class Manager(Gtk.Window):
             bar.show()
 
         def start():
-            finger = combo.get_active_text()
+            finger = combo.get_active_id()
             if not finger:
                 return
             state.update(finger=finger, count=0)
@@ -1407,7 +1442,7 @@ class Manager(Gtk.Window):
         st = self.status or {}
         d = Gtk.AboutDialog(transient_for=self, modal=True)
         d.set_program_name(TITLE)
-        d.set_logo_icon_name(APP_ID)
+        d.set_logo_icon_name(ICON_NAME)
         d.set_comments("Part of Samsung Galaxy Book Fixes — fingerprint-fix-sdcp.\n"
                        "Test, enrol, share and tidy fingerprints on the Galaxy Book's "
                        "Egis fingerprint sensor.\n\nAn unofficial community tool, "
@@ -1419,7 +1454,25 @@ class Manager(Gtk.Window):
 
     def on_quit(self, *_):
         self.helper.stop()
-        Gtk.main_quit()
+        if self.get_application() is None:       # started without the App (tests)
+            Gtk.main_quit()
+
+
+class App(Gtk.Application):
+    """One window per user session. Starting it again — from the menu, the
+    command or the launcher — asks the running window to come forward (the
+    desktop raises it, or flashes it in the taskbar if it won't steal focus),
+    and the second start exits."""
+
+    def __init__(self):
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.FLAGS_NONE)
+        self.window = None
+
+    def do_activate(self):
+        if self.window is None:
+            self.window = Manager(application=self)
+        else:
+            self.window.present()
 
 
 def main():
@@ -1427,8 +1480,7 @@ def main():
         sys.exit("Run Fingerprint Manager as yourself (it asks for your password when needed).")
     if not os.path.isfile(HELPER):
         sys.exit(f"Missing {HELPER} — keep both files in the same folder.")
-    Manager()
-    Gtk.main()
+    sys.exit(App().run(sys.argv[:1]))
 
 
 if __name__ == "__main__":

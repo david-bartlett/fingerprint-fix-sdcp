@@ -108,6 +108,7 @@ rm -rf "$FPRINT_LIB_DIR"       # includes the Galaxy Book Fingerprint Manager (m
 # Fingerprint Manager's menu entry, command, icon and polkit policy
 MGR_ID="galaxybook-fingerprint-manager"
 rm -f "/usr/local/bin/${MGR_ID}" "/usr/local/share/applications/${MGR_ID}.desktop" \
+      "/usr/local/share/applications/io.github.david_bartlett.GalaxyBookFingerprintManager.desktop" \
       "/usr/local/share/icons/hicolor/scalable/apps/${MGR_ID}.svg" \
       "/usr/share/polkit-1/actions/io.github.david-bartlett.${MGR_ID}.policy"
 # Refresh the icon cache only if there is one (none is fine: GTK then reads the folder).

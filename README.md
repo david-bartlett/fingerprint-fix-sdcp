@@ -181,18 +181,18 @@ galaxybook-fingerprint-manager           # as yourself, not with sudo
 ./fingerprint-manager.sh                 # or straight from this folder (e.g. while developing)
 ```
 
-The installed copy is owned by root (`/usr/local/lib/libfprint-egismoc-sdcp/manager/`), because its helper runs as root: a copy in your home folder could be changed by any program running as you. ☰ → **About** shows where it came from and the fix build.
+Only one window runs at a time: starting it again brings the open window forward (or makes it flash in the taskbar, depending on the desktop). The installed copy is owned by root (`/usr/local/lib/libfprint-egismoc-sdcp/manager/`), because its helper runs as root: a copy in your home folder could be changed by any program running as you. ☰ → **About** shows where it came from and the fix build.
 
 It asks for your password once per session; the prompt says "Galaxy Book Fingerprint Manager needs administrator access to read and manage the fingerprint sensor" (a polkit policy installed for the helper). At the top is a **Use fingerprint for login and sudo** switch and a line about the sensor and the fix build; below are two tabs:
 
-- **Fingerprints** — every user's enrolled fingers on this install, and whether the sensor still has each one, as **cards** (a fingerprint picture, the finger, the date and a coloured status; the last card enrols a new finger) or as a **list** (a row per finger with its own Test button). The buttons at the top right switch between them (on both tabs), and the choice is remembered. Click a card or row to select it (one at a time, on both tabs) and click it again to deselect it. Double-click one of your fingers to test it. Green = on the sensor; red = a dead record (its template was re-enrolled elsewhere or removed by Windows), which also shows a warning with a **Remove dead records** button.
+- **Fingerprints** — your enrolled fingers on this install, and whether the sensor still has each one, as **cards** (all ten of your fingers, right hand then left, like Linux Mint's fingerprint settings; grey dashed = not enrolled, click one to enrol that finger) or as a **list** (a row per enrolled finger, for every user, with its own Test button; other users' fingers are only in the list). The buttons at the top right switch between them (on both tabs), and the choice is remembered. Click a card or row to select it (one at a time, on both tabs) and click it again to deselect it. Double-click one of your fingers to test it. Green = on the sensor; red = a dead record (its template was re-enrolled elsewhere or removed by Windows), which also shows a warning with a **Remove dead records** button.
 - **Sensor** — how many of the sensor's 10 slots are used, and every template on it: green = used by this install (with the user and finger), grey = not used here (another Linux install, another user or Windows Hello — one install can't tell which, so they are never deleted without a warning), dashed = free. Shown as cards or a list, like the Fingerprints tab; the Cards / List choice applies to both tabs.
 
 | Where | Control | What it does |
 |---|---|---|
 | Top | Use fingerprint for login and sudo | Turns PAM fingerprint on or off with `fingerprint-pam.sh` (see below). Turning it off keeps your enrolled fingerprints |
 | Fingerprints | Test all fingerprints (or double-click a finger) | The button checks your touch against all your fingers (as login and sudo do); double-clicking a finger tests just that one. Shows a clear Match / No match with the finger that matched. It asks the sensor directly (fprintd pauses for a moment), because fprintd doesn't report which finger matched |
-| Fingerprints | Enrol a finger (last card / row) | Enrols a new finger for you with `fprintd-enroll`, with a progress bar. It warns first that enrolling a finger already stored for another install or Windows Hello deletes it from there — useful on desktops without a fingerprint settings page, such as Xfce (MX Linux) |
+| Fingerprints | Enrol a finger (a grey card, or the last row) | Enrols a new finger for you with `fprintd-enroll`, with a progress bar. It warns first that enrolling a finger already stored for another install or Windows Hello deletes it from there — useful on desktops without a fingerprint settings page, such as Xfce (MX Linux) |
 | Fingerprints | Remove… | Moves the selected records off this install; the template stays, so installs sharing it keep working |
 | Sensor | Delete… | Deletes the selected templates from the sensor (and moves aside any record here that used them) |
 | Sensor | Wipe sensor… | Deletes every template on the sensor (every Linux install and Windows Hello) after you type WIPE; moves every record here aside |
@@ -294,7 +294,7 @@ session include system-local-login
 - `/usr/local/lib/libfprint-egismoc-sdcp/sensor-check` — boot-time sensor check program
 - `/usr/local/lib/libfprint-egismoc-sdcp/manager/` — Galaxy Book Fingerprint Manager (root-owned copy of `fingerprint-manager.sh`, `lib/` Python files and `tools/`)
 - `/usr/local/bin/galaxybook-fingerprint-manager` — link to start it
-- `/usr/local/share/applications/galaxybook-fingerprint-manager.desktop` and `/usr/local/share/icons/hicolor/scalable/apps/galaxybook-fingerprint-manager.svg` — its menu entry and icon
+- `/usr/local/share/applications/io.github.david_bartlett.GalaxyBookFingerprintManager.desktop` and `/usr/local/share/icons/hicolor/scalable/apps/galaxybook-fingerprint-manager.svg` — its menu entry and icon
 - `/usr/share/polkit-1/actions/io.github.david-bartlett.galaxybook-fingerprint-manager.policy` — its password prompt
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh` and `/etc/systemd/system/samsung-galaxybook-fprint-sdcp-boot-check.service` — runs it at boot, before fprintd
 - `/run/samsung-galaxybook/fprint-sdcp-boot-status` — boot check result (cleared at every boot)

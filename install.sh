@@ -63,7 +63,11 @@ FPRINT_LIB="${FPRINT_LIB_DIR}/libfprint-2.so.2"
 MGR_ID="galaxybook-fingerprint-manager"
 MGR_DIR="${FPRINT_LIB_DIR}/manager"
 MGR_BIN="/usr/local/bin/${MGR_ID}"
-MGR_DESKTOP="/usr/local/share/applications/${MGR_ID}.desktop"
+# The menu entry's file name must equal the app's ID (its Wayland app ID), or
+# the taskbar can't match the window to it and shows a generic icon.
+MGR_APP_ID="io.github.david_bartlett.GalaxyBookFingerprintManager"
+MGR_DESKTOP="/usr/local/share/applications/${MGR_APP_ID}.desktop"
+MGR_DESKTOP_OLD="/usr/local/share/applications/${MGR_ID}.desktop"   # name used before 2026-10-25
 MGR_ICON="/usr/local/share/icons/hicolor/scalable/apps/${MGR_ID}.svg"
 MGR_POLICY="/usr/share/polkit-1/actions/io.github.david-bartlett.${MGR_ID}.policy"
 FPRINT_DROPIN_DIR="/etc/systemd/system/fprintd.service.d"
@@ -365,7 +369,7 @@ cat > "$FPRINT_CLEANUP" << CLEANEOF
 rm -f "${FPRINT_DROPIN}"
 rmdir "${FPRINT_DROPIN_DIR}" 2>/dev/null || true
 rm -rf "${FPRINT_LIB_DIR}"
-rm -f "${MGR_BIN}" "${MGR_DESKTOP}" "${MGR_ICON}" "${MGR_POLICY}"
+rm -f "${MGR_BIN}" "${MGR_DESKTOP}" "${MGR_DESKTOP_OLD}" "${MGR_ICON}" "${MGR_POLICY}"
 rm -f "${FPRINT_SYSLIB_HASH}" "${FPRINT_MARKER}"
 rm -rf "${FPRINT_REMOVED_DIR}"
 rmdir "${FPRINT_STATE_DIR}" 2>/dev/null || true
@@ -864,6 +868,7 @@ ln -sfn "$MGR_DIR/fingerprint-manager.sh" "$MGR_BIN"
 install -Dm 644 "$SCRIPT_DIR/lib/${MGR_ID}.svg" "$MGR_ICON"
 
 mkdir -p "$(dirname "$MGR_DESKTOP")"
+rm -f "$MGR_DESKTOP_OLD"
 cat > "$MGR_DESKTOP" << MGRDESKTOPEOF
 [Desktop Entry]
 Type=Application
@@ -875,7 +880,7 @@ Icon=${MGR_ID}
 Terminal=false
 Categories=Settings;HardwareSettings;
 Keywords=fingerprint;fprint;sensor;login;galaxy;book;
-StartupWMClass=${MGR_ID}
+StartupWMClass=${MGR_APP_ID}
 MGRDESKTOPEOF
 chmod 644 "$MGR_DESKTOP"
 
