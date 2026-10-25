@@ -168,7 +168,7 @@ if [[ "$DISTRO" == "fedora" ]]; then
 elif [[ "$DISTRO" == "arch" ]]; then
     pacman -S --noconfirm --needed \
         git base-devel meson ninja pkgconf \
-        glib2 libgusb cairo openssl systemd \
+        glib2 glib2-devel libgusb cairo openssl systemd \
         fprintd libfprint libnotify \
         || error "Failed to install dependencies via pacman.\n  Check your internet connection and that Arch repos are reachable (pacman -Sy)."
 else
