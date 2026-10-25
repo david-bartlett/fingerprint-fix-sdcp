@@ -6,9 +6,10 @@
 # install on THIS laptop, so both installs share the same fingerprints without
 # enrolling again.
 #
-#   sudo bash import-fingerprint.sh ~/fingerprint-export.tgz
-#   sudo bash import-fingerprint.sh --user NAME FILE.tgz
-#   sudo bash import-fingerprint.sh --no-check FILE.tgz   (skip the sensor check)
+#   sudo bash import-fingerprint.sh                  (uses ~/fingerprint-export.tgz)
+#   sudo bash import-fingerprint.sh FILE.tgz
+#   sudo bash import-fingerprint.sh --user NAME [FILE.tgz]   (default: NAME's home)
+#   sudo bash import-fingerprint.sh --no-check [FILE.tgz]    (skip the sensor check)
 #
 # The fingerprints are imported for the user running it (or --user NAME). That
 # user does not need the same name as on the install they were exported from.
@@ -21,7 +22,7 @@
 set -e
 
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    echo "Please run with sudo: sudo bash import-fingerprint.sh FILE.tgz"
+    echo "Please run with sudo: sudo bash import-fingerprint.sh [FILE.tgz]"
     exit 1
 fi
 
@@ -59,14 +60,21 @@ while [[ $# -gt 0 ]]; do
         *)      ARCHIVE="$1"; shift ;;
     esac
 done
-[[ -n "$ARCHIVE" ]] || error "Usage: sudo bash import-fingerprint.sh [--user NAME] FILE.tgz"
-[[ -f "$ARCHIVE" ]] || error "File not found: $ARCHIVE"
-
 TARGET_USER="${TARGET_USER:-${SUDO_USER:-}}"
 [[ -n "$TARGET_USER" && "$TARGET_USER" != "root" ]] \
     || error "Run this with sudo from the account to import into, or use --user NAME."
 [[ "$TARGET_USER" =~ ^[a-z_][a-z0-9_.-]*$ ]] || error "Invalid username: $TARGET_USER"
 getent passwd "$TARGET_USER" >/dev/null || error "User '$TARGET_USER' does not exist on this install."
+
+# No file given: use ~/fingerprint-export.tgz of the user importing, which is
+# where export-fingerprint.sh writes it.
+if [[ -z "$ARCHIVE" ]]; then
+    ARCHIVE="$(getent passwd "$TARGET_USER" | cut -d: -f6)/fingerprint-export.tgz"
+    [[ -f "$ARCHIVE" ]] \
+        || error "No file given and $ARCHIVE not found.\n  Copy the export there, or give its path:\n  sudo bash import-fingerprint.sh /path/to/fingerprint-export.tgz"
+    info "Using $ARCHIVE"
+fi
+[[ -f "$ARCHIVE" ]] || error "File not found: $ARCHIVE"
 
 # ── fprintd, libfprint and this fix must all be in place ──────────────────────
 # The distro libfprint cannot use SDCP records, so the fix's library and the

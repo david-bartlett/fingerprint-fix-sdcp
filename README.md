@@ -142,8 +142,9 @@ sudo bash export-fingerprint.sh          # writes ~/fingerprint-export.tgz (all 
 - **With the fix already installed:**
 
   ```bash
-  sudo bash import-fingerprint.sh ~/fingerprint-export.tgz
-  sudo bash import-fingerprint.sh --user NAME FILE.tgz      # for another user
+  sudo bash import-fingerprint.sh                           # uses ~/fingerprint-export.tgz
+  sudo bash import-fingerprint.sh /path/to/file.tgz         # a file kept elsewhere
+  sudo bash import-fingerprint.sh --user NAME               # for another user (their ~/fingerprint-export.tgz)
   fprintd-verify
   ```
 
