@@ -765,7 +765,7 @@ class Manager(Gtk.Window):
         menu = Gtk.Menu()
 
         def item(label, cb, sensitive=True, tip=None):
-            mi = Gtk.MenuItem(label=label)
+            mi = Gtk.MenuItem(label="•  " + label)      # a dot per option, to set them apart
             mi.set_sensitive(sensitive)
             if tip:
                 mi.set_tooltip_text(tip)
