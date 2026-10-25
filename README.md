@@ -23,7 +23,7 @@ See the upstream [`SDCP.md`](https://github.com/abdallah-alkanani/libfprint-egis
 
 | USB ID | Galaxy Book Model | Status |
 | --- | --- | --- |
-| `1c7a:05a5` | Galaxy Book 4 / Book 5 Pro | **Confirmed working** on Galaxy Book 5 Pro 14" (940XHA): Fedora 45, Linux Mint 27 (beta), Ubuntu 26.04 and MX Linux (Xfce), 2026-10-24/25 — including an existing enrolment migrated from `fingerprint-fix` without re-enrolling |
+| `1c7a:05a5` | Galaxy Book 4 / Book 5 Pro | **Confirmed working** on Galaxy Book 5 Pro 14" (940XHA): Fedora 45, Linux Mint 27 (beta), Ubuntu 26.04, MX Linux (Xfce) and CachyOS (KDE), 2026-10-24/25 — including an existing enrolment migrated from `fingerprint-fix` without re-enrolling |
 | `1c7a:05a1` | Galaxy Book 3 / Book 4 (ETU905A80-E) | Tested upstream with this build (597 logins through `pam_fprintd`) |
 
 Find your reader's ID with `lsusb | grep 1c7a`.
@@ -181,6 +181,8 @@ What it does:
 **Not changed:** the **KDE lock screen** already uses the fingerprint through its own `kde-fingerprint` service, and the **login screen** is left password-only (with fingerprint, Plasma's login screen waits for the sensor after you type a password).
 
 Test in a new terminal with `sudo -k; sudo true` and `pkexec true`. Keep a root terminal open (`sudo -i`) while testing PAM changes.
+
+**Tested** on CachyOS (KDE): `enable`, `disable`, `enable` again, with sudo and pkexec both accepting the fingerprint (2026-10-25).
 
 **If the lock screen locks you out after a few successful fingerprint unlocks** — a known KDE Plasma 6 bug where `pam_faillock` counts successful fingerprint scans as failures — copy `/usr/lib/pam.d/kde-fingerprint` to `/etc/pam.d/kde-fingerprint` and use:
 ```
