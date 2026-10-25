@@ -50,6 +50,8 @@ except (ImportError, ValueError) as e:
 HERE = os.path.dirname(os.path.realpath(__file__))
 HELPER = os.path.join(HERE, "fingerprint-manager-helper.py")
 TITLE = "Galaxy Book Fingerprint Manager"
+# The mark before each right-click menu option.
+MENU_MARK = "›"
 
 
 def app_version():
@@ -835,8 +837,8 @@ class Manager(Gtk.Window):
                 sep.get_style_context().add_class("fpm-menu-sep")
                 menu.append(sep)
             mi = Gtk.MenuItem(label="")
-            # a small dot per option, to set them apart
-            mi.get_child().set_markup('<span size="55%" rise="2000">●</span>  '
+            # a mark before each option, to set them apart
+            mi.get_child().set_markup(MENU_MARK + "  "
                                       + GLib.markup_escape_text(label))
             mi.set_sensitive(sensitive)
             if tip:
