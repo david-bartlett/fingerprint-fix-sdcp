@@ -249,6 +249,30 @@ def short_finger(name):
     return name
 
 
+def os_name():
+    """Short name of this install's distro, from /etc/os-release:
+    "Fedora Linux" -> Fedora, "Ubuntu" -> Ubuntu, "Linux Mint" -> Linux Mint,
+    "CachyOS Linux" -> CachyOS, "Debian GNU/Linux" -> Debian."""
+    if os.path.exists("/etc/mx-version"):           # MX keeps Debian's os-release
+        return "MX Linux"
+    fields = {}
+    try:
+        with open("/etc/os-release") as f:
+            for line in f:
+                k, _, v = line.strip().partition("=")
+                fields[k] = v.strip('"\'')
+    except OSError:
+        pass
+    name = fields.get("NAME") or fields.get("ID", "").capitalize()
+    for suffix in (" GNU/Linux", " Linux"):
+        if name.endswith(suffix) and name != suffix.strip():
+            name = name[: -len(suffix)]
+    return name.strip() or "this install"
+
+
+OS_NAME = os_name()
+
+
 def long_finger(name):
     """right-index-finger -> Right index finger"""
     return name.replace("-", " ").capitalize()
@@ -760,7 +784,7 @@ class Manager(Gtk.Window):
             if rec["on_sensor"]:
                 item("Test", lambda: self.on_test(None, rec=rec), mine,
                      None if mine else "You can only test your own fingers")
-                item("Remove from this install…", lambda: self.on_remove_selected(None))
+                item(f"Remove from {OS_NAME}…", lambda: self.on_remove_selected(None))
             else:
                 item("Remove dead record…", lambda: self.on_remove_dead(None, [rec]))
                 if mine:
@@ -1473,12 +1497,12 @@ class Manager(Gtk.Window):
             sel = [r for r in self.records if (r["user"], r["finger"]) in self.sel_keys]
             return self.on_remove_dead(None, sel)
         names = "\n".join(f"  • {r[1]} ({r[0]})" for r in rows)
-        if self.confirm("Remove from this install only?",
-                        f"{names}\n\nThese fingerprints stop working on this install. Their templates "
+        if self.confirm(f"Remove from {OS_NAME} only?",
+                        f"{names}\n\nThese fingerprints stop working on {OS_NAME}. Their templates "
                         "stay on the sensor, so other installs sharing them keep working. The records "
                         "are moved to /var/lib/samsung-galaxybook/removed-fingerprints/.",
                         "Remove"):
-            self.run_job("remove_records", self.after_job("Removed from this install", undo=True),
+            self.run_job("remove_records", self.after_job(f"Removed from {OS_NAME}", undo=True),
                          records=[{"user": r[0], "finger": r[4]} for r in rows])
 
     def on_delete_templates(self, _btn):
