@@ -315,7 +315,7 @@ def summarise(text):
 class Manager(Gtk.Window):
     def __init__(self, application=None):
         super().__init__(title=TITLE, application=application)
-        self.set_default_size(620, -1)     # height: as tall as the content needs
+        self.set_default_size(620, -1)     # height: the Sensor tab plus room for a message
         self.set_icon_name(ICON_NAME)
         self.helper = Helper()
         self.status = None
@@ -332,8 +332,8 @@ class Manager(Gtk.Window):
         # ── header bar: refresh · [Fingerprints | Sensor] · menu ──
         hb = Gtk.HeaderBar(show_close_button=True)
         self.set_titlebar(hb)
-        self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE,
-                               vhomogeneous=False)   # each page only as tall as it needs
+        self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
+        # every page as tall as the tallest, so the window never changes height
         # The tabs; with the Sensor tab hidden (the default) just a title.
         self.switcher = Gtk.StackSwitcher(stack=self.stack)
         self.title_lbl = Gtk.Label(label="Fingerprints")
@@ -417,8 +417,11 @@ class Manager(Gtk.Window):
         self._msg_action = None
 
         outer.pack_start(self.stack, True, True, 0)
-        # Messages go at the bottom, so the cards don't jump down when one appears.
-        outer.pack_start(self.msg_bar, False, False, 0)
+        # Messages go at the bottom, in a slot that always keeps their room, so
+        # nothing moves or resizes when one appears.
+        self.msg_slot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.msg_slot.pack_start(self.msg_bar, False, False, 0)
+        outer.pack_start(self.msg_slot, False, False, 0)
 
         # ── page 1: fingerprints on this install — cards (icons) or rows (list) ──
         self.records = []                 # the status records shown, in order
@@ -454,15 +457,17 @@ class Manager(Gtk.Window):
         self.rows.get_style_context().add_class("fpm-list")
         self.rows.connect("row-activated", self._on_card_clicked)
         self.rows.connect("button-press-event", self._on_fingers_double_click)
-        self.rec_views = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE,
-                                   vhomogeneous=False)   # each page only as tall as it needs
+        self.rec_views = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
+        # every page as tall as the tallest, so the window never changes height
         for name, widget in (("icons", self.cards), ("list", self.rows)):
-            sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
-            sw.set_min_content_height(200)
-            # Size the window to the cards (no empty space under them); scroll
-            # only when there is more than fits, e.g. a long list.
-            sw.set_propagate_natural_height(True)
-            sw.set_max_content_height(550)
+            # Cards: always both rows in full, never a scroll bar. Lists: as
+            # tall as the cards, scrolling if there are more rows than fit.
+            cards = name == "icons"
+            sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER,
+                                    vscrollbar_policy=Gtk.PolicyType.NEVER if cards
+                                    else Gtk.PolicyType.AUTOMATIC)
+            if not cards:
+                sw.set_min_content_height(200)
             sw.add(widget)
             self.rec_views.add_named(sw, name)
         page.pack_start(self.rec_views, True, True, 0)
@@ -505,15 +510,17 @@ class Manager(Gtk.Window):
                                  activate_on_single_click=True)
         self.trows.get_style_context().add_class("fpm-list")
         self.trows.connect("row-activated", self._on_tcard_clicked)
-        self.tpl_views = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE,
-                                   vhomogeneous=False)   # each page only as tall as it needs
+        self.tpl_views = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
+        # every page as tall as the tallest, so the window never changes height
         for name, widget in (("icons", self.tcards), ("list", self.trows)):
-            sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
-            sw.set_min_content_height(200)
-            # Size the window to the cards (no empty space under them); scroll
-            # only when there is more than fits, e.g. a long list.
-            sw.set_propagate_natural_height(True)
-            sw.set_max_content_height(550)
+            # Cards: always both rows in full, never a scroll bar. Lists: as
+            # tall as the cards, scrolling if there are more rows than fit.
+            cards = name == "icons"
+            sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER,
+                                    vscrollbar_policy=Gtk.PolicyType.NEVER if cards
+                                    else Gtk.PolicyType.AUTOMATIC)
+            if not cards:
+                sw.set_min_content_height(200)
             sw.add(widget)
             self.tpl_views.add_named(sw, name)
         page.pack_start(self.tpl_views, True, True, 0)
@@ -534,9 +541,11 @@ class Manager(Gtk.Window):
         self.connect("destroy", self.on_quit)
         self.show_all()
         self._show_sensor_tab(self.sensor_item.get_active(), save=False)
-        for stack in (self.stack, self.rec_views, self.tpl_views):
-            stack.connect("notify::visible-child", self._refit)
-        self.msg_bar.connect("notify::visible", self._refit)   # grow / shrink with messages
+        self.message("Measuring the message area: " + "two full lines of text " * 8,
+                     Gtk.MessageType.WARNING,
+                     details="x", action=("Undo", lambda: None))
+        self.msg_slot.set_size_request(-1, self.msg_bar.get_preferred_height_for_width(596)[1])
+        self._hide_message()
         self._set_view(load_view(), save=False)
         self._update_buttons()
         GLib.idle_add(self.refresh)
@@ -615,32 +624,12 @@ class Manager(Gtk.Window):
         self.view_switches.append((icons, lst))
         return box, icons, lst
 
-    def _fit_height(self):
-        """Make the window as tall as its content (no empty space under the
-        cards). Done when the cards first load and when the tab or view
-        changes — but not once the user has resized the window themselves."""
-        width, height = self.get_size()
-        if getattr(self, "_fit_h", None) not in (None, height):
-            return False                          # the user chose a size: keep it
-        # The window's own size request includes the title bar's CSD extras,
-        # which resize() doesn't count — so measure the content instead
-        # (get_size()/resize() are the content area plus the window border).
-        content = self.get_child()
-        cw = content.get_allocated_width() or width
-        natural = content.get_preferred_height_for_width(cw)[1] + 2 * self.get_border_width()
-        self._fit_h = natural
-        self.resize(width, natural)
-        return False
-
-    def _refit(self, *_):
-        if getattr(self, "_fitted", False):
-            GLib.idle_add(self._fit_height)
-
     def _show_sensor_tab(self, show, save=True):
         """The Sensor tab is for troubleshooting, so it's hidden unless chosen."""
         if not show and self.stack.get_visible_child_name() == "sensor":
             self.stack.set_visible_child_name("fingers")
-        self.sensor_page.set_visible(show)
+        # The page stays (unreachable) so the window keeps the Sensor tab's
+        # height either way; only the tab buttons are hidden.
         self.switcher.set_visible(show)
         self.title_lbl.set_visible(not show)
         if save:
@@ -1113,11 +1102,7 @@ class Manager(Gtk.Window):
         return False
 
     def show_status(self, st):
-        first = self.status is None and not getattr(self, "_fitted", False)
         self.status = st
-        if first:                  # once the cards are in: fit the window to them
-            self._fitted = True
-            GLib.idle_add(self._fit_height)
         self._fill_records(st["records"], st["user"])
         self._fill_templates(st["templates"])
         for name, n in (("fingers", len(st["records"])), ("sensor", len(st["templates"]))):
