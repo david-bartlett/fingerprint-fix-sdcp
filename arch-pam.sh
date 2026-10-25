@@ -134,8 +134,24 @@ status_one() {
     fi
 }
 
+# Before adding pam_fprintd.so to a PAM file, the module and fprintd must be
+# installed: a line naming a module PAM can't load could break sudo itself.
+# (disable and status are never blocked, so changes can always be undone.)
+check_fprintd_pam() {
+    local d found=""
+    for d in /usr/lib/security /usr/lib64/security /lib/security /lib64/security \
+             /usr/lib/x86_64-linux-gnu/security /lib/x86_64-linux-gnu/security; do
+        [[ -f "$d/pam_fprintd.so" ]] && { found="$d/pam_fprintd.so"; break; }
+    done
+    [[ -n "$found" ]] \
+        || error "pam_fprintd.so not found — fprintd is not installed. Install it first:\n  sudo pacman -S fprintd   (or run install.sh, which installs it)"
+    command -v fprintd-list >/dev/null 2>&1 && systemctl cat fprintd.service >/dev/null 2>&1 \
+        || error "fprintd is not installed. Install it first:\n  sudo pacman -S fprintd   (or run install.sh, which installs it)"
+}
+
 case "${1:-}" in
-    enable)  for s in "${SERVICES[@]}"; do enable_one "$s"; done
+    enable)  check_fprintd_pam
+             for s in "${SERVICES[@]}"; do enable_one "$s"; done
              echo
              echo "  Test in a NEW terminal:  sudo -k; sudo true   and   pkexec true"
              echo "  Undo:                    sudo bash $(basename "$0") disable" ;;

@@ -68,9 +68,17 @@ TARGET_USER="${TARGET_USER:-${SUDO_USER:-}}"
 [[ "$TARGET_USER" =~ ^[a-z_][a-z0-9_.-]*$ ]] || error "Invalid username: $TARGET_USER"
 getent passwd "$TARGET_USER" >/dev/null || error "User '$TARGET_USER' does not exist on this install."
 
-# ── The fix must be installed — the distro libfprint cannot use SDCP records ──
-[[ -f /etc/samsung-galaxybook-egismoc-sdcp.installed ]] \
-    || error "fingerprint-fix-sdcp is not installed here. Install it first:\n  sudo bash install.sh"
+# ── fprintd, libfprint and this fix must all be in place ──────────────────────
+# The distro libfprint cannot use SDCP records, so the fix's library and the
+# drop-in that makes fprintd load it are needed too.
+command -v fprintd-list >/dev/null 2>&1 && systemctl cat fprintd.service >/dev/null 2>&1 \
+    || error "fprintd is not installed. Install the fix first (it installs fprintd):\n  sudo bash install.sh"
+ldconfig -p 2>/dev/null | grep -q 'libfprint-2\.so\.2 ' \
+    || error "libfprint is not installed. Install the fix first:\n  sudo bash install.sh"
+[[ -f /etc/samsung-galaxybook-egismoc-sdcp.installed \
+   && -f /usr/local/lib/libfprint-egismoc-sdcp/libfprint-2.so.2 \
+   && -f /etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf ]] \
+    || error "fingerprint-fix-sdcp is not installed (or incomplete) here. Install it first:\n  sudo bash install.sh"
 
 SERIAL=$(sensor_serial) || error "EgisTec fingerprint sensor (1c7a:05a5 / 1c7a:05a1) not found."
 

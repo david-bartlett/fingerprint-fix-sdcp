@@ -44,8 +44,17 @@ USER_NAME="${SUDO_USER:-}"
     || error "Run this with sudo from your own account (not as root directly)."
 USER_HOME=$(getent passwd "$USER_NAME" | cut -d: -f6)
 
-[[ -f /etc/samsung-galaxybook-egismoc-sdcp.installed ]] \
-    || warn "fingerprint-fix-sdcp does not seem to be installed — exporting anyway."
+# ── fprintd, libfprint and this fix must all be in place ──────────────────────
+# Without the fix, any records here were made by the distro's non-SDCP driver
+# and would not work on another install, so there is nothing useful to export.
+command -v fprintd-list >/dev/null 2>&1 && systemctl cat fprintd.service >/dev/null 2>&1 \
+    || error "fprintd is not installed — there are no fingerprints to export."
+ldconfig -p 2>/dev/null | grep -q 'libfprint-2\.so\.2 ' \
+    || error "libfprint is not installed — there are no fingerprints to export."
+[[ -f /etc/samsung-galaxybook-egismoc-sdcp.installed \
+   && -f /usr/local/lib/libfprint-egismoc-sdcp/libfprint-2.so.2 \
+   && -f /etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf ]] \
+    || error "fingerprint-fix-sdcp is not installed (or incomplete) here. Fingerprints\n  enrolled without it can't be used on another install. Install it first:\n  sudo bash install.sh"
 
 SERIAL=$(sensor_serial) || error "EgisTec fingerprint sensor (1c7a:05a5 / 1c7a:05a1) not found."
 REL="${USER_NAME}/egismoc/${SERIAL}"
