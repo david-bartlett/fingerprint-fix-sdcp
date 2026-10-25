@@ -1,4 +1,4 @@
-Subject: SDCP key derivation on OpenSSL < 3.2 (Connect MAC mismatch)
+Subject: SDCP key derivation (only needed when OpenSSL < 3.2, no change on newer versions)
 
 Applied by install.sh to the libfprint-egismoc-sdcp source before building,
 only while the source still needs it (it is skipped once the source has the

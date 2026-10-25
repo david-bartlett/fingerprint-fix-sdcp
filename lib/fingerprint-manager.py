@@ -147,7 +147,14 @@ flowbox.fpm-cards flowboxchild:selected label, list.fpm-list row:selected label 
 flowbox.fpm-cards flowboxchild:selected label.fpm-ok, list.fpm-list row:selected label.fpm-ok { color: #26a269; }
 flowbox.fpm-cards flowboxchild:selected label.fpm-dead, list.fpm-list row:selected label.fpm-dead { color: #e01b24; }
 flowbox.fpm-cards flowboxchild:selected .fpm-add label { color: @theme_selected_bg_color; }
+.fpm-free { background-color: transparent; border: 1px dashed alpha(@theme_fg_color, 0.30); }
+.fpm-free label { color: alpha(@theme_fg_color, 0.45); }
+.fpm-id { font-family: monospace; font-size: 80%; }
+.fpm-slots { font-weight: bold; }
 """
+
+# The egismoc sensor stores up to this many templates (EGISMOC_MAX_ENROLL_NUM).
+SENSOR_SLOTS = 10
 
 # ── fingerprint pictures, names and the remembered view ─────────────────────
 SETTINGS = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
@@ -360,18 +367,8 @@ class Manager(Gtk.Window):
         hint.get_style_context().add_class("dim-label")
         hint.get_style_context().add_class("fpm-hint")
         top.pack_start(hint, True, True, 0)
-        switch = Gtk.Box()
-        switch.get_style_context().add_class("linked")
-        self.view_icons = Gtk.RadioButton(draw_indicator=False)
-        self._icon_or_text(self.view_icons, ["view-grid-symbolic", "view-app-grid-symbolic",
-                                             "view-list-icons-symbolic", "view-grid"], "▦")
-        self.view_icons.set_tooltip_text("Cards")
-        self.view_list = Gtk.RadioButton(group=self.view_icons, draw_indicator=False)
-        self._icon_or_text(self.view_list, ["view-list-symbolic", "view-list-details-symbolic",
-                                            "view-list-details", "view-list-text"], "☰")
-        self.view_list.set_tooltip_text("List")
-        switch.pack_start(self.view_icons, False, False, 0)
-        switch.pack_start(self.view_list, False, False, 0)
+        self.view_switches = []           # (cards button, list button) per tab
+        switch, self.view_icons, self.view_list = self._view_switch()
         top.pack_end(switch, False, False, 0)
         page.pack_start(top, False, False, 0)
 
@@ -394,8 +391,6 @@ class Manager(Gtk.Window):
             sw.add(widget)
             self.rec_views.add_named(sw, name)
         page.pack_start(self.rec_views, True, True, 0)
-        (self.view_list if load_view() == "list" else self.view_icons).set_active(True)
-        self.view_icons.connect("toggled", self._on_view_toggled)
 
         row = Gtk.Box(spacing=6)
         self.test_btn = self._button(row, "Test fingerprint", self.on_test,
@@ -409,13 +404,41 @@ class Manager(Gtk.Window):
         page.pack_start(row, False, False, 0)
         self.stack.add_titled(page, "fingers", "Fingerprints")
 
-        # ── page 2: templates on the sensor ──
-        # store: id, used by, used here (1/0)
-        self.tpl_store = Gtk.ListStore(str, str, int)
-        self.tpl_view = self._table(self.tpl_store, ["Template", "Used by"])
-        page = self._page(self.tpl_view,
-                          "Templates not used here may belong to another Linux install, "
-                          "another user or Windows Hello.")
+        # ── page 2: templates on the sensor — cards with free slots, or a list ──
+        self.templates = []
+        self.tsel = set()                 # selected template ids
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        top = Gtk.Box(spacing=6)
+        self.slots_label = Gtk.Label(xalign=0)
+        self.slots_label.get_style_context().add_class("fpm-slots")
+        top.pack_start(self.slots_label, True, True, 0)
+        switch, self.tview_icons, self.tview_list = self._view_switch()
+        top.pack_end(switch, False, False, 0)
+        page.pack_start(top, False, False, 0)
+        self.slots_bar = Gtk.ProgressBar()
+        page.pack_start(self.slots_bar, False, False, 0)
+        hint = Gtk.Label(label="Grey = not used by this install: another Linux install, another "
+                               "user or Windows Hello. Dashed = free.", xalign=0, wrap=True)
+        hint.get_style_context().add_class("dim-label")
+        hint.get_style_context().add_class("fpm-hint")
+        page.pack_start(hint, False, False, 0)
+        self.tcards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.MULTIPLE, homogeneous=True,
+                                  min_children_per_line=5, max_children_per_line=5,
+                                  column_spacing=4, row_spacing=4, valign=Gtk.Align.START,
+                                  activate_on_single_click=True)
+        self.tcards.get_style_context().add_class("fpm-cards")
+        self.tcards.connect("selected-children-changed", self._on_tcards_selected)
+        self.trows = Gtk.ListBox(selection_mode=Gtk.SelectionMode.MULTIPLE,
+                                 activate_on_single_click=False)
+        self.trows.get_style_context().add_class("fpm-list")
+        self.trows.connect("selected-rows-changed", self._on_trows_selected)
+        self.tpl_views = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
+        for name, widget in (("icons", self.tcards), ("list", self.trows)):
+            sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
+            sw.set_min_content_height(200)
+            sw.add(widget)
+            self.tpl_views.add_named(sw, name)
+        page.pack_start(self.tpl_views, True, True, 0)
         row = Gtk.Box(spacing=6)
         self.del_btn = self._button(row, "Delete…", self.on_delete_templates,
                                     "Delete the selected templates from the sensor")
@@ -428,10 +451,10 @@ class Manager(Gtk.Window):
         self.stack.add_titled(page, "sensor", "Sensor")
         self.pages = {"fingers": "Fingerprints", "sensor": "Sensor"}
 
-        self.tpl_view.get_selection().connect("changed", lambda *_: self._update_buttons())
+        self._set_view(load_view(), save=False)
         self.connect("destroy", self.on_quit)
         self.show_all()
-        self.rec_views.set_visible_child_name("list" if self.view_list.get_active() else "icons")
+        self._set_view(load_view(), save=False)
         self._update_buttons()
         GLib.idle_add(self.refresh)
 
@@ -491,10 +514,143 @@ class Manager(Gtk.Window):
                             1 if r["on_sensor"] else 0])
         return out
 
-    def _on_view_toggled(self, _btn):
-        view = "list" if self.view_list.get_active() else "icons"
-        self.rec_views.set_visible_child_name(view)
-        save_view(view)
+    def _view_switch(self):
+        """A linked Cards | List button pair. Both tabs share the choice."""
+        box = Gtk.Box()
+        box.get_style_context().add_class("linked")
+        icons = Gtk.RadioButton(draw_indicator=False)
+        self._icon_or_text(icons, ["view-grid-symbolic", "view-app-grid-symbolic",
+                                   "view-list-icons-symbolic", "view-grid"], "▦")
+        icons.set_tooltip_text("Cards")
+        lst = Gtk.RadioButton(group=icons, draw_indicator=False)
+        self._icon_or_text(lst, ["view-list-symbolic", "view-list-details-symbolic",
+                                 "view-list-details", "view-list-text"], "☰")
+        lst.set_tooltip_text("List")
+        box.pack_start(icons, False, False, 0)
+        box.pack_start(lst, False, False, 0)
+        icons.connect("toggled", lambda b: self._set_view("icons" if b.get_active() else "list"))
+        self.view_switches.append((icons, lst))
+        return box, icons, lst
+
+    def _set_view(self, view, save=True):
+        if getattr(self, "_setting_view", False):
+            return
+        self._setting_view = True
+        for icons, lst in self.view_switches:
+            (lst if view == "list" else icons).set_active(True)
+        for stack in (getattr(self, "rec_views", None), getattr(self, "tpl_views", None)):
+            if stack is not None and stack.get_child_by_name(view):
+                stack.set_visible_child_name(view)
+        self._setting_view = False
+        if save:
+            save_view(view)
+
+    # ── sensor cards / rows ──
+    def _selected_tpls(self):
+        """Selected templates as [id, used-by text, used here (1/0)]."""
+        return [[t["id"], ", ".join(t["used_by"]) or "Not used here", 1 if t["used_by"] else 0]
+                for t in self.templates if t["id"] in self.tsel]
+
+    def _on_tcards_selected(self, box):
+        if self._syncing_sel:
+            return
+        ids = set()
+        for child in box.get_selected_children():
+            if getattr(child, "is_free", False):
+                box.unselect_child(child)
+            else:
+                ids.add(child.tid)
+        self._set_tsel(ids)
+
+    def _on_trows_selected(self, lst):
+        if self._syncing_sel:
+            return
+        self._set_tsel({row.tid for row in lst.get_selected_rows()})
+
+    def _set_tsel(self, ids):
+        self.tsel = ids
+        self._syncing_sel = True
+        for child in self.tcards.get_children():
+            if getattr(child, "tid", None) in ids:
+                self.tcards.select_child(child)
+            else:
+                self.tcards.unselect_child(child)
+        for row in self.trows.get_children():
+            if getattr(row, "tid", None) in ids:
+                self.trows.select_row(row)
+            else:
+                self.trows.unselect_row(row)
+        self._syncing_sel = False
+        self._update_buttons()
+
+    def _fill_templates(self, templates):
+        self.templates = templates
+        for w in self.tcards.get_children() + self.trows.get_children():
+            w.destroy()
+        used = len(templates)
+        cap = max(SENSOR_SLOTS, used)
+        self.slots_label.set_text(f"{used} of {cap} slots used" if templates or self.status else "")
+        self.slots_bar.set_fraction(used / cap if cap else 0)
+        for t in templates:
+            owners = [u.split(" ", 1) for u in t["used_by"]]        # [user, finger]
+            if owners:
+                kind, pill = "ok", "Used here"
+                title = short_finger(owners[0][1]) if len(owners[0]) > 1 else owners[0][0]
+                sub = ", ".join(sorted({o[0] for o in owners}))
+                long_title = long_finger(owners[0][1]) if len(owners[0]) > 1 else title
+            else:
+                kind, pill = "unknown", "Not used here"
+                title, long_title = "Unknown", "Unknown template"
+                sub = "Another install?"
+            # card
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            box.get_style_context().add_class("fpm-fcard")
+            box.pack_start(FingerprintIcon(kind, 40), False, False, 2)
+            box.pack_start(self._label(title, "fpm-name", justify=Gtk.Justification.CENTER,
+                                       wrap=True, max_width_chars=8), False, False, 0)
+            box.pack_start(self._label(sub, "dim-label", "fpm-small", justify=Gtk.Justification.CENTER,
+                                       ellipsize=Pango.EllipsizeMode.END, max_width_chars=10),
+                           False, False, 0)
+            box.pack_start(self._pill(kind, pill), False, False, 4)
+            child = Gtk.FlowBoxChild()
+            child.tid = t["id"]
+            child.set_tooltip_text(f"Template {t['id']}"
+                                   + (f" — used by {', '.join(t['used_by'])}" if t["used_by"]
+                                      else " — not used by this install: another Linux install, "
+                                           "another user, or Windows Hello"))
+            child.add(box)
+            self.tcards.add(child)
+            # row
+            hb = Gtk.Box(spacing=10)
+            hb.get_style_context().add_class("fpm-lcard")
+            hb.pack_start(FingerprintIcon(kind, 32), False, False, 0)
+            texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
+            texts.pack_start(self._label(long_title, "fpm-name", xalign=0), False, False, 0)
+            detail = sub if owners else "Another Linux install, another user or Windows Hello?"
+            texts.pack_start(self._label(f"{detail} · template {t['id']}", "dim-label", "fpm-small",
+                                         xalign=0, ellipsize=Pango.EllipsizeMode.END), False, False, 0)
+            hb.pack_start(texts, True, True, 0)
+            hb.pack_start(self._pill(kind, pill), False, False, 0)
+            row = Gtk.ListBoxRow()
+            row.tid = t["id"]
+            row.add(hb)
+            self.trows.add(row)
+        # free slots (cards only)
+        if self.status:
+            for _ in range(max(0, cap - used)):
+                box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+                for c in ("fpm-fcard", "fpm-free"):
+                    box.get_style_context().add_class(c)
+                box.pack_start(self._label("·", "fpm-plus", height_request=40), False, False, 2)
+                box.pack_start(self._label("Free", "fpm-name"), False, False, 0)
+                child = Gtk.FlowBoxChild()
+                child.is_free = True
+                child.set_tooltip_text("A free slot on the sensor")
+                child.add(box)
+                self.tcards.add(child)
+        self.tcards.show_all()
+        self.trows.show_all()
+        self._set_tsel({i for i in self.tsel if any(t["id"] == i for t in templates)})
 
     def _on_cards_selected(self, box):
         if self._syncing_sel:
@@ -644,7 +800,7 @@ class Manager(Gtk.Window):
         self.cards.set_sensitive(st is not None)
         self.rows.set_sensitive(st is not None)
         self.del_btn.set_sensitive(bool(ready and st["features"].get("STORAGE_DELETE", False)
-                                        and self._selected(self.tpl_view, 0)))
+                                        and self.tsel))
         self.wipe_btn.set_sensitive(bool(ready and (st["templates"] or recs)))
         self.export_item.set_sensitive(ready and any(r["on_sensor"] for r in mine))
         self.import_item.set_sensitive(ready)
@@ -741,7 +897,7 @@ class Manager(Gtk.Window):
             if err:
                 self.status = None
                 self._fill_records([], None)
-                self.tpl_store.clear()
+                self._fill_templates([])
                 self.info.set_text("")
                 self.pam_detail.set_text("")
                 self.error(err)
@@ -758,10 +914,7 @@ class Manager(Gtk.Window):
     def show_status(self, st):
         self.status = st
         self._fill_records(st["records"], st["user"])
-        self.tpl_store.clear()
-        for t in st["templates"]:
-            used = ", ".join(t["used_by"]) if t["used_by"] else "Not used here"
-            self.tpl_store.append([t["id"], used, 1 if t["used_by"] else 0])
+        self._fill_templates(st["templates"])
         for name, n in (("fingers", len(st["records"])), ("sensor", len(st["templates"]))):
             self.stack.child_set_property(self.stack.get_child_by_name(name), "title",
                                           f"{self.pages[name]} ({n})")
@@ -1171,7 +1324,7 @@ class Manager(Gtk.Window):
                          records=[{"user": r[0], "finger": r[4]} for r in rows])
 
     def on_delete_templates(self, _btn):
-        rows = self._selected(self.tpl_view, 0)
+        rows = self._selected_tpls()
         used = [r for r in rows if r[2]]
         unused = [r for r in rows if not r[2]]
         text = []
