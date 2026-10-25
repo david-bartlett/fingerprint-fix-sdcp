@@ -133,7 +133,8 @@ class Manager(Gtk.Window):
             True, True, 0)
         row = Gtk.Box(spacing=6)
         self.test_btn = self._button(row, "Test fingerprint", self.on_test,
-                                     "Run fprintd-verify and touch the sensor")
+                                     "Test the selected finger — or, with none selected, "
+                                     "any of your fingers, as login and sudo do")
         self.dead_btn = self._button(row, "Remove dead records", self.on_remove_dead,
                                      "Clear records whose template is no longer on the sensor")
         self.unlink_btn = self._button(row, "Remove from this install…", self.on_remove_selected,
@@ -348,40 +349,88 @@ class Manager(Gtk.Window):
 
     # ── actions ──
     def on_test(self, _btn):
+        """Test one finger (the selected one) or any of yours, as login does.
+
+        fprintd-verify on its own only tries the FIRST finger fprintd lists,
+        so the finger is always given: -f <finger>, or -f any, which makes
+        the sensor check all of your fingers (what login and sudo do)."""
         if not shutil.which("fprintd-verify"):
             return self.message("fprintd-verify is not installed.", Gtk.MessageType.ERROR)
-        d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
-                              buttons=Gtk.ButtonsType.CANCEL, text="Touch the fingerprint sensor")
-        d.format_secondary_text("Using any finger enrolled for you on this install…")
-        proc = subprocess.Popen(["fprintd-verify"], stdout=subprocess.PIPE,
-                                stderr=subprocess.STDOUT, text=True)
+        me = self.status["user"]
+        picked = [r for r in self._selected(self.rec_view, 0) if r[0] == me and r[5]]
+        finger = picked[0][1] if picked else "any"
+        what = finger if picked else "any of your fingers (as login and sudo do)"
 
-        def wait():
-            try:
-                out, _ = proc.communicate(timeout=60)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-                out, _ = proc.communicate()
-            GLib.idle_add(finished, out)
+        d = Gtk.Dialog(title="Test fingerprint", transient_for=self, modal=True)
+        d.set_default_size(420, -1)
+        close_btn = d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        again_btn = d.add_button("Test again", 1)
+        again_btn.set_no_show_all(True)
+        area = d.get_content_area()
+        area.set_spacing(8)
+        area.set_border_width(18)
+        icon = Gtk.Label()
+        head = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER)
+        sub = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, selectable=True)
+        for w in (icon, head, sub):
+            area.pack_start(w, False, False, 0)
+        state = {"proc": None}
 
-        def finished(out):
-            if not closed[0]:
-                d.response(Gtk.ResponseType.NONE)
-            result = next((l for l in out.splitlines() if "Verify result" in l), "")
-            if "verify-match" in result:
-                self.message("✓ Fingerprint matched.", Gtk.MessageType.INFO)
-            elif proc.returncode is not None and proc.returncode < 0:
-                pass  # cancelled
+        def show(symbol, colour, title, detail):
+            span = f' foreground="{colour}"' if colour else ""
+            icon.set_markup(f'<span size="48000"{span}>{symbol}</span>')
+            head.set_markup(f'<span size="x-large" weight="bold"{span}>'
+                            f'{GLib.markup_escape_text(title)}</span>')
+            sub.set_text(detail)
+
+        def start():
+            show("☝", None, "Touch the fingerprint sensor", f"Testing: {what}")
+            close_btn.set_label("Cancel")
+            again_btn.hide()
+            proc = subprocess.Popen(["fprintd-verify", "-f", finger], stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, text=True)
+            state["proc"] = proc
+
+            def wait():
+                try:
+                    out, _ = proc.communicate(timeout=60)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    out, _ = proc.communicate()
+                    out += "\nNo finger touched the sensor within 60 seconds."
+                GLib.idle_add(finished, proc, out)
+
+            threading.Thread(target=wait, daemon=True).start()
+
+        def finished(proc, out):
+            if state.get("closed") or proc is not state["proc"]:
+                return False
+            result = next((l.split(":", 1)[1].strip() for l in out.splitlines()
+                           if l.startswith("Verify result")), "")
+            if result.startswith("verify-match"):
+                show("✓", "#26a269", "Match", f"Tested: {what}")
+            elif result.startswith("verify-no-match"):
+                show("✗", "#c01c28", "No match",
+                     f"Tested: {what}\nThat finger didn't match. Try again, or test another finger.")
             else:
-                self.message("✗ No match.\n" + (out.strip().splitlines()[-1] if out.strip() else ""),
-                             Gtk.MessageType.WARNING)
+                last = out.strip().splitlines()[-1] if out.strip() else "no output"
+                show("!", "#e5a50a", "Test did not complete", f"Tested: {what}\n{last}")
+            close_btn.set_label("Close")
+            again_btn.show()
             return False
 
-        closed = [False]
-        threading.Thread(target=wait, daemon=True).start()
-        if d.run() == Gtk.ResponseType.CANCEL and proc.poll() is None:
-            proc.terminate()
-        closed[0] = True
+        d.show_all()
+        start()
+        while True:
+            r = d.run()
+            if r == 1:
+                start()
+                continue
+            break
+        state["closed"] = True
+        p = state["proc"]
+        if p and p.poll() is None:
+            p.terminate()
         d.destroy()
 
     def on_remove_dead(self, _btn):
