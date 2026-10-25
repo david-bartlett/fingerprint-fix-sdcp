@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # The installer needs its tools/ and lib/ folders — run it from the whole
 # fingerprint-fix-sdcp folder, not on its own.
 for _f in lib/sensor-check.c lib/fingerprint-manager.py lib/fingerprint-manager-helper.py \
-          lib/galaxybook-fingerprint-manager.svg fingerprint-manager.sh \
+          lib/galaxybook-fingerprint-manager.svg lib/patches/sdcp-kdf-openssl30.patch fingerprint-manager.sh \
           tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh; do
     [[ -f "$SCRIPT_DIR/$_f" ]] || { echo "Missing $SCRIPT_DIR/$_f — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
 done
@@ -268,6 +268,25 @@ else
 fi
 info "✓ Source at commit ${SDCP_COMMIT:0:12} (${SDCP_DATE})"
 
+# Fixes kept in lib/patches/ until they are in the fork. Each one is applied
+# only if the source still needs it: skipped when the source already has it,
+# and the install stops if the source has changed so much it no longer fits.
+SDCP_FIXES=()
+for _patch in "$SCRIPT_DIR"/lib/patches/*.patch; do
+    [[ -f "$_patch" ]] || continue
+    _name=$(basename "$_patch" .patch)
+    _desc=$(sed -n 's/^Subject: //p' "$_patch" | head -1)
+    if git -C "$FPRINT_BUILD_DIR" apply --check "$_patch" 2>/dev/null; then
+        git -C "$FPRINT_BUILD_DIR" apply "$_patch" || error "Could not apply fix ${_name}"
+        SDCP_FIXES+=("$_name")
+        info "✓ Applied fix: ${_desc:-$_name}"
+    elif git -C "$FPRINT_BUILD_DIR" apply --reverse --check "$_patch" 2>/dev/null; then
+        info "Fix already in the source — not needed: ${_desc:-$_name}"
+    else
+        error "Fix ${_name} no longer fits the source at commit ${SDCP_COMMIT:0:12}.\n  The source has changed: check whether it still needs\n  lib/patches/${_name}.patch, then update or remove that file."
+    fi
+done
+
 # ── Step 6: Build only the egismoc driver ─────────────────────────────────────
 step "Fingerprint Step 6: Building libfprint (egismoc driver only)"
 cd "$FPRINT_BUILD_DIR"
@@ -332,7 +351,7 @@ if [[ -n "$SYSLIB" ]]; then
     sha256sum "$SYSLIB" | awk '{print $1}' > "$FPRINT_SYSLIB_HASH"
     chmod 644 "$FPRINT_SYSLIB_HASH"
 fi
-echo "${SDCP_COMMIT:0:12} ${SDCP_DATE} ${SDCP_SOURCE} (installed $(date '+%Y-%m-%d'))" > "$FPRINT_MARKER"
+echo "${SDCP_COMMIT:0:12} ${SDCP_DATE} ${SDCP_SOURCE}${SDCP_FIXES[*]:+ +${SDCP_FIXES[*]}} (installed $(date '+%Y-%m-%d'))" > "$FPRINT_MARKER"
 info "✓ Marker and distro libfprint hash stored"
 
 # ── Step 10: Monitor — cleanup helper, scripts, polkit rule, services ─────────
@@ -903,6 +922,7 @@ info "✓ Galaxy Book Fingerprint Manager installed (app menu, or: ${MGR_ID})"
 info "✓ Fingerprint fix installed — no reboot required"
 info "Built from: $SDCP_REPO_URL"
 info "            branch $SDCP_BRANCH, commit ${SDCP_COMMIT:0:12} (${SDCP_DATE})"
+[[ ${#SDCP_FIXES[@]} -gt 0 ]] && info "            with fixes from lib/patches: ${SDCP_FIXES[*]}"
 [[ "$SDCP_SOURCE" == "fork" ]] \
     || warn "This is a TEST build (not the usual fork). Run the installer again without\n       SDCP_REPO_URL to go back to the fork's build."
 echo

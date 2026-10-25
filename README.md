@@ -11,7 +11,7 @@ This is the successor to `fingerprint-fix`, which built the unmerged `feature/sd
 | `install.sh` / `uninstall.sh` | Install or remove the fix |
 | `fingerprint-manager.sh` | Starts the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) from this folder (the installer also installs it) |
 | `tools/` | Optional command-line tools: `export-fingerprint.sh`, `import-fingerprint.sh` ([sharing fingerprints](#sharing-fingerprints-between-linux-installs)), `fingerprint-pam.sh` ([fingerprint login on/off](#turning-fingerprint-login-on-or-off)), `arch-pam.sh` (used by it on Arch) |
-| `lib/` | Used by the above — not run directly: the Fingerprint Manager's Python files and icon, and `sensor-check.c` |
+| `lib/` | Used by the above — not run directly: the Fingerprint Manager's Python files and icon, `sensor-check.c`, and `patches/` (fixes applied to the driver source at build time) |
 
 Keep the folder together: the installer and the Fingerprint Manager use the files in `tools/` and `lib/`.
 
@@ -28,6 +28,7 @@ These sensors are Windows Hello readers that expect the host to use Microsoft's 
 | Extra fixes | Fresh random nonce for every identify, full certificate-chain, attestation and identity-MAC checks, bounds-checked responses, clean failed opens and suspend; Roman2K's longer finger wait for `05a5`; Philip Walsh's ET171 fixes |
 | Source repo | [david-bartlett/libfprint-egismoc-sdcp](https://github.com/david-bartlett/libfprint-egismoc-sdcp), a fork of [abdallah-alkanani/libfprint-egismoc-sdcp](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp) with its full history and authorship, so new installs don't depend on the original repo staying online |
 | Version built | The newest commit of branch `egismoc-sdcp` **in the fork**. The fork is the release channel: updating it (**Sync fork** on GitHub) is how a new version reaches users. Currently `c4880d057e80` (2026-10-16) |
+| Build-time fixes | `lib/patches/*.patch`, applied by the installer to the fetched source **only while the source still needs them** (skipped once the fix is in the source; the install stops if the source has changed so much a fix no longer fits). The installer prints which it applied, and they are recorded in `/etc/samsung-galaxybook-egismoc-sdcp.installed`. Currently: `sdcp-kdf-openssl30` — on OpenSSL 3.0/3.1 (e.g. Ubuntu 24.04, Linux Mint 22, Zorin 17/18, Pop!_OS 24.04, Debian 12 / MX Linux 23) the SDCP key derivation dropped half its input, so every connection failed with "SDCP ConnectResponse claim validation failed". No change on OpenSSL 3.2+ |
 
 See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc-sdcp/blob/egismoc-sdcp/libfprint/drivers/egismoc/SDCP.md) for the protocol mapping and trust rules.
 
