@@ -36,6 +36,10 @@ HERE = os.path.dirname(os.path.realpath(__file__))
 HELPER = os.path.join(HERE, "fingerprint-manager-helper.py")
 TITLE = "Fingerprint Manager"
 EXPORT_NAME = "fingerprint-export.tgz"
+FINGERS = ["right-index-finger", "right-middle-finger", "right-thumb", "right-ring-finger",
+           "right-little-finger", "left-index-finger", "left-middle-finger", "left-thumb",
+           "left-ring-finger", "left-little-finger"]
+GREEN, RED, AMBER = "#26a269", "#c01c28", "#e5a50a"
 
 
 # ── The root helper, started once ─────────────────────────────────────────────
@@ -144,6 +148,13 @@ class Manager(Gtk.Window):
         self.test_btn = self._button(row, "Test fingerprint", self.on_test,
                                      "Test the selected finger — or, with none selected, "
                                      "any of your fingers, as login and sudo do")
+        self.enrol_btn = self._button(row, "Enrol a finger…", self.on_enrol,
+                                      "Enrol a new finger for you on this install")
+        self.restore_btn = self._button(row, "Restore…", self.on_restore,
+                                        "Put back records that were moved aside "
+                                        "(by the boot check, this tool or an import)")
+        box.pack_start(row, False, False, 0)
+        row = Gtk.Box(spacing=6)
         self.dead_btn = self._button(row, "Remove dead records", self.on_remove_dead,
                                      "Clear records whose template is no longer on the sensor")
         self.unlink_btn = self._button(row, "Remove from this install…", self.on_remove_selected,
@@ -160,6 +171,16 @@ class Manager(Gtk.Window):
         row = Gtk.Box(spacing=6)
         self.del_btn = self._button(row, "Delete from sensor…", self.on_delete_templates,
                                     "Delete the selected templates from the sensor")
+        box.pack_start(row, False, False, 0)
+
+        # Fingerprint for login and sudo (PAM)
+        box.pack_start(Gtk.Separator(), False, False, 0)
+        row = Gtk.Box(spacing=6)
+        self.pam_label = Gtk.Label(xalign=0, wrap=True)
+        row.pack_start(self.pam_label, True, True, 0)
+        self.pam_btn = Gtk.Button(label="Enable")
+        self.pam_btn.connect("clicked", self.on_pam)
+        row.pack_end(self.pam_btn, False, False, 0)
         box.pack_start(row, False, False, 0)
 
         box.pack_start(Gtk.Separator(), False, False, 0)
@@ -228,6 +249,11 @@ class Manager(Gtk.Window):
         mine = [r for r in recs if r["user"] == (st or {}).get("user")]
         self.refresh_btn.set_sensitive(not self.busy)
         self.test_btn.set_sensitive(ready and any(r["on_sensor"] for r in mine))
+        self.enrol_btn.set_sensitive(ready and len(mine) < 10)
+        self.restore_btn.set_sensitive(ready)
+        pam = (st or {}).get("pam", {}).get("state")
+        self.pam_btn.set_sensitive(ready and pam in ("enabled", "disabled", "partial"))
+        self.pam_btn.set_label("Disable" if pam == "enabled" else "Enable")
         self.dead_btn.set_sensitive(ready and any(r["on_sensor"] is False for r in recs))
         self.unlink_btn.set_sensitive(ready and bool(self._selected(self.rec_view, 0)))
         self.del_btn.set_sensitive(ready and st["features"].get("STORAGE_DELETE", False)
@@ -294,6 +320,7 @@ class Manager(Gtk.Window):
                 self.rec_store.clear()
                 self.tpl_store.clear()
                 self.info.set_text("")
+                self.pam_label.set_text("")
                 self.message(err, Gtk.MessageType.ERROR)
             else:
                 self.show_status(st)
@@ -327,12 +354,45 @@ class Manager(Gtk.Window):
                            f"sensor {st['serial']}\nfingerprint-fix-sdcp: {marker}\n"
                            f"{len(st['records'])} record(s) on this install  ·  "
                            f"{len(st['templates'])} template(s) on the sensor")
+        self.show_pam(st.get("pam") or {})
         dead = [r for r in st["records"] if r["on_sensor"] is False]
         if dead:
             names = ", ".join(f"{r['name']} ({r['user']})" for r in dead)
             self.message(f"These fingerprints are no longer on the sensor: {names}.\n"
                          "Remove the dead records, then import a current export or enrol again.",
                          Gtk.MessageType.WARNING)
+
+    def show_pam(self, pam):
+        state = pam.get("state", "unavailable")
+        words = {"enabled": ("#26a269", "On"), "disabled": ("#c01c28", "Off"),
+                 "partial": ("#e5a50a", "Partly on")}
+        colour, word = words.get(state, ("#e5a50a", "Can't tell"))
+        detail = " — ".join(x for x in (pam.get("method"), pam.get("detail")) if x)
+        self.pam_label.set_markup(
+            f"<b>Fingerprint for login and sudo:</b> "
+            f'<span foreground="{colour}" weight="bold">{word}</span>\n'
+            f"<small>{GLib.markup_escape_text(detail)}</small>")
+
+    def on_pam(self, _btn):
+        pam = self.status.get("pam", {})
+        if pam.get("state") == "enabled":
+            if not self.confirm("Turn off fingerprint for login and sudo?",
+                                "Login, sudo and admin prompts will ask for your password only. "
+                                "Your enrolled fingerprints are kept, and you can turn this "
+                                "back on here at any time.", "Turn off"):
+                return
+            op = "disable"
+        else:
+            op = "enable"
+
+        def done(res, err):
+            if err:
+                self.refresh(lambda: self.message(err, Gtk.MessageType.ERROR))
+            else:
+                word = "on" if op == "enable" else "off"
+                self.refresh(lambda: self.message(
+                    f"Fingerprint for login and sudo is now {word}.", Gtk.MessageType.INFO))
+        self.run_job("pam", done, op=op)
 
     def after_job(self, title):
         def done(res, err):
@@ -444,6 +504,221 @@ class Manager(Gtk.Window):
         if state.get("running"):
             self.helper.cancel()
         d.destroy()
+
+    def on_enrol(self, _btn):
+        """Enrol a new finger for the user with fprintd-enroll, with progress."""
+        if not shutil.which("fprintd-enroll"):
+            return self.message("fprintd-enroll is not installed.", Gtk.MessageType.ERROR)
+        st = self.status
+        mine = {r["name"] for r in st["records"] if r["user"] == st["user"]}
+        free = [f for f in FINGERS if f not in mine]
+        others = [t for t in st["templates"] if not t["used_by"]]
+        # fprintd's first touch is a duplicate check, then the driver's stages.
+        total = (st.get("enroll_stages") or 0) + 1
+
+        d = Gtk.Dialog(title="Enrol a finger", transient_for=self, modal=True)
+        d.set_default_size(440, -1)
+        close_btn = d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        start_btn = d.add_button("Start", 1)
+        start_btn.get_style_context().add_class("suggested-action")
+        area = d.get_content_area()
+        area.set_spacing(10)
+        area.set_border_width(18)
+
+        pick = Gtk.Box(spacing=8)
+        pick.pack_start(Gtk.Label(label="Finger:"), False, False, 0)
+        combo = Gtk.ComboBoxText()
+        for f in free:
+            combo.append_text(f)
+        combo.set_active(0)
+        pick.pack_start(combo, True, True, 0)
+        area.pack_start(pick, False, False, 0)
+
+        warn = ("If this finger is already enrolled on another Linux install or in Windows "
+                "Hello, enrolling it here deletes it from the sensor, so it stops working "
+                "there. To use the same finger on several installs, enrol it once and use "
+                "Export / Import.")
+        if others:
+            warn = (f"The sensor has {len(others)} template(s) not used by this install — "
+                    "possibly another install or Windows Hello.\n\n" + warn)
+        else:
+            warn += "\n\nThere are no other templates on the sensor right now."
+        note = Gtk.Label(label=warn, wrap=True, xalign=0, max_width_chars=55)
+        area.pack_start(note, False, False, 0)
+
+        icon = Gtk.Label()
+        head = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER)
+        sub = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER)
+        bar = Gtk.ProgressBar(show_text=True)
+        for w in (icon, head, sub, bar):
+            w.set_no_show_all(True)
+            area.pack_start(w, False, False, 0)
+        state = {"proc": None, "done": False, "count": 0, "finger": None}
+
+        def show(symbol, colour, title, detail=""):
+            span = f' foreground="{colour}"' if colour else ""
+            icon.set_markup(f'<span size="40000"{span}>{symbol}</span>')
+            head.set_markup(f'<span size="large" weight="bold"{span}>'
+                            f'{GLib.markup_escape_text(title)}</span>')
+            sub.set_text(detail)
+            for w in (icon, head, sub):
+                w.show()
+
+        def progress():
+            n = min(state["count"], total)
+            bar.set_fraction(n / total if total > 1 else 0)
+            bar.set_text(f"{n} of {total} touches" if total > 1 else "")
+            bar.show()
+
+        def start():
+            finger = combo.get_active_text()
+            if not finger:
+                return
+            state.update(finger=finger, count=0)
+            pick.hide()
+            note.hide()
+            start_btn.hide()
+            show("☝", None, f"Touch the sensor with your {finger.replace('-', ' ')}",
+                 "Lift your finger and touch again each time, moving it slightly.")
+            progress()
+            proc = subprocess.Popen(["fprintd-enroll", "-f", finger], stdout=subprocess.PIPE,
+                                    stderr=subprocess.STDOUT, text=True, bufsize=1)
+            state["proc"] = proc
+
+            def read():
+                for line in proc.stdout:
+                    GLib.idle_add(on_line, line.strip())
+                proc.wait()
+                GLib.idle_add(on_exit, proc.returncode)
+
+            threading.Thread(target=read, daemon=True).start()
+
+        def finish(symbol, colour, title, detail):
+            state["done"] = True
+            show(symbol, colour, title, detail)
+            if symbol != "✓":
+                bar.hide()
+            close_btn.set_label("Close")
+
+        def on_line(line):
+            if state["done"]:
+                return False
+            res = line.split(":", 1)[1].strip() if line.startswith("Enroll result:") else ""
+            finger = state["finger"]
+            if res == "enroll-stage-passed":
+                state["count"] += 1
+                progress()
+                show("☝", None, "Lift and touch again", f"Enrolling: {finger}")
+            elif res in ("enroll-retry-scan", "enroll-swipe-too-short",
+                         "enroll-finger-not-centered", "enroll-remove-and-retry"):
+                show("☝", AMBER, "That touch didn't read — touch again",
+                     "Place your finger flat in the middle of the sensor.")
+            elif res == "enroll-completed":
+                state["count"] = total
+                progress()
+                finish("✓", GREEN, f"Enrolled — {finger}",
+                       "If you share fingerprints with other installs, export again "
+                       "so they get this finger too.")
+            elif res == "enroll-duplicate":
+                finish("✗", RED, "Already enrolled here",
+                       "That finger is already enrolled on this install (as another finger "
+                       "or for another user). Nothing was changed.")
+            elif res == "enroll-data-full":
+                finish("✗", RED, "The sensor is full",
+                       "Delete templates you no longer need, then try again.")
+            elif res:
+                finish("✗", RED, "Enrolment failed", res)
+            elif line.lower().startswith(("failed", "enrollstart failed", "impossible")):
+                finish("✗", RED, "Enrolment could not start", line)
+            return False
+
+        def on_exit(rc):
+            if not state["done"] and not state.get("closed"):
+                finish("!", AMBER, "Enrolment stopped", f"fprintd-enroll exited ({rc}).")
+            return False
+
+        d.show_all()
+        while True:
+            r = d.run()
+            if r == 1 and state["proc"] is None:
+                start()
+                continue
+            break
+        state["closed"] = True
+        p = state["proc"]
+        if p and p.poll() is None:
+            p.terminate()
+        d.destroy()
+        if p:
+            self.refresh()
+
+    def on_restore(self, _btn):
+        """List records moved aside and put the chosen ones back."""
+        def listed(res, err):
+            if err:
+                return self.message(err, Gtk.MessageType.ERROR)
+            self._restore_dialog(res["records"])
+        self.run_job("list_moved", listed)
+
+    def _restore_dialog(self, recs):
+        if not recs:
+            return self.show_output("Nothing to restore",
+                                    "No records have been moved aside on this install.")
+        d = Gtk.Dialog(title="Restore fingerprint records", transient_for=self, modal=True)
+        d.set_default_size(680, 380)
+        d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        ok = d.add_button("Restore", Gtk.ResponseType.OK)
+        ok.get_style_context().add_class("suggested-action")
+        area = d.get_content_area()
+        area.set_spacing(8)
+        area.set_border_width(12)
+        area.pack_start(Gtk.Label(wrap=True, xalign=0, label=(
+            "Records moved aside by the boot check, this tool, or an import with --replace. "
+            "Only a record whose template is still on the sensor can work, so only those "
+            "can be restored.")), False, False, 0)
+        # moved: date, user, finger, why, status, path, restorable
+        store = Gtk.ListStore(str, str, str, str, str, str, bool)
+        for r in recs:
+            if not r["user_ok"]:
+                status, ok_ = "✗ No such user here", False
+            elif r["exists"]:
+                status, ok_ = "Enrolled here again", False
+            elif r["on_sensor"]:
+                status, ok_ = "✓ Template on the sensor", True
+            else:
+                status, ok_ = "✗ Template gone", False
+            why = "Replaced by import" if r["kind"] == "replaced" else "Removed"
+            day, _, hms = r["date"].partition("_")       # 2026-10-25_123333
+            when = f"{day} {hms[:2]}:{hms[2:4]}" if len(hms) >= 4 else day
+            store.append([when, r["user"], r["name"], why, status, r["path"], ok_])
+        view = self._table(store, ["Moved", "User", "Finger", "Why", "Status"])
+        sw = Gtk.ScrolledWindow(shadow_type=Gtk.ShadowType.IN)
+        sw.add(view)
+        area.pack_start(sw, True, True, 0)
+
+        def changed(*_):
+            rows = self._selected(view, 0)
+            ok.set_sensitive(bool(rows) and all(r[6] for r in rows))
+        view.get_selection().connect("changed", changed)
+        changed()
+        d.show_all()
+        rows = self._selected(view, 0) if d.run() == Gtk.ResponseType.OK else []
+        paths = [r[5] for r in rows if r[6]]
+        d.destroy()
+        if not paths:
+            return
+
+        def done(res, err):
+            if err:
+                return self.refresh(lambda: self.message(err, Gtk.MessageType.ERROR))
+            text = []
+            if res["restored"]:
+                text.append("Restored: " + ", ".join(res["restored"]))
+            if res["skipped"]:
+                text.append("Not restored: " + "; ".join(res["skipped"]))
+            self.refresh(lambda: self.message("\n".join(text) or "Nothing restored.",
+                                              Gtk.MessageType.INFO))
+        self.run_job("restore", done, paths=paths)
 
     def on_remove_dead(self, _btn):
         dead = [r for r in self.status["records"] if r["on_sensor"] is False]

@@ -730,11 +730,13 @@ fi
 
 # ── Step 12: Enable fingerprint authentication ────────────────────────────────
 step "Fingerprint Step 12: Enabling fingerprint authentication"
-if [[ "$DISTRO" == "fedora" ]]; then
-    authselect enable-feature with-fingerprint \
-        && info "✓ Fingerprint auth enabled via authselect" \
-        || warn "authselect failed — run 'sudo authselect enable-feature with-fingerprint' manually"
-elif [[ "$DISTRO" == "arch" ]]; then
+# fingerprint-pam.sh does it the way each distro expects (authselect on
+# Fedora, pam-auth-update on Ubuntu/Debian/MX, Mint's fingwit profile on Mint,
+# arch-pam.sh on Arch); the Fingerprint Manager uses the same script.
+if [[ "$DISTRO" != "arch" ]]; then
+    bash "$SCRIPT_DIR/fingerprint-pam.sh" enable \
+        || warn "Could not enable fingerprint authentication — try: sudo bash $SCRIPT_DIR/fingerprint-pam.sh enable"
+else
     # Arch-based distros have no authselect/pam-auth-update. Offer to add
     # fingerprint to sudo and polkit (pkexec, admin prompts). This edits PAM,
     # so it waits for an answer (no timeout) and never happens unattended.
@@ -750,29 +752,16 @@ elif [[ "$DISTRO" == "arch" ]]; then
             [[ -z "$_ans" || "${_ans,,}" == y* ]] && _pam=1 || _pam=0
         else
             _pam=0
-            info "No terminal — not changing PAM. To enable later: sudo bash $SCRIPT_DIR/arch-pam.sh enable"
+            info "No terminal — not changing PAM. To enable later: sudo bash $SCRIPT_DIR/fingerprint-pam.sh enable"
         fi
     fi
     if [[ "$_pam" == "1" ]]; then
-        bash "$SCRIPT_DIR/arch-pam.sh" enable \
-            || warn "arch-pam.sh failed — see README.md for the manual PAM steps"
+        bash "$SCRIPT_DIR/fingerprint-pam.sh" enable \
+            || warn "Could not enable it — see README.md for the manual PAM steps"
     elif [[ -t 0 || -n "${FPRINT_PAM:-}" ]]; then
-        info "PAM not changed. To enable later: sudo bash $SCRIPT_DIR/arch-pam.sh enable"
+        info "PAM not changed. To enable later: sudo bash $SCRIPT_DIR/fingerprint-pam.sh enable"
     fi
     info "The KDE lock screen uses the fingerprint without changes (kde-fingerprint)"
-else
-    # Linux Mint's own fingerprint PAM profile (fingwit) conflicts with fprintd's.
-    PAM_FPRINT_PROFILE="fprintd"
-    if [[ -f /usr/share/pam-configs/fingwit ]]; then
-        PAM_FPRINT_PROFILE="fingwit"
-        pam-auth-update --remove fprintd --force 2>/dev/null || true
-    fi
-    if pam-auth-update --enable "$PAM_FPRINT_PROFILE" --force 2>/dev/null \
-            && grep -q pam_fprintd /etc/pam.d/common-auth 2>/dev/null; then
-        info "✓ Fingerprint PAM profile enabled ($PAM_FPRINT_PROFILE)"
-    else
-        warn "PAM activation could not be verified — run manually: sudo pam-auth-update"
-    fi
 fi
 
 # ── Step 13: Import fingerprints exported from another install ───────────────

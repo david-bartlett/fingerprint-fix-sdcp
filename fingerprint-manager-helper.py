@@ -43,6 +43,7 @@ import time
 HERE = os.path.dirname(os.path.realpath(__file__))
 STORE = "/var/lib/fprint"
 REMOVED_DIR = "/var/lib/samsung-galaxybook/removed-fingerprints"
+REPLACED_DIR = "/var/lib/samsung-galaxybook/replaced-fingerprints"
 FINGERS = ["unknown", "left-thumb", "left-index-finger", "left-middle-finger",
            "left-ring-finger", "left-little-finger", "right-thumb",
            "right-index-finger", "right-middle-finger", "right-ring-finger",
@@ -220,6 +221,10 @@ def do_status(_req):
         for f in ("STORAGE_LIST", "STORAGE_DELETE", "STORAGE_CLEAR"):
             feat = getattr(FPrint.DeviceFeature, f, None)
             st["features"][f] = bool(feat is not None and dev.has_feature(feat))
+        try:
+            st["enroll_stages"] = int(dev.get_nr_enroll_stages())
+        except Exception:
+            st["enroll_stages"] = 0
         chip = dev.list_prints_sync(None) if st["features"]["STORAGE_LIST"] else []
     records = read_records(serial)
     for p in chip:
@@ -233,6 +238,7 @@ def do_status(_req):
                               "enrolled": enroll_date(r["print"]) if r["print"] else "",
                               "error": r.get("error")})
     st["templates"].sort(key=lambda t: (not t["used_by"], t["id"]))
+    st["pam"] = pam_state()
     return st
 
 
@@ -343,6 +349,110 @@ def run_script(argv, env_extra=None):
     return {"output": text}
 
 
+# ── Fingerprint for login and sudo (PAM) — via fingerprint-pam.sh ─────────────
+def pam_state():
+    try:
+        out = run_script([os.path.join(HERE, "fingerprint-pam.sh"), "status", "--short"])
+        state, method, detail = (out["output"].splitlines()[-1].split("|") + ["", ""])[:3]
+        return {"state": state, "method": method, "detail": detail}
+    except Exception as e:
+        return {"state": "unavailable", "method": "", "detail": str(e)}
+
+
+def do_pam(req):
+    op = req.get("op")
+    if op not in ("enable", "disable"):
+        raise Fail("op must be enable or disable")
+    out = run_script([os.path.join(HERE, "fingerprint-pam.sh"), op])
+    return dict(pam_state(), output=out["output"])
+
+
+# ── Putting moved-aside records back ──────────────────────────────────────────
+def moved_records(serial):
+    """Records in removed-fingerprints/ and replaced-fingerprints/ for this sensor."""
+    out = []
+    for kind, root in (("removed", REMOVED_DIR), ("replaced", REPLACED_DIR)):
+        for path in sorted(glob.glob(f"{root}/*/*/egismoc/{serial}/*")):
+            if not os.path.isfile(path) or os.path.islink(path):
+                continue
+            date, user = os.path.relpath(path, root).split("/")[:2]
+            finger = os.path.basename(path)
+            if not (re.fullmatch(r"[a-z_][a-z0-9_.-]*", user) and re.fullmatch(r"[0-9]+", finger)):
+                continue
+            rec = {"kind": kind, "date": date, "user": user, "finger": finger,
+                   "name": finger_name(finger), "path": path, "print": None}
+            try:
+                with open(path, "rb") as f:
+                    rec["print"] = FPrint.Print.deserialize(f.read())
+            except Exception:
+                pass
+            out.append(rec)
+    return out
+
+
+def do_list_moved(_req):
+    _, serial = sensor_usb()
+    recs = moved_records(serial)
+    with Sensor() as dev:
+        chip = dev.list_prints_sync(None)
+    result = []
+    for r in recs:
+        dest = f"{STORE}/{r['user']}/egismoc/{serial}/{r['finger']}"
+        try:
+            pwd.getpwnam(r["user"])
+            user_ok = True
+        except KeyError:
+            user_ok = False
+        result.append({k: r[k] for k in ("kind", "date", "user", "finger", "name", "path")} | {
+            "on_sensor": r["print"] is not None and any(r["print"].equal(p) for p in chip),
+            "exists": os.path.exists(dest), "user_ok": user_ok})
+    result.sort(key=lambda r: r["date"], reverse=True)
+    return {"records": result}
+
+
+def do_restore(req):
+    """Move records back into /var/lib/fprint — only if their template is still
+    on the sensor and that finger isn't enrolled here again since."""
+    _, serial = sensor_usb()
+    wanted = set(req.get("paths", []))
+    recs = [r for r in moved_records(serial) if r["path"] in wanted]
+    with Sensor() as dev:
+        chip = dev.list_prints_sync(None)
+    restored, skipped = [], []
+    for r in recs:
+        label = f"{r['name']} ({r['user']})"
+        dest_dir = f"{STORE}/{r['user']}/egismoc/{serial}"
+        dest = f"{dest_dir}/{r['finger']}"
+        try:
+            pwd.getpwnam(r["user"])
+        except KeyError:
+            skipped.append(f"{label}: no such user here")
+            continue
+        if r["print"] is None or not any(r["print"].equal(p) for p in chip):
+            skipped.append(f"{label}: its template is no longer on the sensor")
+            continue
+        if os.path.exists(dest):
+            skipped.append(f"{label}: that finger is enrolled here again")
+            continue
+        for d in (f"{STORE}/{r['user']}", f"{STORE}/{r['user']}/egismoc", dest_dir):
+            os.makedirs(d, exist_ok=True)
+            os.chmod(d, 0o700)
+        shutil.move(r["path"], dest)
+        os.chmod(dest, 0o600)
+        restored.append(label)
+        # Tidy the now-empty folders left behind in the safety folder.
+        d = os.path.dirname(r["path"])
+        for root in (REMOVED_DIR, REPLACED_DIR):
+            while d.startswith(root + "/") and not os.listdir(d):
+                os.rmdir(d)
+                d = os.path.dirname(d)
+    if restored:
+        if shutil.which("restorecon"):                 # SELinux (Fedora)
+            subprocess.run(["restorecon", "-R", STORE], capture_output=True)
+        subprocess.run(["systemctl", "restart", "fprintd"], capture_output=True)
+    return {"restored": restored, "skipped": skipped}
+
+
 def do_export(req):
     out = req.get("file") or ""
     argv = [os.path.join(HERE, "export-fingerprint.sh")] + ([out] if out else [])
@@ -360,7 +470,8 @@ def do_import(req):
 
 ACTIONS = {"status": do_status, "remove_records": do_remove_records,
            "delete_templates": do_delete_templates, "wipe": do_wipe,
-           "export": do_export, "import": do_import, "test": do_test}
+           "export": do_export, "import": do_import, "test": do_test,
+           "pam": do_pam, "list_moved": do_list_moved, "restore": do_restore}
 
 
 def handle(req):

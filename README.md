@@ -37,7 +37,7 @@ Find your reader's ID with `lsusb | grep 1c7a`.
 4. Exits without changes if the distro libfprint already handles the sensor (override with `FORCE=1`)
 5. Fetches the newest commit of `egismoc-sdcp` from the fork and builds the egismoc driver only (`-Ddrivers=egismoc -Dtod=false`)
 6. Installs the library to `/usr/local/lib/libfprint-egismoc-sdcp/` and adds a systemd drop-in so **only fprintd** loads it (`LD_LIBRARY_PATH`)
-7. Configures PAM (Fedora: authselect; Ubuntu/Debian/Mint: pam-auth-update; Arch-based: asks whether to add fingerprint to sudo and polkit — see below)
+7. Turns on fingerprint for login and sudo with `fingerprint-pam.sh` (Fedora: authselect; Ubuntu/Debian/MX: pam-auth-update; Mint: its own `fingwit` profile; Arch-based: asks whether to add fingerprint to sudo and polkit — see below)
 8. Installs a login-time monitor and a boot-time sensor check (see below)
 9. Offers to import fingerprints exported from another install on this laptop, if `~/fingerprint-export.tgz` exists (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
 
@@ -177,19 +177,39 @@ What it can do:
 | Button | What it does |
 |---|---|
 | Test fingerprint | Tests the selected finger, or with none selected any of your fingers (as login and sudo do), and shows a clear Match / No match with the finger that matched. It asks the sensor directly (fprintd pauses for a moment), because fprintd doesn't report which finger matched |
+| Enrol a finger… | Enrols a new finger for you with `fprintd-enroll`, with a progress bar. It warns first that enrolling a finger already stored for another install or Windows Hello deletes it from there — useful on desktops without a fingerprint settings page, such as Xfce (MX Linux) |
+| Restore… | Lists records moved to `removed-fingerprints/` or `replaced-fingerprints/` and puts the chosen ones back — only if their template is still on the sensor and that finger hasn't been enrolled again here |
 | Remove dead records | Moves records whose template is gone; the sensor is not touched |
 | Remove from this install… | Moves the selected records; the template stays, so installs sharing it keep working |
 | Delete from sensor… | Deletes the selected templates from the sensor (and moves aside any record here that used them) |
 | Export… / Import… | Runs `export-fingerprint.sh` / `import-fingerprint.sh` with all their checks; importing over your existing fingerprints uses `--replace` |
 | Wipe sensor… | Deletes every template on the sensor (every Linux install and Windows Hello) after you type WIPE; moves every record here aside |
+| Fingerprint for login and sudo — Enable / Disable | Shows whether PAM uses the fingerprint and turns it on or off with `fingerprint-pam.sh` (see below). Turning it off keeps your enrolled fingerprints |
 
 Records are never deleted: removed ones go to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the last 5 are kept). Each sensor job stops fprintd for a moment, as the sensor can only be used by one program at a time.
 
-Keep `fingerprint-manager.py` and `fingerprint-manager-helper.py` in this folder with the import/export scripts. It needs PyGObject with GTK 3 and libfprint's GObject introspection data:
+Keep `fingerprint-manager.py` and `fingerprint-manager-helper.py` in this folder with the other scripts (import, export, `fingerprint-pam.sh`, `arch-pam.sh`). It needs PyGObject with GTK 3 and libfprint's GObject introspection data:
 
 - Fedora: `sudo dnf install python3-gobject gtk3` (introspection data comes with libfprint)
 - Debian / Ubuntu / Mint / MX: `sudo apt install python3-gi gir1.2-gtk-3.0 gir1.2-fprint-2.0`
 - Arch / CachyOS: `sudo pacman -S python-gobject gtk3` (introspection data comes with libfprint)
+
+## Turning Fingerprint Login On or Off
+
+`fingerprint-pam.sh` turns fingerprint for login, sudo and admin prompts on or off the way each distro expects — the installer and the Fingerprint Manager both use it, so it also puts things right if the PAM setting was lost:
+
+```bash
+bash fingerprint-pam.sh status
+sudo bash fingerprint-pam.sh enable
+sudo bash fingerprint-pam.sh disable    # enrolled fingerprints are kept
+```
+
+| Distro | How |
+| --- | --- |
+| Fedora | `authselect enable-feature with-fingerprint` / `disable-feature` |
+| Ubuntu, Debian, MX Linux | `pam-auth-update` profile `fprintd` (from `libpam-fprintd`) |
+| Linux Mint | `pam-auth-update` profile `fingwit` (Mint's own; it conflicts with `fprintd`'s, which is turned off) |
+| Arch-based | `arch-pam.sh` — sudo and polkit-1 (below) |
 
 ## Fingerprint for sudo and Admin Prompts on Arch-Based Distros
 
@@ -199,7 +219,7 @@ Arch, CachyOS, Manjaro, EndeavourOS and other Arch-based distros have no authsel
 Enable fingerprint for sudo and admin prompts? [Y/n]
 ```
 
-It waits for an answer (no time limit, because it changes how you log in to sudo) and is skipped when there is no terminal. `FPRINT_PAM=1` or `FPRINT_PAM=0` answers it in advance. The same is available any time with `arch-pam.sh`:
+It waits for an answer (no time limit, because it changes how you log in to sudo) and is skipped when there is no terminal. `FPRINT_PAM=1` or `FPRINT_PAM=0` answers it in advance. The same is available any time with `fingerprint-pam.sh`, or directly with `arch-pam.sh`:
 
 ```bash
 sudo bash arch-pam.sh enable     # sudo + polkit-1 (pkexec, graphical admin prompts)
