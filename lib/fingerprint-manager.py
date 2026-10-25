@@ -152,13 +152,14 @@ class Helper:
 # ── Window ────────────────────────────────────────────────────────────────────
 CSS = b"""
 .fpm-card { border: 1px solid alpha(currentColor, 0.15); border-radius: 8px; padding: 10px 12px; }
-.fpm-hint { font-size: 90%; }
+.fpm-hint { font-size: 100%; }
 menu.fpm-menu { padding: 3px 0; min-width: 0; background-color: @theme_bg_color; }
 menu.fpm-menu menuitem { padding: 5px 14px 5px 10px; min-width: 0; min-height: 0; }
 menu.fpm-menu separator.fpm-menu-sep { margin: 2px 6px; min-height: 0; padding: 0; background: none;
     border-top: 1px solid shade(@theme_bg_color, 0.75);
     border-bottom: 1px solid shade(@theme_bg_color, 1.25); }
-.fpm-status { font-size: 90%; }
+.fpm-status { font-size: 100%; }
+.fpm-soft { color: alpha(@theme_fg_color, 0.72); }   /* easier to read than dim-label */
 .fpm-fcard { background-color: @theme_base_color; border: 1px solid alpha(@theme_fg_color, 0.15);
              border-radius: 10px; padding: 10px 6px 9px 6px; }
 .fpm-add { background-color: transparent; border: 1px dashed @theme_selected_bg_color; }
@@ -402,7 +403,7 @@ class Manager(Gtk.Window):
         title.set_markup("<b>Use fingerprint for login and sudo</b>")
         texts.pack_start(title, False, False, 0)
         self.pam_detail = Gtk.Label(xalign=0, wrap=True)
-        self.pam_detail.get_style_context().add_class("dim-label")
+        self.pam_detail.get_style_context().add_class("fpm-soft")
         self.pam_detail.get_style_context().add_class("fpm-hint")
         texts.pack_start(self.pam_detail, False, False, 0)
         row.pack_start(texts, True, True, 0)
@@ -412,7 +413,7 @@ class Manager(Gtk.Window):
         card.pack_start(row, False, False, 0)
         card.pack_start(Gtk.Separator(), False, False, 0)
         self.info = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
-        self.info.get_style_context().add_class("dim-label")
+        self.info.get_style_context().add_class("fpm-soft")
         self.info.get_style_context().add_class("fpm-status")
         card.pack_start(self.info, False, False, 0)
         outer.pack_start(card, False, False, 0)
@@ -457,7 +458,7 @@ class Manager(Gtk.Window):
         self.enrol_ok = False
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         top = Gtk.Box(spacing=6)
-        hint = Gtk.Label(label="Click a finger to select it, or a grey one to enrol it. Double-click to test; right-click for more.",
+        hint = Gtk.Label(label="Click to select · grey to enrol · double-click to test · right-click for more",
                          xalign=0, wrap=True)
         hint.get_style_context().add_class("fpm-hint")
         top.pack_start(hint, True, True, 0)
