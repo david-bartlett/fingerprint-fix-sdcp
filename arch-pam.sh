@@ -32,6 +32,10 @@ info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
+if [ ! -f /etc/os-release ] || ! grep -q "ID_LIKE=arch" /etc/os-release; then
+    error "arch-pam.sh can only be run on an Arch type distro."
+fi
+
 MARK="# Added by Samsung Galaxy Book fingerprint-fix-sdcp (arch-pam.sh)"
 RULE="auth            sufficient      pam_fprintd.so"
 STATE_DIR="/var/lib/samsung-galaxybook"
