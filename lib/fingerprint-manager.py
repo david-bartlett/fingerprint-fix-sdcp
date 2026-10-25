@@ -392,7 +392,7 @@ class Manager(Gtk.Window):
         self.enrol_ok = False
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         top = Gtk.Box(spacing=6)
-        hint = Gtk.Label(label="Click a finger to select it, or a grey one to enrol it. Double-click to test.",
+        hint = Gtk.Label(label="Click a finger to select it, or a grey one to enrol it. Double-click to test; right-click for more.",
                          xalign=0, wrap=True)
         hint.get_style_context().add_class("fpm-hint")
         top.pack_start(hint, True, True, 0)
@@ -432,11 +432,9 @@ class Manager(Gtk.Window):
                                      "Touch the sensor with any of your fingers — checked against "
                                      "all of them, as login and sudo do. Double-click a finger to "
                                      "test just that one.")
-        self.unlink_btn = Gtk.Button(label="Remove…")
-        self.unlink_btn.set_tooltip_text("Remove the selected fingerprints from this install only — "
-                                         "the sensor keeps them, so installs sharing them keep working")
-        self.unlink_btn.connect("clicked", self.on_remove_selected)
-        row.pack_end(self.unlink_btn, False, False, 0)
+        # Remove is in the right-click menu (and the Delete key), not a button.
+        for w in (self.cards, self.rows):
+            w.connect("key-press-event", self._on_fingers_key)
         page.pack_start(row, False, False, 0)
         self.stack.add_titled(page, "fingers", "Fingerprints")
 
@@ -706,13 +704,16 @@ class Manager(Gtk.Window):
             self._set_selection(set() if key in self.sel_keys else {key})
 
     def _on_fingers_double_click(self, widget, event):
-        """Double-click a finger card or row: test that finger."""
-        if event.type != Gdk.EventType._2BUTTON_PRESS or event.button != 1:
-            return False
+        """Double-click a finger card or row: test that finger.
+        Right-click: select it and show a menu."""
         if widget is self.cards:
             child = self.cards.get_child_at_pos(int(event.x), int(event.y))
         else:
             child = self.rows.get_row_at_y(int(event.y))
+        if event.type == Gdk.EventType.BUTTON_PRESS and event.button == 3:
+            return self._finger_menu(child, event)
+        if event.type != Gdk.EventType._2BUTTON_PRESS or event.button != 1:
+            return False
         key = getattr(child, "key", None)
         rec = next((r for r in self.records if (r["user"], r["finger"]) == key), None)
         if rec is None or self.busy or self.status is None:
@@ -732,6 +733,62 @@ class Manager(Gtk.Window):
         # after the second click's release has toggled the selection
         GLib.timeout_add(120, go)
         return False
+
+    def _finger_menu(self, child, event):
+        """Right-click menu for a finger: what you can do with that one."""
+        if child is None or self.busy or self.status is None:
+            return False
+        menu = Gtk.Menu()
+
+        def item(label, cb, sensitive=True, tip=None):
+            mi = Gtk.MenuItem(label=label)
+            mi.set_sensitive(sensitive)
+            if tip:
+                mi.set_tooltip_text(tip)
+            mi.connect("activate", lambda *_: GLib.idle_add(lambda: cb() and False))
+            menu.append(mi)
+
+        empty = getattr(child, "empty_finger", None)
+        key = getattr(child, "key", None)
+        rec = next((r for r in self.records if (r["user"], r["finger"]) == key), None)
+        if empty:
+            item(f"Enrol {long_finger(empty).lower()}…",
+                 lambda: self.on_enrol(None, finger=empty), self.enrol_ok)
+        elif rec is not None:
+            self._set_selection({key})
+            mine = rec["user"] == self.status["user"]
+            if rec["on_sensor"]:
+                item("Test", lambda: self.on_test(None, rec=rec), mine,
+                     None if mine else "You can only test your own fingers")
+                item("Remove from this install…", lambda: self.on_remove_selected(None))
+            else:
+                item("Remove dead record…", lambda: self.on_remove_dead(None, [rec]))
+                if mine:
+                    item("Enrol this finger again…", lambda: self.reenrol(rec),
+                         tip="Remove the dead record, then enrol the finger again")
+        else:
+            return False
+        menu.show_all()
+        menu.attach_to_widget(self, None)
+        menu.popup_at_pointer(event)
+        return True
+
+    def _on_fingers_key(self, _w, event):
+        """Delete key: remove the selected finger (as the right-click menu does)."""
+        if event.keyval in (Gdk.KEY_Delete, Gdk.KEY_KP_Delete) and self.sel_keys \
+                and not self.busy and self.status is not None:
+            self.on_remove_selected(None)
+            return True
+        return False
+
+    def reenrol(self, rec):
+        """A dead finger: move its record aside, then enrol that finger again."""
+        def done(_res, err):
+            if err:
+                return self.refresh(lambda: self.error(err))
+            self.refresh(lambda: self.status and self.on_enrol(None, finger=rec["name"]))
+        self.run_job("remove_records", done,
+                     records=[{"user": rec["user"], "finger": rec["finger"]}])
 
     def _set_selection(self, keys):
         """Keep both views showing the same selection."""
@@ -862,7 +919,6 @@ class Manager(Gtk.Window):
         mine = [r for r in recs if r["user"] == (st or {}).get("user")]
         self.refresh_btn.set_sensitive(not self.busy)
         self.test_btn.set_sensitive(ready and any(r["on_sensor"] for r in mine))
-        self.unlink_btn.set_sensitive(ready and bool(self.sel_keys))
         self.cards.set_sensitive(st is not None)
         self.rows.set_sensitive(st is not None)
         self.del_btn.set_sensitive(bool(ready and st["features"].get("STORAGE_DELETE", False)
@@ -1399,10 +1455,11 @@ class Manager(Gtk.Window):
             self.refresh(lambda: self.message(short, details="\n".join(text)))
         self.run_job("restore", done, paths=paths)
 
-    def on_remove_dead(self, _btn):
-        dead = [r for r in self.status["records"] if r["on_sensor"] is False]
-        names = "\n".join(f"  • {r['name']} ({r['user']})" for r in dead)
-        if self.confirm("Remove dead records?",
+    def on_remove_dead(self, _btn, dead=None):
+        if dead is None:
+            dead = [r for r in self.status["records"] if r["on_sensor"] is False]
+        names = "\n".join(f"  • {long_finger(r['name'])} ({r['user']})" for r in dead)
+        if self.confirm("Remove dead record?" if len(dead) == 1 else "Remove dead records?",
                         f"Their templates are no longer on the sensor, so they can never match:\n"
                         f"{names}\n\nThe records are moved to "
                         "/var/lib/samsung-galaxybook/removed-fingerprints/. "
@@ -1412,6 +1469,9 @@ class Manager(Gtk.Window):
 
     def on_remove_selected(self, _btn):
         rows = self._selected_recs()
+        if rows and not any(r[5] for r in rows):      # only dead ones: say so
+            sel = [r for r in self.records if (r["user"], r["finger"]) in self.sel_keys]
+            return self.on_remove_dead(None, sel)
         names = "\n".join(f"  • {r[1]} ({r[0]})" for r in rows)
         if self.confirm("Remove from this install only?",
                         f"{names}\n\nThese fingerprints stop working on this install. Their templates "
