@@ -176,7 +176,7 @@ What it can do:
 
 | Button | What it does |
 |---|---|
-| Test fingerprint | Tests the selected finger, or with none selected any of your fingers (as login and sudo do), and shows a clear Match / No match |
+| Test fingerprint | Tests the selected finger, or with none selected any of your fingers (as login and sudo do), and shows a clear Match / No match with the finger that matched. It asks the sensor directly (fprintd pauses for a moment), because fprintd doesn't report which finger matched |
 | Remove dead records | Moves records whose template is gone; the sensor is not touched |
 | Remove from this install… | Moves the selected records; the template stays, so installs sharing it keep working |
 | Delete from sensor… | Deletes the selected templates from the sensor (and moves aside any record here that used them) |

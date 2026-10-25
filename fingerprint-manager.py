@@ -81,6 +81,15 @@ class Helper:
                 raise RuntimeError(reply.get("error") or "Unknown error")
             return reply["result"]
 
+    def cancel(self):
+        """Stop a running fingerprint test (no reply; the test call returns)."""
+        try:
+            if self.proc and self.proc.poll() is None:
+                self.proc.stdin.write(json.dumps({"action": "cancel"}) + "\n")
+                self.proc.stdin.flush()
+        except (OSError, ValueError):
+            pass
+
     def stop(self):
         if self.proc and self.proc.poll() is None:
             try:
@@ -349,17 +358,15 @@ class Manager(Gtk.Window):
 
     # ── actions ──
     def on_test(self, _btn):
-        """Test one finger (the selected one) or any of yours, as login does.
+        """Test one finger (the selected one) or any of yours, as login does,
+        and show which finger matched.
 
-        fprintd-verify on its own only tries the FIRST finger fprintd lists,
-        so the finger is always given: -f <finger>, or -f any, which makes
-        the sensor check all of your fingers (what login and sudo do)."""
-        if not shutil.which("fprintd-verify"):
-            return self.message("fprintd-verify is not installed.", Gtk.MessageType.ERROR)
+        The helper asks the sensor directly: fprintd only reports match / no
+        match when it checks all fingers, never which finger it was."""
         me = self.status["user"]
         picked = [r for r in self._selected(self.rec_view, 0) if r[0] == me and r[5]]
-        finger = picked[0][1] if picked else "any"
-        what = finger if picked else "any of your fingers (as login and sudo do)"
+        finger = picked[0][4] if picked else None
+        what = picked[0][1] if picked else "any of your fingers (as login and sudo do)"
 
         d = Gtk.Dialog(title="Test fingerprint", transient_for=self, modal=True)
         d.set_default_size(420, -1)
@@ -387,34 +394,40 @@ class Manager(Gtk.Window):
             show("☝", None, "Touch the fingerprint sensor", f"Testing: {what}")
             close_btn.set_label("Cancel")
             again_btn.hide()
-            proc = subprocess.Popen(["fprintd-verify", "-f", finger], stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, text=True)
-            state["proc"] = proc
+            state["running"] = True
+            self.busy = True
+            self._update_buttons()
 
-            def wait():
+            def work():
                 try:
-                    out, _ = proc.communicate(timeout=60)
-                except subprocess.TimeoutExpired:
-                    proc.kill()
-                    out, _ = proc.communicate()
-                    out += "\nNo finger touched the sensor within 60 seconds."
-                GLib.idle_add(finished, proc, out)
+                    res, err = self.helper.call("test", finger=finger), None
+                except Exception as e:
+                    res, err = None, str(e)
+                GLib.idle_add(finished, res, err)
 
-            threading.Thread(target=wait, daemon=True).start()
+            threading.Thread(target=work, daemon=True).start()
 
-        def finished(proc, out):
-            if state.get("closed") or proc is not state["proc"]:
+        def finished(res, err):
+            state["running"] = False
+            self.busy = False
+            self._update_buttons()
+            if state.get("closed"):
                 return False
-            result = next((l.split(":", 1)[1].strip() for l in out.splitlines()
-                           if l.startswith("Verify result")), "")
-            if result.startswith("verify-match"):
-                show("✓", "#26a269", "Match", f"Tested: {what}")
-            elif result.startswith("verify-no-match"):
+            result = (res or {}).get("result")
+            if result == "match":
+                show("✓", "#26a269", f"Match — {res['name']}", f"Tested: {what}")
+            elif result == "no-match":
                 show("✗", "#c01c28", "No match",
                      f"Tested: {what}\nThat finger didn't match. Try again, or test another finger.")
+            elif result == "timeout":
+                show("!", "#e5a50a", "No touch", "Nothing touched the sensor within 60 seconds.")
+            elif result == "retry":
+                show("!", "#e5a50a", "Couldn't read your finger",
+                     f"{res.get('message') or ''}\nTouch the sensor flat and try again.".strip())
+            elif result == "cancelled":
+                return False
             else:
-                last = out.strip().splitlines()[-1] if out.strip() else "no output"
-                show("!", "#e5a50a", "Test did not complete", f"Tested: {what}\n{last}")
+                show("!", "#e5a50a", "Test did not complete", err or "Unknown result")
             close_btn.set_label("Close")
             again_btn.show()
             return False
@@ -423,14 +436,13 @@ class Manager(Gtk.Window):
         start()
         while True:
             r = d.run()
-            if r == 1:
+            if r == 1 and not state.get("running"):
                 start()
                 continue
             break
         state["closed"] = True
-        p = state["proc"]
-        if p and p.poll() is None:
-            p.terminate()
+        if state.get("running"):
+            self.helper.cancel()
         d.destroy()
 
     def on_remove_dead(self, _btn):

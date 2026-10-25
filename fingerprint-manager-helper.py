@@ -49,14 +49,19 @@ FINGERS = ["unknown", "left-thumb", "left-index-finger", "left-middle-finger",
            "right-little-finger"]
 ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
-FPrint = None
+import threading
+
+FPrint = Gio = GLib = None
 GI_ERROR = None
 try:
     import gi
     gi.require_version("FPrint", "2.0")
-    from gi.repository import FPrint
+    from gi.repository import FPrint, Gio, GLib
 except (ImportError, ValueError) as e:
     GI_ERROR = str(e)
+
+OUT_LOCK = threading.Lock()
+TEST = {"cancellable": None}          # the fingerprint test that is running, if any
 
 
 class Fail(Exception):
@@ -278,6 +283,54 @@ def do_wipe(_req):
     return {"deleted": len(chip), "left": left, "moved": moved}
 
 
+def do_test(req):
+    """Touch test against the user's fingers, reporting WHICH finger matched.
+
+    fprintd only says match / no match when checking all fingers, so this
+    asks the sensor directly (identify — the same check login does), with
+    fprintd stopped meanwhile. req["finger"] limits it to one finger number.
+    Cancelled by a {"action": "cancel"} request, or after 60 seconds."""
+    _, serial = sensor_usb()
+    user = calling_user()
+    only = req.get("finger")
+    recs = [r for r in read_records(serial)
+            if r["user"] == user and r["print"] is not None
+            and (only is None or r["finger"] == str(only))]
+    if not recs:
+        raise Fail("No fingerprints to test for you on this install.")
+    gallery = [r["print"] for r in recs]
+    cancel = Gio.Cancellable()
+    TEST["cancellable"] = cancel
+    timer = threading.Timer(60, cancel.cancel)
+    timer.start()
+    try:
+        with Sensor() as dev:
+            for _ in range(3):                  # retry on a poor touch
+                try:
+                    res = dev.identify_sync(gallery, cancel, None, None)
+                except GLib.Error as e:
+                    if e.matches(Gio.io_error_quark(), Gio.IOErrorEnum.CANCELLED):
+                        return {"result": "cancelled" if timer.is_alive() else "timeout"}
+                    if "retry" in str(e.domain):     # fp-device-retry-quark: poor touch
+                        last_retry = e.message
+                        continue
+                    raise
+                items = list(res) if isinstance(res, tuple) else [res]
+                if items and isinstance(items[0], bool):
+                    items = items[1:]
+                match = items[0] if items else None
+                if match is None:
+                    return {"result": "no-match"}
+                for r in recs:
+                    if match.equal(r["print"]):
+                        return {"result": "match", "finger": r["finger"], "name": r["name"]}
+                return {"result": "match", "finger": None, "name": "unknown finger"}
+            return {"result": "retry", "message": last_retry}
+    finally:
+        timer.cancel()
+        TEST["cancellable"] = None
+
+
 def run_script(argv, env_extra=None):
     env = dict(os.environ)
     env.pop("LD_LIBRARY_PATH", None)        # the scripts use the system tools
@@ -307,28 +360,51 @@ def do_import(req):
 
 ACTIONS = {"status": do_status, "remove_records": do_remove_records,
            "delete_templates": do_delete_templates, "wipe": do_wipe,
-           "export": do_export, "import": do_import}
+           "export": do_export, "import": do_import, "test": do_test}
+
+
+def handle(req):
+    try:
+        fn = ACTIONS.get(req.get("action"))
+        if not fn:
+            raise Fail(f"Unknown action: {req.get('action')}")
+        reply = {"ok": True, "result": fn(req)}
+    except Fail as e:
+        reply = {"ok": False, "error": str(e)}
+    except Exception as e:                           # report, keep running
+        reply = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+    with OUT_LOCK:
+        print(json.dumps(reply), flush=True)
 
 
 def main():
     if os.geteuid() != 0:
         sys.exit("This is started by fingerprint-manager.py (via pkexec), not by hand.")
     print(json.dumps({"ready": True}), flush=True)
+    worker = None
     for line in sys.stdin:
         line = line.strip()
         if not line:
             continue
         try:
             req = json.loads(line)
-            fn = ACTIONS.get(req.get("action"))
-            if not fn:
-                raise Fail(f"Unknown action: {req.get('action')}")
-            reply = {"ok": True, "result": fn(req)}
-        except Fail as e:
-            reply = {"ok": False, "error": str(e)}
-        except Exception as e:                       # report, keep running
-            reply = {"ok": False, "error": f"{type(e).__name__}: {e}"}
-        print(json.dumps(reply), flush=True)
+        except ValueError:
+            continue
+        if req.get("action") == "cancel":            # no reply of its own
+            c = TEST["cancellable"]
+            if c:
+                c.cancel()
+            continue
+        if req.get("action") == "test":
+            # Runs alongside this loop, so a "cancel" can still be read.
+            worker = threading.Thread(target=handle, args=(req,), daemon=True)
+            worker.start()
+            continue
+        if worker and worker.is_alive():
+            worker.join()
+        handle(req)
+    if worker and worker.is_alive():
+        worker.join(timeout=5)
 
 
 if __name__ == "__main__":
