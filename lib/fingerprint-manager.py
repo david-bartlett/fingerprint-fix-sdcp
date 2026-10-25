@@ -122,7 +122,126 @@ CSS = b"""
 .fpm-card { border: 1px solid alpha(currentColor, 0.15); border-radius: 8px; padding: 10px 12px; }
 .fpm-hint { font-size: 90%; }
 .fpm-status { font-size: 90%; }
+.fpm-fcard { background-color: @theme_base_color; border: 1px solid alpha(@theme_fg_color, 0.15);
+             border-radius: 10px; padding: 10px 6px 9px 6px; }
+.fpm-add { background-color: transparent; border: 1px dashed @theme_selected_bg_color; }
+.fpm-add label { color: @theme_selected_bg_color; }
+.fpm-plus { font-size: 26px; }
+.fpm-lcard { background-color: @theme_base_color; border: 1px solid alpha(@theme_fg_color, 0.15);
+             border-radius: 8px; padding: 6px 10px; }
+.fpm-name { font-weight: bold; }
+.fpm-small { font-size: 85%; }
+.fpm-pill { border-radius: 9px; padding: 1px 8px; font-size: 85%; font-weight: bold; }
+.fpm-ok { background-color: alpha(#26a269, 0.18); color: #26a269; }
+.fpm-dead { background-color: alpha(#e01b24, 0.16); color: #e01b24; }
+.fpm-unknown { background-color: alpha(@theme_fg_color, 0.10); }
+flowbox.fpm-cards, list.fpm-list { background-color: transparent; }
+flowbox.fpm-cards flowboxchild { padding: 3px; background-color: transparent; }
+flowbox.fpm-cards flowboxchild:selected { background-color: transparent; }
+flowbox.fpm-cards flowboxchild:selected .fpm-fcard { border: 2px solid @theme_selected_bg_color; padding: 9px 5px 8px 5px; }
+list.fpm-list row { padding: 0; margin-bottom: 6px; background-color: transparent; }
+list.fpm-list row:selected { background-color: transparent; }
+list.fpm-list row:selected .fpm-lcard { border-color: @theme_selected_bg_color;
+                                        background-color: alpha(@theme_selected_bg_color, 0.10); }
+flowbox.fpm-cards flowboxchild:selected label, list.fpm-list row:selected label { color: @theme_fg_color; }
+flowbox.fpm-cards flowboxchild:selected label.fpm-ok, list.fpm-list row:selected label.fpm-ok { color: #26a269; }
+flowbox.fpm-cards flowboxchild:selected label.fpm-dead, list.fpm-list row:selected label.fpm-dead { color: #e01b24; }
+flowbox.fpm-cards flowboxchild:selected .fpm-add label { color: @theme_selected_bg_color; }
 """
+
+# ── fingerprint pictures, names and the remembered view ─────────────────────
+SETTINGS = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
+                        APP_ID, "settings")
+
+
+def load_view():
+    try:
+        with open(SETTINGS) as f:
+            return "list" if "view=list" in f.read() else "icons"
+    except OSError:
+        return "icons"
+
+
+def save_view(view):
+    try:
+        os.makedirs(os.path.dirname(SETTINGS), exist_ok=True)
+        with open(SETTINGS, "w") as f:
+            f.write(f"view={view}\n")
+    except OSError:
+        pass
+
+
+# The fingerprint drawing (64×64 units): start point, then cubic segments.
+FP_PATHS = [
+    ((14, 22), [(19, 12, 32, 8, 42, 12), (47, 14, 51, 18, 53, 23)]),
+    ((12, 33), [(12, 23, 21, 17, 31, 17), (42, 17, 50, 24, 50, 33), (50, 37, 49.5, 40, 48.5, 43)]),
+    ((18, 47), [(16, 42, 17, 35, 19, 31), (22, 25, 28, 23, 33, 24.5), (38, 26, 41, 30, 41, 35),
+                (41, 40, 40, 45, 38, 49)]),
+    ((24, 50), [(22, 45, 22, 39, 24, 34), (25.5, 30.5, 28.5, 29, 31.5, 30), (34.5, 31, 35.5, 34, 35.5, 37),
+                (35.5, 42, 34, 47, 32, 51)]),
+    ((30, 36), [(30.5, 42, 29.5, 47, 27, 52)]),
+]
+FP_COLOURS = {"ok": (0.149, 0.635, 0.412), "dead": (0.878, 0.106, 0.141),
+              "unknown": (0.60, 0.60, 0.59), "add": (0.208, 0.518, 0.894)}
+
+
+try:                                  # drawing needs PyGObject's cairo support
+    gi.require_foreign("cairo")
+    HAVE_CAIRO = True
+except Exception:                     # (python3-gi-cairo on Debian/Ubuntu)
+    HAVE_CAIRO = False
+
+
+class FingerprintIcon(Gtk.DrawingArea):
+    def __init__(self, kind, size):
+        super().__init__()
+        self.kind = kind
+        self.set_size_request(size, size)
+        self.set_halign(Gtk.Align.CENTER)
+        if HAVE_CAIRO:
+            self.connect("draw", self._draw)
+
+    def _draw(self, _w, cr):
+        w, h = self.get_allocated_width(), self.get_allocated_height()
+        sc = min(w, h) / 46.0                       # the drawing spans about 46 units
+        cr.translate(w / 2 - 32.5 * sc, h / 2 - 30 * sc)
+        cr.scale(sc, sc)
+        cr.set_source_rgb(*FP_COLOURS.get(self.kind, FP_COLOURS["unknown"]))
+        cr.set_line_width(3.2)
+        cr.set_line_cap(1)                          # round
+        for (x, y), segs in FP_PATHS:
+            cr.move_to(x, y)
+            for seg in segs:
+                cr.curve_to(*seg)
+            cr.stroke()
+        return False
+
+
+def short_finger(name):
+    """right-index-finger -> Right index; left-thumb -> Left thumb"""
+    parts = name.split("-")
+    if len(parts) >= 2 and parts[0] in ("left", "right"):
+        return f"{parts[0].capitalize()} {parts[1]}"
+    return name
+
+
+def long_finger(name):
+    """right-index-finger -> Right index finger"""
+    return name.replace("-", " ").capitalize()
+
+
+def nice_date(d, year=False):
+    try:
+        import datetime
+        return datetime.datetime.strptime(d, "%Y-%m-%d").strftime("%-d %b %Y" if year else "%-d %b")
+    except (ValueError, TypeError):
+        return d or ""
+
+
+def rec_kind(r):
+    if r.get("error"):
+        return "unknown", "Unreadable"
+    return ("ok", "On the sensor") if r["on_sensor"] else ("dead", "Gone from sensor")
 
 
 def summarise(text):
@@ -229,18 +348,59 @@ class Manager(Gtk.Window):
 
         outer.pack_start(self.stack, True, True, 0)
 
-        # ── page 1: fingerprints on this install ──
-        # store: user, finger, enrolled, status, finger no., on sensor
-        self.rec_store = Gtk.ListStore(str, str, str, str, str, int)
-        self.rec_view = self._table(self.rec_store, ["User", "Finger", "Enrolled", "Status"])
-        page = self._page(self.rec_view,
-                          "Fingers enrolled on this install, and whether the sensor still has each one.")
+        # ── page 1: fingerprints on this install — cards (icons) or rows (list) ──
+        self.records = []                 # the status records shown, in order
+        self.sel_keys = set()             # selected (user, finger) — shared by both views
+        self._syncing_sel = False
+        self.enrol_ok = False
+        page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        top = Gtk.Box(spacing=6)
+        hint = Gtk.Label(label="Your fingers on this install. Select one to test or remove it.",
+                         xalign=0, wrap=True)
+        hint.get_style_context().add_class("dim-label")
+        hint.get_style_context().add_class("fpm-hint")
+        top.pack_start(hint, True, True, 0)
+        switch = Gtk.Box()
+        switch.get_style_context().add_class("linked")
+        self.view_icons = Gtk.RadioButton(draw_indicator=False)
+        self._icon_or_text(self.view_icons, ["view-grid-symbolic", "view-app-grid-symbolic",
+                                             "view-list-icons-symbolic", "view-grid"], "▦")
+        self.view_icons.set_tooltip_text("Cards")
+        self.view_list = Gtk.RadioButton(group=self.view_icons, draw_indicator=False)
+        self._icon_or_text(self.view_list, ["view-list-symbolic", "view-list-details-symbolic",
+                                            "view-list-details", "view-list-text"], "☰")
+        self.view_list.set_tooltip_text("List")
+        switch.pack_start(self.view_icons, False, False, 0)
+        switch.pack_start(self.view_list, False, False, 0)
+        top.pack_end(switch, False, False, 0)
+        page.pack_start(top, False, False, 0)
+
+        self.cards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.MULTIPLE, homogeneous=True,
+                                 min_children_per_line=2, max_children_per_line=4,
+                                 column_spacing=4, row_spacing=4, valign=Gtk.Align.START,
+                                 activate_on_single_click=True)
+        self.cards.get_style_context().add_class("fpm-cards")
+        self.cards.connect("selected-children-changed", self._on_cards_selected)
+        self.rows = Gtk.ListBox(selection_mode=Gtk.SelectionMode.MULTIPLE,
+                                activate_on_single_click=False)
+        self.rows.get_style_context().add_class("fpm-list")
+        self.rows.connect("selected-rows-changed", self._on_rows_selected)
+        self.rows.connect("row-activated", lambda _l, row: getattr(row, "is_add", False)
+                          and self.on_enrol(None))
+        self.rec_views = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
+        for name, widget in (("icons", self.cards), ("list", self.rows)):
+            sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
+            sw.set_min_content_height(200)
+            sw.add(widget)
+            self.rec_views.add_named(sw, name)
+        page.pack_start(self.rec_views, True, True, 0)
+        (self.view_list if load_view() == "list" else self.view_icons).set_active(True)
+        self.view_icons.connect("toggled", self._on_view_toggled)
+
         row = Gtk.Box(spacing=6)
         self.test_btn = self._button(row, "Test fingerprint", self.on_test,
                                      "Test the selected finger — or, with none selected, "
                                      "any of your fingers, as login and sudo do")
-        self.enrol_btn = self._button(row, "Enrol a finger…", self.on_enrol,
-                                      "Enrol a new finger for you on this install")
         self.unlink_btn = Gtk.Button(label="Remove…")
         self.unlink_btn.set_tooltip_text("Remove the selected fingerprints from this install only — "
                                          "the sensor keeps them, so installs sharing them keep working")
@@ -268,10 +428,10 @@ class Manager(Gtk.Window):
         self.stack.add_titled(page, "sensor", "Sensor")
         self.pages = {"fingers": "Fingerprints", "sensor": "Sensor"}
 
-        self.rec_view.get_selection().connect("changed", lambda *_: self._update_buttons())
         self.tpl_view.get_selection().connect("changed", lambda *_: self._update_buttons())
         self.connect("destroy", self.on_quit)
         self.show_all()
+        self.rec_views.set_visible_child_name("list" if self.view_list.get_active() else "icons")
         self._update_buttons()
         GLib.idle_add(self.refresh)
 
@@ -321,6 +481,158 @@ class Manager(Gtk.Window):
         model, paths = view.get_selection().get_selected_rows()
         return [model[p] for p in paths]
 
+    # ── fingerprint cards / rows ──
+    def _selected_recs(self):
+        """Selected records as [user, short name, enrolled, state, finger no., on sensor]."""
+        out = []
+        for r in self.records:
+            if (r["user"], r["finger"]) in self.sel_keys:
+                out.append([r["user"], r["name"], r["enrolled"], rec_kind(r)[1], r["finger"],
+                            1 if r["on_sensor"] else 0])
+        return out
+
+    def _on_view_toggled(self, _btn):
+        view = "list" if self.view_list.get_active() else "icons"
+        self.rec_views.set_visible_child_name(view)
+        save_view(view)
+
+    def _on_cards_selected(self, box):
+        if self._syncing_sel:
+            return
+        keys = set()
+        for child in box.get_selected_children():
+            if getattr(child, "is_add", False):
+                box.unselect_child(child)
+                if self.enrol_ok:
+                    GLib.idle_add(lambda: self.on_enrol(None) and False)
+                continue
+            keys.add(child.key)
+        self._set_selection(keys)
+
+    def _on_rows_selected(self, lst):
+        if self._syncing_sel:
+            return
+        self._set_selection({row.key for row in lst.get_selected_rows()
+                             if not getattr(row, "is_add", False)})
+
+    def _set_selection(self, keys):
+        """Keep both views showing the same selection."""
+        self.sel_keys = keys
+        self._syncing_sel = True
+        for child in self.cards.get_children():
+            if getattr(child, "key", None) in keys:
+                self.cards.select_child(child)
+            else:
+                self.cards.unselect_child(child)
+        for row in self.rows.get_children():
+            if getattr(row, "key", None) in keys:
+                self.rows.select_row(row)
+            else:
+                self.rows.unselect_row(row)
+        self._syncing_sel = False
+        self._update_buttons()
+
+    def _icon_or_text(self, button, names, text):
+        """The first of these icons the theme has (themes name them differently),
+        or a text symbol."""
+        theme = Gtk.IconTheme.get_default()
+        for n in names:
+            if theme.has_icon(n):
+                button.set_image(Gtk.Image.new_from_icon_name(n, Gtk.IconSize.BUTTON))
+                return
+        button.set_label(text)
+
+    def _pill(self, kind, text):
+        pill = Gtk.Label(label=text, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        for c in ("fpm-pill", "fpm-" + kind):
+            pill.get_style_context().add_class(c)
+        return pill
+
+    def _label(self, text, *classes, **kw):
+        lbl = Gtk.Label(label=text, **kw)
+        for c in classes:
+            lbl.get_style_context().add_class(c)
+        return lbl
+
+    def _fill_records(self, records, me):
+        self.records = records
+        many_users = len({r["user"] for r in records}) > 1
+        self.enrol_ok = len([r for r in records if r["user"] == me]) < 10
+        for w in self.cards.get_children() + self.rows.get_children():
+            w.destroy()
+        for r in records:
+            kind, status = rec_kind(r)
+            key = (r["user"], r["finger"])
+            when = nice_date(r["enrolled"])
+            # card
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            box.get_style_context().add_class("fpm-fcard")
+            over = Gtk.Overlay()
+            over.add(FingerprintIcon(kind, 56))
+            if kind == "dead":
+                warn = Gtk.Label(label="⚠", halign=Gtk.Align.END, valign=Gtk.Align.START)
+                over.add_overlay(warn)
+            box.pack_start(over, False, False, 2)
+            box.pack_start(self._label(short_finger(r["name"]), "fpm-name",
+                                       justify=Gtk.Justification.CENTER, wrap=True), False, False, 0)
+            sub = (f"{r['user']} · {when}" if many_users else
+                   (f"Enrolled {when}" if when else ""))
+            box.pack_start(self._label(sub, "dim-label", "fpm-small"), False, False, 0)
+            box.pack_start(self._pill(kind, status), False, False, 4)
+            child = Gtk.FlowBoxChild()
+            child.key = key
+            child.set_tooltip_text(f"{long_finger(r['name'])} — {r['user']}"
+                                   + (f", enrolled {nice_date(r['enrolled'], True)}" if r["enrolled"] else ""))
+            child.add(box)
+            self.cards.add(child)
+            # row
+            hb = Gtk.Box(spacing=10)
+            hb.get_style_context().add_class("fpm-lcard")
+            hb.pack_start(FingerprintIcon(kind, 36), False, False, 0)
+            texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
+            texts.pack_start(self._label(long_finger(r["name"]), "fpm-name", xalign=0), False, False, 0)
+            detail = r["user"] + (f" · enrolled {nice_date(r['enrolled'], True)}" if r["enrolled"] else "")
+            if kind == "dead":
+                detail += " · template gone"
+            texts.pack_start(self._label(detail, "dim-label", "fpm-small", xalign=0,
+                                         ellipsize=Pango.EllipsizeMode.END), False, False, 0)
+            hb.pack_start(texts, True, True, 0)
+            hb.pack_start(self._pill(kind, status), False, False, 0)
+            test = Gtk.Button(label="Test", valign=Gtk.Align.CENTER)
+            test.set_sensitive(r["user"] == me and bool(r["on_sensor"]))
+            test.set_tooltip_text("Test this finger")
+            test.connect("clicked", lambda _b, rr=r: self.on_test(None, rec=rr))
+            hb.pack_start(test, False, False, 0)
+            row = Gtk.ListBoxRow()
+            row.key = key
+            row.add(hb)
+            self.rows.add(row)
+        if self.enrol_ok:
+            # "Enrol a finger" card and row
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            for c in ("fpm-fcard", "fpm-add"):
+                box.get_style_context().add_class(c)
+            box.pack_start(self._label("＋", "fpm-plus", height_request=58), False, False, 0)
+            box.pack_start(self._label("Enrol a finger", "fpm-name"), False, False, 0)
+            box.pack_start(self._label("Up to 10", "fpm-small"), False, False, 0)
+            child = Gtk.FlowBoxChild()
+            child.is_add = True
+            child.set_tooltip_text("Enrol a new finger for you on this install")
+            child.add(box)
+            self.cards.add(child)
+            hb = Gtk.Box(spacing=10)
+            for c in ("fpm-lcard", "fpm-add"):
+                hb.get_style_context().add_class(c)
+            hb.pack_start(self._label("＋  Enrol a finger…", "fpm-name", xalign=0), True, True, 0)
+            row = Gtk.ListBoxRow(selectable=False)
+            row.is_add = True
+            row.add(hb)
+            self.rows.add(row)
+        self.cards.show_all()
+        self.rows.show_all()
+        self._set_selection({k for k in self.sel_keys
+                             if any((r["user"], r["finger"]) == k for r in records)})
+
     def _update_buttons(self):
         st = self.status
         ready = st is not None and not self.busy
@@ -328,8 +640,9 @@ class Manager(Gtk.Window):
         mine = [r for r in recs if r["user"] == (st or {}).get("user")]
         self.refresh_btn.set_sensitive(not self.busy)
         self.test_btn.set_sensitive(ready and any(r["on_sensor"] for r in mine))
-        self.enrol_btn.set_sensitive(ready and len(mine) < 10)
-        self.unlink_btn.set_sensitive(ready and bool(self._selected(self.rec_view, 0)))
+        self.unlink_btn.set_sensitive(ready and bool(self.sel_keys))
+        self.cards.set_sensitive(st is not None)
+        self.rows.set_sensitive(st is not None)
         self.del_btn.set_sensitive(bool(ready and st["features"].get("STORAGE_DELETE", False)
                                         and self._selected(self.tpl_view, 0)))
         self.wipe_btn.set_sensitive(bool(ready and (st["templates"] or recs)))
@@ -427,7 +740,7 @@ class Manager(Gtk.Window):
         def done(st, err):
             if err:
                 self.status = None
-                self.rec_store.clear()
+                self._fill_records([], None)
                 self.tpl_store.clear()
                 self.info.set_text("")
                 self.pam_detail.set_text("")
@@ -444,16 +757,7 @@ class Manager(Gtk.Window):
 
     def show_status(self, st):
         self.status = st
-        self.rec_store.clear()
-        for r in st["records"]:
-            if r.get("error"):
-                state = "Unreadable record"
-            elif r["on_sensor"]:
-                state = "✓ On the sensor"
-            else:
-                state = "✗ Gone from the sensor"
-            self.rec_store.append([r["user"], r["name"], r["enrolled"], state, r["finger"],
-                                   1 if r["on_sensor"] else 0])
+        self._fill_records(st["records"], st["user"])
         self.tpl_store.clear()
         for t in st["templates"]:
             used = ", ".join(t["used_by"]) if t["used_by"] else "Not used here"
@@ -537,14 +841,17 @@ class Manager(Gtk.Window):
         return done
 
     # ── actions ──
-    def on_test(self, _btn):
+    def on_test(self, _btn, rec=None):
         """Test one finger (the selected one) or any of yours, as login does,
         and show which finger matched.
 
         The helper asks the sensor directly: fprintd only reports match / no
         match when it checks all fingers, never which finger it was."""
         me = self.status["user"]
-        picked = [r for r in self._selected(self.rec_view, 0) if r[0] == me and r[5]]
+        if rec is not None:
+            picked = [[rec["user"], rec["name"], rec["enrolled"], "", rec["finger"], 1]]
+        else:
+            picked = [r for r in self._selected_recs() if r[0] == me and r[5]]
         finger = picked[0][4] if picked else None
         what = picked[0][1] if picked else "any of your fingers (as login and sudo do)"
 
@@ -853,7 +1160,7 @@ class Manager(Gtk.Window):
                          records=[{"user": r["user"], "finger": r["finger"]} for r in dead])
 
     def on_remove_selected(self, _btn):
-        rows = self._selected(self.rec_view, 0)
+        rows = self._selected_recs()
         names = "\n".join(f"  • {r[1]} ({r[0]})" for r in rows)
         if self.confirm("Remove from this install only?",
                         f"{names}\n\nThese fingerprints stop working on this install. Their templates "

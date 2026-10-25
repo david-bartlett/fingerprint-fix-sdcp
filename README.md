@@ -184,14 +184,14 @@ The installed copy is owned by root (`/usr/local/lib/libfprint-egismoc-sdcp/mana
 
 It asks for your password once per session; the prompt says "Galaxy Book Fingerprint Manager needs administrator access to read and manage the fingerprint sensor" (a polkit policy installed for the helper). At the top is a **Use fingerprint for login and sudo** switch and a line about the sensor and the fix build; below are two tabs:
 
-- **Fingerprints** — every user's enrolled fingers on this install, and whether the sensor still has each one. A dead record (its template was re-enrolled elsewhere or removed by Windows) shows a warning with a **Remove dead records** button.
+- **Fingerprints** — every user's enrolled fingers on this install, and whether the sensor still has each one, as **cards** (a fingerprint picture, the finger, the date and a coloured status; the last card enrols a new finger) or as a **list** (a row per finger with its own Test button). The buttons at the top right switch between them, and the choice is remembered. Green = on the sensor; red = a dead record (its template was re-enrolled elsewhere or removed by Windows), which also shows a warning with a **Remove dead records** button.
 - **Sensor** — every template on the sensor, and which user and finger on this install uses it. Templates not used here may belong to another Linux install, another user or Windows Hello; one install can't tell which, so they are never deleted without a warning.
 
 | Where | Control | What it does |
 |---|---|---|
 | Top | Use fingerprint for login and sudo | Turns PAM fingerprint on or off with `fingerprint-pam.sh` (see below). Turning it off keeps your enrolled fingerprints |
 | Fingerprints | Test fingerprint | Tests the selected finger, or with none selected any of your fingers (as login and sudo do), and shows a clear Match / No match with the finger that matched. It asks the sensor directly (fprintd pauses for a moment), because fprintd doesn't report which finger matched |
-| Fingerprints | Enrol a finger… | Enrols a new finger for you with `fprintd-enroll`, with a progress bar. It warns first that enrolling a finger already stored for another install or Windows Hello deletes it from there — useful on desktops without a fingerprint settings page, such as Xfce (MX Linux) |
+| Fingerprints | Enrol a finger (last card / row) | Enrols a new finger for you with `fprintd-enroll`, with a progress bar. It warns first that enrolling a finger already stored for another install or Windows Hello deletes it from there — useful on desktops without a fingerprint settings page, such as Xfce (MX Linux) |
 | Fingerprints | Remove… | Moves the selected records off this install; the template stays, so installs sharing it keep working |
 | Sensor | Delete… | Deletes the selected templates from the sensor (and moves aside any record here that used them) |
 | Sensor | Wipe sensor… | Deletes every template on the sensor (every Linux install and Windows Hello) after you type WIPE; moves every record here aside |
@@ -204,9 +204,9 @@ Records are never deleted: removed ones go to `/var/lib/samsung-galaxybook/remov
 
 The installer installs the packages it needs. If any are missing later, the launcher lists them with the command to install them (from a terminal it offers to run it) — PyGObject with GTK 3, libfprint's GObject introspection data and pkexec:
 
-- Fedora: `sudo dnf install python3-gobject gtk3` (introspection data comes with libfprint)
-- Debian / Ubuntu / Mint / MX: `sudo apt install python3-gi gir1.2-gtk-3.0 gir1.2-fprint-2.0`
-- Arch / CachyOS: `sudo pacman -S python-gobject gtk3` (introspection data comes with libfprint)
+- Fedora: `sudo dnf install python3-gobject python3-cairo gtk3` (introspection data comes with libfprint)
+- Debian / Ubuntu / Mint / MX: `sudo apt install python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-fprint-2.0 pkexec`
+- Arch / CachyOS: `sudo pacman -S python-gobject python-cairo gtk3` (introspection data comes with libfprint)
 
 ## Turning Fingerprint Login On or Off
 

@@ -828,9 +828,9 @@ fi
 # separately: if they fail, the fix itself is still fine.
 step "Fingerprint Step 14: Installing the Galaxy Book Fingerprint Manager"
 case "$DISTRO" in
-    fedora) dnf install -y python3-gobject gtk3 polkit ;;
-    arch)   pacman -S --noconfirm --needed python-gobject gtk3 polkit ;;
-    *)      apt-get install -y python3-gi gir1.2-gtk-3.0 gir1.2-fprint-2.0 pkexec ;;
+    fedora) dnf install -y python3-gobject python3-cairo gtk3 polkit ;;
+    arch)   pacman -S --noconfirm --needed python-gobject python-cairo gtk3 polkit ;;
+    *)      apt-get install -y python3-gi python3-gi-cairo gir1.2-gtk-3.0 gir1.2-fprint-2.0 pkexec ;;
 esac >/dev/null 2>&1 \
     || warn "Could not install the Fingerprint Manager's packages — it will list what it needs when started."
 
