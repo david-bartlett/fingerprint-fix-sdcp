@@ -414,10 +414,11 @@ class Manager(Gtk.Window):
         self.msg_bar.get_content_area().add(msg_box)
         self.msg_bar.set_no_show_all(True)
         msg_box.show_all()
-        outer.pack_start(self.msg_bar, False, False, 0)
         self._msg_action = None
 
         outer.pack_start(self.stack, True, True, 0)
+        # Messages go at the bottom, so the cards don't jump down when one appears.
+        outer.pack_start(self.msg_bar, False, False, 0)
 
         # ── page 1: fingerprints on this install — cards (icons) or rows (list) ──
         self.records = []                 # the status records shown, in order
@@ -461,7 +462,7 @@ class Manager(Gtk.Window):
             # Size the window to the cards (no empty space under them); scroll
             # only when there is more than fits, e.g. a long list.
             sw.set_propagate_natural_height(True)
-            sw.set_max_content_height(520)
+            sw.set_max_content_height(550)
             sw.add(widget)
             self.rec_views.add_named(sw, name)
         page.pack_start(self.rec_views, True, True, 0)
@@ -512,7 +513,7 @@ class Manager(Gtk.Window):
             # Size the window to the cards (no empty space under them); scroll
             # only when there is more than fits, e.g. a long list.
             sw.set_propagate_natural_height(True)
-            sw.set_max_content_height(520)
+            sw.set_max_content_height(550)
             sw.add(widget)
             self.tpl_views.add_named(sw, name)
         page.pack_start(self.tpl_views, True, True, 0)
