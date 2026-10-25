@@ -1116,7 +1116,8 @@ class Manager(Gtk.Window):
         d.destroy()
 
     def on_enrol(self, _btn, finger=None):
-        """Enrol a new finger for the user with fprintd-enroll, with progress."""
+        """Enrol a new finger for the user with fprintd-enroll, with progress.
+        With a finger (a grey card was clicked) it starts straight away."""
         if not shutil.which("fprintd-enroll"):
             return self.message("fprintd-enroll is not installed.", Gtk.MessageType.ERROR)
         st = self.status
@@ -1186,7 +1187,14 @@ class Manager(Gtk.Window):
                 return
             state.update(finger=finger, count=0)
             pick.hide()
-            note.hide()
+            if finger_given and others:
+                # Started without the choice screen: keep a short warning.
+                note.set_text(f"The sensor has {len(others)} template(s) not used by this "
+                              "install. If this finger is one of them (another install or "
+                              "Windows Hello), enrolling it here deletes it from there.")
+                note.get_style_context().add_class("dim-label")
+            else:
+                note.hide()
             start_btn.hide()
             show("☝", None, f"Touch the sensor with your {finger.replace('-', ' ')}",
                  "Lift your finger and touch again each time, moving it slightly.")
@@ -1218,7 +1226,7 @@ class Manager(Gtk.Window):
             if res == "enroll-stage-passed":
                 state["count"] += 1
                 progress()
-                show("☝", None, "Lift and touch again", f"Enrolling: {finger}")
+                show("☝", None, "Lift and touch again", f"Enrolling: {long_finger(finger)}")
             elif res in ("enroll-retry-scan", "enroll-swipe-too-short",
                          "enroll-finger-not-centered", "enroll-remove-and-retry"):
                 show("☝", AMBER, "That touch didn't read — touch again",
@@ -1226,7 +1234,7 @@ class Manager(Gtk.Window):
             elif res == "enroll-completed":
                 state["count"] = total
                 progress()
-                finish("✓", GREEN, f"Enrolled — {finger}",
+                finish("✓", GREEN, f"Enrolled — {long_finger(finger)}",
                        "If you share fingerprints with other installs, export again "
                        "so they get this finger too.")
             elif res == "enroll-duplicate":
@@ -1247,7 +1255,11 @@ class Manager(Gtk.Window):
                 finish("!", AMBER, "Enrolment stopped", f"fprintd-enroll exited ({rc}).")
             return False
 
+        finger_given = finger in free
         d.show_all()
+        if finger_given:
+            d.set_title(f"Enrol — {long_finger(finger)}")
+            start()
         while True:
             r = d.run()
             if r == 1 and state["proc"] is None:
