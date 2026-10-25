@@ -420,8 +420,14 @@ class Manager(Gtk.Window):
         # Messages go at the bottom, in a slot that always keeps their room, so
         # nothing moves or resizes when one appears.
         self.msg_slot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.msg_slot.pack_start(self.msg_bar, False, False, 0)
+        self.msg_slot.pack_end(self.msg_bar, False, False, 0)   # just above the buttons
         outer.pack_start(self.msg_slot, False, False, 0)
+        # Each tab's buttons sit under the message slot, at the very bottom.
+        self.btn_stack = Gtk.Stack()
+        outer.pack_start(self.btn_stack, False, False, 0)
+        self.stack.connect("notify::visible-child-name",
+                           lambda st, _p: self.btn_stack.set_visible_child_name(
+                               st.get_visible_child_name()))
 
         # ── page 1: fingerprints on this install — cards (icons) or rows (list) ──
         self.records = []                 # the status records shown, in order
@@ -480,7 +486,7 @@ class Manager(Gtk.Window):
         # Remove is in the right-click menu (and the Delete key), not a button.
         for w in (self.cards, self.rows):
             w.connect("key-press-event", self._on_fingers_key)
-        page.pack_start(row, False, False, 0)
+        self.btn_stack.add_named(row, "fingers")
         self.stack.add_titled(page, "fingers", "Fingerprints")
 
         # ── page 2: templates on the sensor — cards with free slots, or a list ──
@@ -532,7 +538,7 @@ class Manager(Gtk.Window):
         self.wipe_btn.set_tooltip_text("Delete every template on the sensor — every install and Windows")
         self.wipe_btn.connect("clicked", self.on_wipe)
         row.pack_end(self.wipe_btn, False, False, 0)
-        page.pack_start(row, False, False, 0)
+        self.btn_stack.add_named(row, "sensor")
         self.stack.add_titled(page, "sensor", "Sensor")
         self.sensor_page = page
         self.pages = {"fingers": "Fingerprints", "sensor": "Sensor"}
