@@ -103,7 +103,7 @@ class Helper:
 class Manager(Gtk.Window):
     def __init__(self):
         super().__init__(title=TITLE)
-        self.set_default_size(720, 620)
+        self.set_default_size(560, 620)
         self.set_icon_name("fingerprint-gui")
         self.helper = Helper()
         self.status = None
