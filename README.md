@@ -51,7 +51,7 @@ Find your reader's ID with `lsusb | grep 1c7a`.
 7. Turns on fingerprint for login and sudo with `fingerprint-pam.sh` (Fedora: authselect; Ubuntu/Debian/MX: pam-auth-update; Mint: its own `fingwit` profile; Arch-based: asks whether to add fingerprint to sudo and polkit — see below)
 8. Installs a login-time monitor and a boot-time sensor check (see below)
 9. Offers to import fingerprints exported from another install on this laptop, if `~/fingerprint-export.tgz` exists (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
-10. Installs the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) and adds it to the app menu
+10. Installs the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) and adds it to the app menu, then offers to open it: `Open the Galaxy Book Fingerprint Manager now? [Y/n]` (skipped after 30 seconds, or when there is no terminal or no desktop session; `FPRINT_OPEN_MANAGER=1` or `=0` answers in advance). It opens as you, in your desktop session — never as root
 
 It does **not** delete `/var/lib/fprint`. Deleting fprintd's records by hand leaves the templates on the sensor as orphans.
 

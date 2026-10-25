@@ -929,3 +929,56 @@ echo "  Galaxy Book Fingerprint Manager — test, enrol, export/import and more"
 echo "  in a window: find it in your app menu, or run (as yourself, not sudo):"
 echo "      ${MGR_ID}"
 echo
+
+# ── Offer to open the Galaxy Book Fingerprint Manager ────────────────────────
+# It must run as the user, in their desktop session — never as root. With
+# systemd, systemd-run starts it in the user's own session (their manager
+# knows WAYLAND_DISPLAY / DISPLAY); otherwise the display settings are taken
+# from one of the user's desktop processes. Only from a terminal, only if the
+# user is logged into a desktop, and only if they say yes (30 s, then skip).
+# FPRINT_OPEN_MANAGER=1 / =0 answers without asking.
+open_manager() {
+    local user="$1" uid env_file pid var vals=()
+    uid=$(id -u "$user" 2>/dev/null) || return 1
+    if command -v systemd-run >/dev/null 2>&1 \
+       && systemctl --user -M "${user}@" show-environment 2>/dev/null | grep -qE '^(WAYLAND_DISPLAY|DISPLAY)='; then
+        systemd-run --user -M "${user}@" --collect --quiet "$MGR_BIN" 2>/dev/null && return 0
+    fi
+    # No systemd user session: borrow the display settings from a desktop process.
+    for pid in $(pgrep -u "$uid" -x 'plasmashell|gnome-shell|cinnamon|xfce4-session|xfce4-panel|mate-session|lxqt-session|budgie-wm|marco|xfwm4' 2>/dev/null); do
+        env_file="/proc/$pid/environ"
+        [[ -r "$env_file" ]] || continue
+        for var in DISPLAY WAYLAND_DISPLAY XAUTHORITY XDG_RUNTIME_DIR DBUS_SESSION_BUS_ADDRESS XDG_CURRENT_DESKTOP; do
+            local v
+            v=$(tr '\0' '\n' < "$env_file" | grep -m1 "^${var}=") && vals+=("$v")
+        done
+        printf '%s\n' "${vals[@]}" | grep -qE '^(WAYLAND_DISPLAY|DISPLAY)=' || { vals=(); continue; }
+        runuser -u "$user" -- env "${vals[@]}" setsid -f "$MGR_BIN" >/dev/null 2>&1 && return 0
+        return 1
+    done
+    return 1
+}
+
+_open_user="${SUDO_USER:-}"
+if [[ -n "$_open_user" && "$_open_user" != "root" && -x "$MGR_BIN" ]]; then
+    _open="${FPRINT_OPEN_MANAGER:-}"
+    if [[ -z "$_open" ]]; then
+        if [[ -t 0 ]]; then
+            read -r -t 30 -p "  Open the Galaxy Book Fingerprint Manager now? [Y/n] " _ans || { echo; _ans=n; }
+            [[ -z "$_ans" || "${_ans,,}" == y* ]] && _open=1 || _open=0
+        else
+            _open=0
+        fi
+    fi
+    if [[ "$_open" == "1" ]]; then
+        if open_manager "$_open_user"; then
+            if [[ -z "$(find "/var/lib/fprint/${_open_user}" -type f 2>/dev/null | head -1)" ]]; then
+                info "Opening the Galaxy Book Fingerprint Manager — enrol a finger there (Enrol a finger card)"
+            else
+                info "Opening the Galaxy Book Fingerprint Manager"
+            fi
+        else
+            info "Couldn't open it from here (no desktop session found) — find Galaxy Book Fingerprint Manager in your app menu"
+        fi
+    fi
+fi
