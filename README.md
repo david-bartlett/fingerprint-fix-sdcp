@@ -80,20 +80,29 @@ cd fingerprint-fix-sdcp
 sudo bash install.sh
 ```
 
-The installer checks your distro, installs the build packages it needs, builds the driver and sets everything up; at the end it offers to open the Fingerprint Manager. It works on Fedora, Debian / Ubuntu and their derivatives (Linux Mint, Zorin, Pop!_OS, MX Linux…) and Arch-based distros. `/etc/samsung-galaxybook-egismoc-sdcp.installed` records the driver commit, its date and where it came from.
+The installer checks your distro, installs the build packages it needs, builds the driver and sets everything up; at the end it offers to open the Fingerprint Manager. It works on Fedora, Debian / Ubuntu and their derivatives (Linux Mint, Zorin, Pop!_OS, MX Linux…) and Arch-based distros. `/etc/samsung-galaxybook-egismoc-sdcp.installed` records the installed version, the driver commit, its date and where it came from. Each release builds one tested driver commit (see [Releases](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases) and [CHANGELOG.md](CHANGELOG.md)).
 
 **Updating:** in the `fingerprint-fix-sdcp` folder, run `git pull`, then `sudo bash install.sh` again. Enrolled fingerprints are kept.
 
 <details>
-<summary>For the maintainer: updating the driver fork</summary>
+<summary>For the maintainer: driver updates and releases</summary>
 
-This builds whatever the fork currently holds. Test the original repo's newest commit on your own laptop *before* clicking **Sync fork**, because syncing publishes it to everyone. `bash tools/test-latest-libfprint.sh` checks whether upstream has anything newer than the fork and, if so, installs it for testing — or do it by hand:
+Each release of fingerprint-fix-sdcp builds one tested driver commit, named in the `DRIVER` file, from the fork (david-bartlett/libfprint-egismoc-sdcp). Syncing the fork on GitHub changes nothing for users by itself.
+
+**Trying Abdallah's newest driver:** `bash tools/test-latest-libfprint.sh` checks whether upstream has anything newer than the fork and, if so, installs it on your laptop for testing — or by hand:
 
 ```bash
 sudo SDCP_REPO_URL=https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp.git bash install.sh
 ```
 
-If it works, sync the fork. Either way, `sudo bash install.sh` puts you back on the fork's version — enrolled fingerprints are kept. `SDCP_REPO_URL` only accepts `https://github.com/OWNER/REPO` addresses.
+`sudo SDCP_COMMIT=latest bash install.sh` builds the fork's newest commit instead of the tested one. Either way, `sudo bash install.sh` goes back to the tested commit — enrolled fingerprints are kept. `SDCP_REPO_URL` only accepts `https://github.com/OWNER/REPO` addresses; `SDCP_COMMIT` takes `latest` or a full commit id.
+
+**Making a release:**
+
+1. If the driver changes: sync the fork, then put the new commit's full id in `DRIVER`.
+2. Raise the number in `VERSION` — `1.0.1` for fixes, `1.1.0` for new features, `2.0.0` when users need to do something differently.
+3. Add a section for it at the top of `CHANGELOG.md`; commit and push.
+4. On GitHub: **Releases → Draft a new release**, tag `v` + the version (e.g. `v1.1.0`), and paste the changelog section as the notes.
 
 </details>
 
@@ -226,9 +235,9 @@ galaxybook-fingerprint-manager           # as yourself, not with sudo
   <img src="images/fingerprint-manager-enrol.png" width="400" alt="Enrolling a finger: Lift and touch again, 3 of 5 touches">
 </p>
 
-Only one window runs at a time: starting it again brings the open window forward (or makes it flash in the taskbar, depending on the desktop). The installed copy is owned by root (`/usr/local/lib/libfprint-egismoc-sdcp/manager/`), because its helper runs as root: a copy in your home folder could be changed by any program running as you. ☰ → **About** shows where it came from and the fix build.
+Only one window runs at a time: starting it again brings the open window forward (or makes it flash in the taskbar, depending on the desktop). The installed copy is owned by root (`/usr/local/lib/libfprint-egismoc-sdcp/manager/`), because its helper runs as root: a copy in your home folder could be changed by any program running as you. ☰ → **About** shows its version, the installed version and driver commit, and where it came from.
 
-It asks for your password once per session; the prompt says "Galaxy Book Fingerprint Manager needs administrator access to read and manage the fingerprint sensor" (a polkit policy installed for the helper). At the top is a **Use fingerprint for login and sudo** switch and a line about the sensor and the fix build; below are two tabs:
+It asks for your password once per session; the prompt says "Galaxy Book Fingerprint Manager needs administrator access to read and manage the fingerprint sensor" (a polkit policy installed for the helper). At the top is a **Use fingerprint for login and sudo** switch and a line about the sensor, the installed version and the driver commit; below are two tabs:
 
 - **Fingerprints** — your enrolled fingers on this install, and whether the sensor still has each one, as **cards** (all ten of your fingers, right hand then left, like Linux Mint's fingerprint settings; grey dashed = not enrolled, click one to enrol that finger) or as a **list** (a row per enrolled finger, for every user, with its own Test button; other users' fingers are only in the list). The buttons at the top right switch between them (on both tabs), and the choice is remembered. Click a card or row to select it (one at a time, on both tabs) and click it again to deselect it. Double-click one of your fingers to test it. Right-click a finger for a menu: **Test** and **Remove from <distro>** (e.g. "Remove from Fedora", the name from /etc/os-release), or for a red (dead) finger **Remove dead record…** and **Enrol this finger again…** (removes the dead record, then enrols that finger). Green = on the sensor; red = a dead record (its template was re-enrolled elsewhere or removed by Windows), which also shows a warning with a **Remove dead records** button.
 - **Sensor** (hidden by default — turn it on with ☰ → **Show the Sensor tab (advanced)**; the choice is remembered) — how many of the sensor's 10 slots are used, and every template on it: green = used by this install (with the user and finger), grey = not used here, labelled "Another distro?" (usually another distro on the same laptop; it can also be Windows Hello's own templates — Windows wipes Linux's templates but keeps its own — or ones left over from a reinstall. One install can't tell which, so they are never deleted without a warning), dashed = free. Shown as cards or a list, like the Fingerprints tab; the Cards / List choice applies to both tabs.
@@ -364,7 +373,7 @@ session include system-local-login
 
 ## Reporting Problems
 
-Use the [**Bug report**](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues/new?template=bug_report.yml) form. It asks for the laptop model, sensor ID, distro, fix build and the relevant logs, which usually saves a round of questions. Please check the [existing issues](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues) first.
+Use the [**Bug report**](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues/new?template=bug_report.yml) form. It asks for the laptop model, sensor ID, distro, fingerprint-fix-sdcp version and the relevant logs, which usually saves a round of questions. Please check the [existing issues](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues) first.
 
 ## Licence
 

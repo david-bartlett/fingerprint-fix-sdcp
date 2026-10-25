@@ -18,7 +18,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # fingerprint-fix-sdcp folder, not on its own.
 for _f in lib/sensor-check.c lib/fingerprint-manager.py lib/fingerprint-manager-helper.py \
           lib/galaxybook-fingerprint-manager.svg fingerprint-manager.sh \
-          tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh; do
+          tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh \
+          VERSION DRIVER; do
     [[ -f "$SCRIPT_DIR/$_f" ]] || { echo "Missing $SCRIPT_DIR/$_f — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
 done
 
@@ -43,18 +44,38 @@ warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 step()  { echo -e "\n${BLUE}══ $* ${NC}"; }
 
-# ── Source ────────────────────────────────────────────────────────────────────
-# Builds the newest commit of SDCP_BRANCH in our fork of
-# abdallah-alkanani/libfprint-egismoc-sdcp. The fork is the release channel:
-# users get whatever it holds, so "Sync fork" on GitHub publishes an update.
+# ── Version and source ────────────────────────────────────────────────────────
+# VERSION: this release of fingerprint-fix-sdcp.
+# DRIVER:  the libfprint-egismoc-sdcp commit it is tested with. That exact
+#          commit is built from our fork of abdallah-alkanani/libfprint-egismoc-sdcp,
+#          so syncing the fork changes nothing until a release names a new commit.
 #
-# Test upstream changes BEFORE syncing the fork, by building the original repo:
+#   sudo SDCP_COMMIT=latest bash install.sh      the fork's newest commit instead
+#   sudo SDCP_COMMIT=<full commit id> bash install.sh
 #   sudo SDCP_REPO_URL=https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp.git bash install.sh
+#        Abdallah's newest commit — test it BEFORE syncing the fork
+FIX_VERSION=$(tr -d '[:space:]' < "$SCRIPT_DIR/VERSION" 2>/dev/null)
+[[ "$FIX_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] \
+    || { echo "ERROR: VERSION is missing — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
 DEFAULT_SDCP_REPO_URL="https://github.com/david-bartlett/libfprint-egismoc-sdcp.git"
 SDCP_REPO_URL="${SDCP_REPO_URL:-$DEFAULT_SDCP_REPO_URL}"
 SDCP_BRANCH="egismoc-sdcp"
 [[ "$SDCP_REPO_URL" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]] \
     || { echo "ERROR: SDCP_REPO_URL must be an https://github.com/OWNER/REPO URL."; exit 1; }
+DRIVER_COMMIT=$(grep -v '^#' "$SCRIPT_DIR/DRIVER" 2>/dev/null | tr -d '[:space:]')
+[[ "$DRIVER_COMMIT" =~ ^[0-9a-f]{40}$ ]] \
+    || { echo "ERROR: DRIVER is missing or not a full commit id — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
+# Which commit to build: the tested one, unless asked otherwise. Testing
+# another repository (SDCP_REPO_URL) builds its newest commit.
+if [[ -n "${SDCP_COMMIT:-}" ]]; then
+    WANT_COMMIT="$SDCP_COMMIT"
+elif [[ "$SDCP_REPO_URL" != "$DEFAULT_SDCP_REPO_URL" ]]; then
+    WANT_COMMIT="latest"
+else
+    WANT_COMMIT="$DRIVER_COMMIT"
+fi
+[[ "$WANT_COMMIT" == "latest" || "$WANT_COMMIT" =~ ^[0-9a-f]{40}$ ]] \
+    || { echo "ERROR: SDCP_COMMIT must be 'latest' or a full 40-character commit id."; exit 1; }
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 FPRINT_LIB_DIR="/usr/local/lib/libfprint-egismoc-sdcp"
@@ -169,6 +190,7 @@ echo
 echo "╔════════════════════════════════════════════════════════════╗"
 echo "║       Installing: Fingerprint Fix (egismoc SDCP driver)    ║"
 echo "╚════════════════════════════════════════════════════════════╝"
+info "fingerprint-fix-sdcp ${FIX_VERSION} — driver commit ${DRIVER_COMMIT:0:12}"
 
 # ── Step 1: Check sensor is present ──────────────────────────────────────────
 step "Fingerprint Step 1: Checking sensor is present"
@@ -260,9 +282,19 @@ rm -rf "$FPRINT_BUILD_DIR"
 mkdir -p "$FPRINT_BUILD_DIR"
 git -C "$FPRINT_BUILD_DIR" init -q
 git -C "$FPRINT_BUILD_DIR" remote add origin "$SDCP_REPO_URL"
-git -C "$FPRINT_BUILD_DIR" fetch -q --depth 1 origin "$SDCP_BRANCH" \
-    || error "Could not fetch branch ${SDCP_BRANCH} from:\n  ${SDCP_REPO_URL}\n  Check your internet connection and that the repository still exists."
-git -C "$FPRINT_BUILD_DIR" checkout -q FETCH_HEAD
+if [[ "$WANT_COMMIT" == "latest" ]]; then
+    info "Building the newest commit of ${SDCP_BRANCH} (not the one this release is tested with)"
+    git -C "$FPRINT_BUILD_DIR" fetch -q --depth 1 origin "$SDCP_BRANCH" \
+        || error "Could not fetch branch ${SDCP_BRANCH} from:\n  ${SDCP_REPO_URL}\n  Check your internet connection and that the repository still exists."
+else
+    # GitHub serves a single commit by its id; if not, look for it in the branch.
+    git -C "$FPRINT_BUILD_DIR" fetch -q --depth 1 origin "$WANT_COMMIT" 2>/dev/null \
+        || git -C "$FPRINT_BUILD_DIR" fetch -q --depth 500 origin "$SDCP_BRANCH" \
+        || error "Could not fetch from:\n  ${SDCP_REPO_URL}\n  Check your internet connection and that the repository still exists."
+    git -C "$FPRINT_BUILD_DIR" cat-file -e "${WANT_COMMIT}^{commit}" 2>/dev/null \
+        || error "Commit ${WANT_COMMIT:0:12} is not in ${SDCP_REPO_URL}.\n  Sync the fork on GitHub, or check the commit in the DRIVER file."
+fi
+git -C "$FPRINT_BUILD_DIR" checkout -q "$([[ "$WANT_COMMIT" == latest ]] && echo FETCH_HEAD || echo "$WANT_COMMIT")"
 SDCP_COMMIT=$(git -C "$FPRINT_BUILD_DIR" rev-parse HEAD)
 SDCP_DATE=$(git -C "$FPRINT_BUILD_DIR" log -1 --format=%cs)
 if [[ "$SDCP_REPO_URL" == "$DEFAULT_SDCP_REPO_URL" ]]; then
@@ -361,7 +393,7 @@ if [[ -n "$SYSLIB" ]]; then
     sha256sum "$SYSLIB" | awk '{print $1}' > "$FPRINT_SYSLIB_HASH"
     chmod 644 "$FPRINT_SYSLIB_HASH"
 fi
-echo "${SDCP_COMMIT:0:12} ${SDCP_DATE} ${SDCP_SOURCE}${SDCP_FIXES[*]:+ +${SDCP_FIXES[*]}} (installed $(date '+%Y-%m-%d'))" > "$FPRINT_MARKER"
+echo "${SDCP_COMMIT:0:12} ${SDCP_DATE} ${SDCP_SOURCE}${SDCP_FIXES[*]:+ +${SDCP_FIXES[*]}} (installed $(date '+%Y-%m-%d')) fingerprint-fix-sdcp ${FIX_VERSION}" > "$FPRINT_MARKER"
 info "✓ Marker and distro libfprint hash stored"
 
 # ── Step 10: Monitor — cleanup helper, scripts, polkit rule, services ─────────
@@ -867,6 +899,7 @@ esac >/dev/null 2>&1 \
 rm -rf "$MGR_DIR"
 install -d -m 755 -o root -g root "$MGR_DIR" "$MGR_DIR/lib" "$MGR_DIR/tools"
 install -m 755 -o root -g root "$SCRIPT_DIR/fingerprint-manager.sh" "$MGR_DIR/"
+install -m 644 -o root -g root "$SCRIPT_DIR/VERSION" "$MGR_DIR/"
 install -m 755 -o root -g root "$SCRIPT_DIR/lib/fingerprint-manager.py" \
     "$SCRIPT_DIR/lib/fingerprint-manager-helper.py" "$MGR_DIR/lib/"
 install -m 755 -o root -g root "$SCRIPT_DIR"/tools/*.sh "$MGR_DIR/tools/"
@@ -925,9 +958,11 @@ command -v update-desktop-database >/dev/null 2>&1 \
 info "✓ Galaxy Book Fingerprint Manager installed (app menu, or: ${MGR_ID})"
 
 # ── Done ──────────────────────────────────────────────────────────────────────
-info "✓ Fingerprint fix installed — no reboot required"
+info "✓ fingerprint-fix-sdcp ${FIX_VERSION} installed — no reboot required"
 info "Built from: $SDCP_REPO_URL"
 info "            branch $SDCP_BRANCH, commit ${SDCP_COMMIT:0:12} (${SDCP_DATE})"
+[[ "$SDCP_COMMIT" == "$DRIVER_COMMIT" ]] \
+    || warn "This is not the driver commit ${FIX_VERSION} is tested with (${DRIVER_COMMIT:0:12}).\n       Run the installer again without SDCP_COMMIT / SDCP_REPO_URL to go back."
 [[ ${#SDCP_FIXES[@]} -gt 0 ]] && info "            with fixes from lib/patches: ${SDCP_FIXES[*]}"
 [[ "$SDCP_SOURCE" == "fork" ]] \
     || warn "This is a TEST build (not the usual fork). Run the installer again without\n       SDCP_REPO_URL to go back to the fork's build."

@@ -49,9 +49,9 @@ body:
   - type: input
     id: build
     attributes:
-      label: Fix build
-      description: "`cat /etc/samsung-galaxybook-egismoc-sdcp.installed` — or the \"fix build\" shown at the top of the Fingerprint Manager."
-      placeholder: e.g. 3b0ee1f40fec 2026-10-25 fork (installed 2026-10-25)
+      label: fingerprint-fix-sdcp version
+      description: "`cat /etc/samsung-galaxybook-egismoc-sdcp.installed` — or the version shown at the top of the Fingerprint Manager (e.g. v1.0.0 · driver 3b0ee1f)."
+      placeholder: e.g. 3b0ee1f40fec 2026-10-25 fork (installed 2026-10-25) fingerprint-fix-sdcp 1.0.0
     validations:
       required: true
 

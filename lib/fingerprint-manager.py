@@ -23,6 +23,7 @@ import subprocess
 import sys
 import threading
 import json
+import re
 
 # The application ID. It makes the window a single instance (a second launch
 # brings the running window forward instead), and on Wayland it is the
@@ -49,6 +50,26 @@ except (ImportError, ValueError) as e:
 HERE = os.path.dirname(os.path.realpath(__file__))
 HELPER = os.path.join(HERE, "fingerprint-manager-helper.py")
 TITLE = "Galaxy Book Fingerprint Manager"
+
+
+def app_version():
+    """This copy's fingerprint-fix-sdcp version (the VERSION file next to lib/)."""
+    try:
+        with open(os.path.join(HERE, "..", "VERSION")) as f:
+            return f.read().strip() or "unknown"
+    except OSError:
+        return "unknown"
+
+
+def parse_marker(marker):
+    """(installed version, driver commit, driver date) from the install marker:
+    '<commit> <date> <source> … (installed <date>) fingerprint-fix-sdcp <version>'.
+    Installs from before versions existed have no version."""
+    parts = (marker or "").split()
+    m = re.search(r"fingerprint-fix-sdcp (\S+)", marker or "")
+    return (m.group(1) if m else None,
+            parts[0] if parts else None,
+            parts[1] if len(parts) > 1 else None)
 EXPORT_NAME = "fingerprint-export.tgz"
 # Cards view: all ten fingers, right hand then left (index … little, thumb).
 GRID_FINGERS = ["right-index-finger", "right-middle-finger", "right-ring-finger",
@@ -1116,8 +1137,10 @@ class Manager(Gtk.Window):
                                           f"{self.pages[name]} ({n})")
         self.title_lbl.set_text(f"Fingerprints ({len(st['records'])})")
         marker = st.get("marker") or "unknown"
-        build = marker.split()[0] if marker != "unknown" else marker
-        self.info.set_text(f"Sensor {st['usb_id']} · {st['serial']} · fix build {build}")
+        version, driver, _date = parse_marker(marker)
+        self.info.set_text(f"Sensor {st['usb_id']} · {st['serial']} · "
+                           + (f"v{version} · " if version else "")
+                           + f"driver {(driver or 'unknown')[:7]}")
         self.info.set_tooltip_text(f"{st.get('device_name', '')}\nfingerprint-fix-sdcp: {marker}")
         self.show_pam(st.get("pam") or {})
         dead = [r for r in st["records"] if r["on_sensor"] is False]
@@ -1649,7 +1672,15 @@ class Manager(Gtk.Window):
                        "Test, enrol, share and tidy fingerprints on the Galaxy Book's "
                        "Egis fingerprint sensor.\n\nAn unofficial community tool, "
                        "not made or endorsed by Samsung.")
-        d.set_version("fix build " + ((st.get("marker") or "unknown").split() or ["unknown"])[0])
+        version, driver, date = parse_marker(st.get("marker"))
+        d.set_version(app_version())
+        d.set_comments(d.get_comments() + "\n\nInstalled: "
+                       + (f"fingerprint-fix-sdcp {version}" if version else "fingerprint-fix-sdcp")
+                       + (f"\nDriver: libfprint-egismoc-sdcp {driver[:7]}" if driver else "")
+                       + (f" ({nice_date(date, True)})" if date else ""))
+        d.set_website("https://github.com/david-bartlett/fingerprint-fix-sdcp")
+        d.set_website_label("github.com/david-bartlett/fingerprint-fix-sdcp")
+        d.set_license_type(Gtk.License.GPL_2_0)
         d.set_authors(["David Bartlett", "Driver: Joshua Grisham, Abdallah Alkanani"])
         d.run()
         d.destroy()
