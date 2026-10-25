@@ -777,7 +777,7 @@ elif [[ -z "$_imp_file" && -n "$_imp_home" && -f "$_imp_home/fingerprint-export.
     if [[ -t 0 ]]; then
         _when=$(date -r "$_offered" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "unknown date")
         echo "  Found exported fingerprints: $_offered (saved $_when)"
-        if read -r -t 20 -p "  Import them for ${_imp_user}? [Y/n] (skips in 20s) " _ans; then
+        if read -r -t 30 -p "  Import them for ${_imp_user}? [Y/n] (skips in 30s) " _ans; then
             [[ -z "$_ans" || "${_ans,,}" == y* ]] && _imp_file="$_offered"
         else
             echo; info "No answer — skipping import"

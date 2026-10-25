@@ -121,7 +121,7 @@ The sensor has a single template store shared by every OS:
 
 Several Linux installs on the same laptop can share one enrolment instead of each enrolling the same finger (which would make them delete each other's templates). fprintd's record for a finger holds only the ID of its template on the sensor — no fingerprint image and no secret — so the same record works on every install that runs this fix.
 
-**Tested:** a finger enrolled on Fedora 45, exported and imported on Linux Mint 27 (beta) (via `FPRINT_IMPORT` during install), verified on Mint — and still verified on Fedora afterwards (940XHA, 2026-10-24).
+**Tested:** a finger enrolled on Fedora 45, exported and imported on Linux Mint 27 (beta) (via `FPRINT_IMPORT` during install), verified on Mint — and still verified on Fedora afterwards (940XHA, 2026-10-24). Importing for a different username (exported by `dave`, imported for `daveb` on MX Linux) also verified (2026-10-25).
 
 **On the install where the fingers are enrolled:**
 
@@ -131,7 +131,7 @@ sudo bash export-fingerprint.sh          # writes ~/fingerprint-export.tgz (all 
 
 **On the other install**, copy it to your home folder as `~/fingerprint-export.tgz`. The username there does not have to match — the fingerprints are imported for whoever imports them.
 
-- **While installing the fix:** if `~/fingerprint-export.tgz` exists and you have nothing enrolled, the installer asks `Import them? [Y/n]` (skipped after 20 seconds, or when run without a terminal, e.g. from the GUI app). It does not ask if the file isn't there. `FPRINT_IMPORT=/path/to/file.tgz` imports a file kept anywhere else.
+- **While installing the fix:** if `~/fingerprint-export.tgz` exists and you have nothing enrolled, the installer asks `Import them? [Y/n]` (skipped after 30 seconds, or when run without a terminal, e.g. from the GUI app). It does not ask if the file isn't there. `FPRINT_IMPORT=/path/to/file.tgz` imports a file kept anywhere else.
 - **With the fix already installed:**
 
   ```bash
