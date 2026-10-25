@@ -32,9 +32,15 @@ info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
-if [ ! -f /etc/os-release ] || ! grep -q "ID_LIKE=arch" /etc/os-release; then
-    error "arch-pam.sh can only be run on an Arch type distro."
-fi
+# Arch itself has ID=arch and no ID_LIKE; derivatives (CachyOS, EndeavourOS,
+# Manjaro, Garuda, ...) have ID_LIKE=arch, sometimes quoted or with other values.
+[[ -f /etc/os-release ]] || error "Cannot detect distro — /etc/os-release not found"
+# shellcheck disable=SC1091
+. /etc/os-release
+case " ${ID,,} ${ID_LIKE,,} " in
+    *" arch "*) ;;
+    *) error "arch-pam.sh is only for Arch-based distros (this is ${PRETTY_NAME:-unknown})." ;;
+esac
 
 MARK="# Added by Samsung Galaxy Book fingerprint-fix-sdcp (arch-pam.sh)"
 RULE="auth            sufficient      pam_fprintd.so"
