@@ -128,6 +128,11 @@ class Helper:
 CSS = b"""
 .fpm-card { border: 1px solid alpha(currentColor, 0.15); border-radius: 8px; padding: 10px 12px; }
 .fpm-hint { font-size: 90%; }
+menu.fpm-menu { padding: 3px 0; min-width: 0; background-color: @theme_bg_color; }
+menu.fpm-menu menuitem { padding: 5px 14px 5px 10px; min-width: 0; min-height: 0; }
+menu.fpm-menu separator.fpm-menu-sep { margin: 2px 6px; min-height: 0; padding: 0; background: none;
+    border-top: 1px solid shade(@theme_bg_color, 0.75);
+    border-bottom: 1px solid shade(@theme_bg_color, 1.25); }
 .fpm-status { font-size: 90%; }
 .fpm-fcard { background-color: @theme_base_color; border: 1px solid alpha(@theme_fg_color, 0.15);
              border-radius: 10px; padding: 10px 6px 9px 6px; }
@@ -763,9 +768,18 @@ class Manager(Gtk.Window):
         if child is None or self.busy or self.status is None:
             return False
         menu = Gtk.Menu()
+        menu.get_style_context().add_class("fpm-menu")
+        menu.set_reserve_toggle_size(False)            # no empty check-box column
 
         def item(label, cb, sensitive=True, tip=None):
-            mi = Gtk.MenuItem(label="•  " + label)      # a dot per option, to set them apart
+            if menu.get_children():                    # a two-tone line between options
+                sep = Gtk.SeparatorMenuItem()
+                sep.get_style_context().add_class("fpm-menu-sep")
+                menu.append(sep)
+            mi = Gtk.MenuItem(label="")
+            # a small dot per option, to set them apart
+            mi.get_child().set_markup('<span size="55%" rise="2000">●</span>  '
+                                      + GLib.markup_escape_text(label))
             mi.set_sensitive(sensitive)
             if tip:
                 mi.set_tooltip_text(tip)
