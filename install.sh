@@ -16,7 +16,9 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # The installer needs its tools/ and lib/ folders — run it from the whole
 # fingerprint-fix-sdcp folder, not on its own.
-for _f in lib/sensor-check.c tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh; do
+for _f in lib/sensor-check.c lib/fingerprint-manager.py lib/fingerprint-manager-helper.py \
+          lib/galaxybook-fingerprint-manager.svg fingerprint-manager.sh \
+          tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh; do
     [[ -f "$SCRIPT_DIR/$_f" ]] || { echo "Missing $SCRIPT_DIR/$_f — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
 done
 
@@ -57,6 +59,13 @@ SDCP_BRANCH="egismoc-sdcp"
 # ── Paths ─────────────────────────────────────────────────────────────────────
 FPRINT_LIB_DIR="/usr/local/lib/libfprint-egismoc-sdcp"
 FPRINT_LIB="${FPRINT_LIB_DIR}/libfprint-2.so.2"
+# Galaxy Book Fingerprint Manager (Step 14) — its files live in MGR_DIR
+MGR_ID="galaxybook-fingerprint-manager"
+MGR_DIR="${FPRINT_LIB_DIR}/manager"
+MGR_BIN="/usr/local/bin/${MGR_ID}"
+MGR_DESKTOP="/usr/local/share/applications/${MGR_ID}.desktop"
+MGR_ICON="/usr/local/share/icons/hicolor/scalable/apps/${MGR_ID}.svg"
+MGR_POLICY="/usr/share/polkit-1/actions/io.github.david-bartlett.${MGR_ID}.policy"
 FPRINT_DROPIN_DIR="/etc/systemd/system/fprintd.service.d"
 FPRINT_DROPIN="${FPRINT_DROPIN_DIR}/samsung-galaxybook-egismoc-sdcp.conf"
 FPRINT_MARKER="/etc/samsung-galaxybook-egismoc-sdcp.installed"
@@ -337,6 +346,7 @@ cat > "$FPRINT_CLEANUP" << CLEANEOF
 rm -f "${FPRINT_DROPIN}"
 rmdir "${FPRINT_DROPIN_DIR}" 2>/dev/null || true
 rm -rf "${FPRINT_LIB_DIR}"
+rm -f "${MGR_BIN}" "${MGR_DESKTOP}" "${MGR_ICON}" "${MGR_POLICY}"
 rm -f "${FPRINT_SYSLIB_HASH}" "${FPRINT_MARKER}"
 rm -rf "${FPRINT_REMOVED_DIR}"
 rmdir "${FPRINT_STATE_DIR}" 2>/dev/null || true
@@ -810,6 +820,85 @@ else
     fi
 fi
 
+# ── Step 14: Galaxy Book Fingerprint Manager ──────────────────────────────────
+# A root-owned copy of the Manager (window + helper + tools), so the helper that
+# pkexec runs as root can't be changed by anything running as the user. It
+# lives inside FPRINT_LIB_DIR, so uninstalling the fix (or the monitor's
+# cleanup) removes it with the library. Its GUI packages are installed here,
+# separately: if they fail, the fix itself is still fine.
+step "Fingerprint Step 14: Installing the Galaxy Book Fingerprint Manager"
+case "$DISTRO" in
+    fedora) dnf install -y python3-gobject gtk3 polkit ;;
+    arch)   pacman -S --noconfirm --needed python-gobject gtk3 polkit ;;
+    *)      apt-get install -y python3-gi gir1.2-gtk-3.0 gir1.2-fprint-2.0 pkexec ;;
+esac >/dev/null 2>&1 \
+    || warn "Could not install the Fingerprint Manager's packages — it will list what it needs when started."
+
+rm -rf "$MGR_DIR"
+install -d -m 755 -o root -g root "$MGR_DIR" "$MGR_DIR/lib" "$MGR_DIR/tools"
+install -m 755 -o root -g root "$SCRIPT_DIR/fingerprint-manager.sh" "$MGR_DIR/"
+install -m 755 -o root -g root "$SCRIPT_DIR/lib/fingerprint-manager.py" \
+    "$SCRIPT_DIR/lib/fingerprint-manager-helper.py" "$MGR_DIR/lib/"
+install -m 755 -o root -g root "$SCRIPT_DIR"/tools/*.sh "$MGR_DIR/tools/"
+mkdir -p "$(dirname "$MGR_BIN")"
+ln -sfn "$MGR_DIR/fingerprint-manager.sh" "$MGR_BIN"
+install -Dm 644 "$SCRIPT_DIR/lib/${MGR_ID}.svg" "$MGR_ICON"
+
+mkdir -p "$(dirname "$MGR_DESKTOP")"
+cat > "$MGR_DESKTOP" << MGRDESKTOPEOF
+[Desktop Entry]
+Type=Application
+Name=Galaxy Book Fingerprint Manager
+GenericName=Fingerprint Manager
+Comment=From Samsung Galaxy Book Fixes (fingerprint-fix-sdcp): test, enrol, share and tidy fingerprints
+Exec=${MGR_BIN}
+Icon=${MGR_ID}
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=fingerprint;fprint;sensor;login;galaxy;book;
+StartupWMClass=${MGR_ID}
+MGRDESKTOPEOF
+chmod 644 "$MGR_DESKTOP"
+
+# polkit: the password prompt names this app instead of "run /usr/bin/python3".
+# It only applies to the installed helper's exact path.
+mkdir -p "$(dirname "$MGR_POLICY")"
+cat > "$MGR_POLICY" << MGRPOLICYEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<!-- Installed by Samsung Galaxy Book Fixes (fingerprint-fix-sdcp) -->
+<policyconfig>
+  <vendor>Samsung Galaxy Book Fixes (unofficial)</vendor>
+  <action id="io.github.david-bartlett.${MGR_ID}">
+    <description>Run the Galaxy Book Fingerprint Manager</description>
+    <message>Galaxy Book Fingerprint Manager needs administrator access to read and manage the fingerprint sensor</message>
+    <icon_name>${MGR_ID}</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">${MGR_DIR}/lib/fingerprint-manager-helper.py</annotate>
+  </action>
+</policyconfig>
+MGRPOLICYEOF
+chmod 644 "$MGR_POLICY"
+
+command -v restorecon >/dev/null 2>&1 \
+    && restorecon -R "$MGR_DIR" "$MGR_BIN" "$MGR_DESKTOP" "$MGR_ICON" "$MGR_POLICY" 2>/dev/null || true
+# Refresh the icon cache only if there is one (none is fine: GTK then reads the folder).
+[[ -f /usr/local/share/icons/hicolor/icon-theme.cache ]] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
+    && gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor 2>/dev/null || true
+command -v update-desktop-database >/dev/null 2>&1 \
+    && update-desktop-database -q /usr/local/share/applications 2>/dev/null || true
+# An earlier test version could add a per-user menu entry — remove it.
+if [[ -n "${SUDO_USER:-}" ]]; then
+    _home=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    rm -f "$_home/.local/share/applications/samsung-galaxybook-fingerprint-manager.desktop"
+fi
+info "✓ Galaxy Book Fingerprint Manager installed (app menu, or: ${MGR_ID})"
+
 # ── Done ──────────────────────────────────────────────────────────────────────
 info "✓ Fingerprint fix installed — no reboot required"
 info "Built from: $SDCP_REPO_URL"
@@ -829,15 +918,14 @@ echo "  Enrol in the desktop instead:"
 echo "      KDE:   System Settings -> Users -> Fingerprint Authentication"
 echo "      GNOME: Settings -> System -> Users -> Fingerprint Login"
 echo "      Mint:  Menu -> Fingerprints"
-echo "      Xfce (e.g. MX Linux) and other desktops without a fingerprint"
-echo "      settings page: use the terminal — fprintd-enroll, fprintd-list \$USER,"
-echo "      fprintd-delete \$USER"
+echo "      Any desktop (and Xfce, e.g. MX Linux, which has no fingerprint"
+echo "      settings page): Galaxy Book Fingerprint Manager in the app menu"
 echo
 echo "  Fingerprints exported on another install of this laptop"
 echo "  (export-fingerprint.sh) can be imported here instead of enrolling:"
 echo "      sudo bash $SCRIPT_DIR/tools/import-fingerprint.sh ~/fingerprint-export.tgz"
 echo
-echo "  Fingerprint Manager — test, enrol, export/import and more in a window"
-echo "  (run as yourself; --add-to-menu puts it in your app menu):"
-echo "      $SCRIPT_DIR/fingerprint-manager.sh"
+echo "  Galaxy Book Fingerprint Manager — test, enrol, export/import and more"
+echo "  in a window: find it in your app menu, or run (as yourself, not sudo):"
+echo "      ${MGR_ID}"
 echo

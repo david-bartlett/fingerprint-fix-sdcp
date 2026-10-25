@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # =============================================================================
-# Samsung Galaxy Book — Fingerprint Fix (egismoc SDCP) — Fingerprint Manager
+# Samsung Galaxy Book Fixes — Galaxy Book Fingerprint Manager (fingerprint-fix-sdcp)
 # =============================================================================
 # A small window for the fingerprints on this laptop's sensor:
 #   • which fingers are enrolled on this install, and whether each one is
@@ -9,8 +9,9 @@
 #   • test a fingerprint, remove dead records, delete templates, wipe the sensor
 #   • export / import fingerprints to share them with another install
 #
-#   ./fingerprint-manager.sh     (the launcher in the folder above — run it as
-#                                 yourself, not with sudo)
+#   galaxybook-fingerprint-manager   (installed by install.sh; also in the app
+#                                     menu as "Galaxy Book Fingerprint Manager")
+#   ./fingerprint-manager.sh         (from the fix folder, e.g. while developing)
 #
 # It asks for your password once (pkexec) to start fingerprint-manager-helper.py,
 # which does the root work. Needs fingerprint-fix-sdcp installed, PyGObject
@@ -24,17 +25,17 @@ import threading
 import json
 
 # The app ID: on Wayland the panel/taskbar takes the window's icon from the
-# .desktop file with this name (fingerprint-manager.sh --add-to-menu writes
-# it), and ignores icons set on the window itself. It must be set before GTK
-# starts, i.e. before Gtk is imported.
-APP_ID = "samsung-galaxybook-fingerprint-manager"
+# .desktop file with this name (install.sh installs it), and ignores icons set
+# on the window itself. It must be set before GTK starts, i.e. before Gtk is
+# imported. It is also the icon's name.
+APP_ID = "galaxybook-fingerprint-manager"
 
 try:
     import gi
     gi.require_version("Gtk", "3.0")
     from gi.repository import GLib
     GLib.set_prgname(APP_ID)
-    GLib.set_application_name("Fingerprint Manager")
+    GLib.set_application_name("Galaxy Book Fingerprint Manager")
     from gi.repository import Gtk, Pango
 except (ImportError, ValueError) as e:
     sys.exit(f"Fingerprint Manager needs PyGObject with GTK 3 ({e}).\n"
@@ -44,7 +45,7 @@ except (ImportError, ValueError) as e:
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 HELPER = os.path.join(HERE, "fingerprint-manager-helper.py")
-TITLE = "Fingerprint Manager"
+TITLE = "Galaxy Book Fingerprint Manager"
 EXPORT_NAME = "fingerprint-export.tgz"
 FINGERS = ["right-index-finger", "right-middle-finger", "right-thumb", "right-ring-finger",
            "right-little-finger", "left-index-finger", "left-middle-finger", "left-thumb",
@@ -67,7 +68,10 @@ class Helper:
         else:
             if not shutil.which("pkexec"):
                 raise RuntimeError("pkexec is not installed (it comes with polkit).")
-            cmd = ["pkexec", py, HELPER]
+            # Run the helper itself (not "python3 helper"), so polkit can show
+            # this app's own message: install.sh installs a policy for the
+            # installed helper's path.
+            cmd = ["pkexec", HELPER] if os.access(HELPER, os.X_OK) else ["pkexec", py, HELPER]
         self.proc = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE, text=True, bufsize=1)
         line = self.proc.stdout.readline()
@@ -136,7 +140,7 @@ class Manager(Gtk.Window):
     def __init__(self):
         super().__init__(title=TITLE)
         self.set_default_size(560, 600)
-        self.set_icon_name("fingerprint-gui")
+        self.set_icon_name(APP_ID)
         self.helper = Helper()
         self.status = None
         self.busy = False
@@ -167,6 +171,8 @@ class Manager(Gtk.Window):
         self.import_item = self._menu_item(menu, "Import fingerprints…", self.on_import)
         menu.append(Gtk.SeparatorMenuItem())
         self.restore_item = self._menu_item(menu, "Restore removed records…", self.on_restore)
+        menu.append(Gtk.SeparatorMenuItem())
+        self._menu_item(menu, "About", self.on_about)
         menu.show_all()
         self.menu_btn = Gtk.MenuButton(popup=menu)
         self.menu_btn.set_image(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
@@ -941,6 +947,20 @@ class Manager(Gtk.Window):
                 return
             replace = True
         self.run_job("import", self.after_job("Imported"), file=path, replace=replace)
+
+    def on_about(self, *_):
+        st = self.status or {}
+        d = Gtk.AboutDialog(transient_for=self, modal=True)
+        d.set_program_name(TITLE)
+        d.set_logo_icon_name(APP_ID)
+        d.set_comments("Part of Samsung Galaxy Book Fixes — fingerprint-fix-sdcp.\n"
+                       "Test, enrol, share and tidy fingerprints on the Galaxy Book's "
+                       "Egis fingerprint sensor.\n\nAn unofficial community tool, "
+                       "not made or endorsed by Samsung.")
+        d.set_version("fix build " + ((st.get("marker") or "unknown").split() or ["unknown"])[0])
+        d.set_authors(["David Bartlett", "Driver: Joshua Grisham, Abdallah Alkanani"])
+        d.run()
+        d.destroy()
 
     def on_quit(self, *_):
         self.helper.stop()

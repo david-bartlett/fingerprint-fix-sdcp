@@ -9,9 +9,9 @@ This is the successor to `fingerprint-fix`, which built the unmerged `feature/sd
 | | |
 | --- | --- |
 | `install.sh` / `uninstall.sh` | Install or remove the fix |
-| `fingerprint-manager.sh` | Starts the [Fingerprint Manager](#fingerprint-manager) window |
+| `fingerprint-manager.sh` | Starts the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) from this folder (the installer also installs it) |
 | `tools/` | Optional command-line tools: `export-fingerprint.sh`, `import-fingerprint.sh` ([sharing fingerprints](#sharing-fingerprints-between-linux-installs)), `fingerprint-pam.sh` ([fingerprint login on/off](#turning-fingerprint-login-on-or-off)), `arch-pam.sh` (used by it on Arch) |
-| `lib/` | Used by the above — not run directly: the Fingerprint Manager's Python files and `sensor-check.c` |
+| `lib/` | Used by the above — not run directly: the Fingerprint Manager's Python files and icon, and `sensor-check.c` |
 
 Keep the folder together: the installer and the Fingerprint Manager use the files in `tools/` and `lib/`.
 
@@ -51,6 +51,7 @@ Find your reader's ID with `lsusb | grep 1c7a`.
 7. Turns on fingerprint for login and sudo with `fingerprint-pam.sh` (Fedora: authselect; Ubuntu/Debian/MX: pam-auth-update; Mint: its own `fingwit` profile; Arch-based: asks whether to add fingerprint to sudo and polkit — see below)
 8. Installs a login-time monitor and a boot-time sensor check (see below)
 9. Offers to import fingerprints exported from another install on this laptop, if `~/fingerprint-export.tgz` exists (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
+10. Installs the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) and adds it to the app menu
 
 It does **not** delete `/var/lib/fprint`. Deleting fprintd's records by hand leaves the templates on the sensor as orphans.
 
@@ -170,17 +171,18 @@ The import refuses records made on a different sensor, users who don't exist on 
 - **Answer N to deleting fingerprints when uninstalling** on one of them, or the others lose them too.
 - **Export again after deleting or re-enrolling** — an old export points at templates that no longer exist.
 
-## Fingerprint Manager
+## Galaxy Book Fingerprint Manager
 
-A small window for looking after the fingerprints on the sensor, with the fix installed:
+A small window for looking after the fingerprints on the sensor. The installer installs it for every user: open **Galaxy Book Fingerprint Manager** from the app menu (its description says it comes from Samsung Galaxy Book Fixes), or run:
 
 ```bash
-./fingerprint-manager.sh                 # run as yourself, not with sudo
-./fingerprint-manager.sh --add-to-menu   # add "Fingerprint Manager" to your app menu
-./fingerprint-manager.sh --remove-from-menu
+galaxybook-fingerprint-manager           # as yourself, not with sudo
+./fingerprint-manager.sh                 # or straight from this folder (e.g. while developing)
 ```
 
-It asks for your password once per session (pkexec). At the top is a **Use fingerprint for login and sudo** switch and a line about the sensor and the fix build; below are two tabs:
+The installed copy is owned by root (`/usr/local/lib/libfprint-egismoc-sdcp/manager/`), because its helper runs as root: a copy in your home folder could be changed by any program running as you. ☰ → **About** shows where it came from and the fix build.
+
+It asks for your password once per session; the prompt says "Galaxy Book Fingerprint Manager needs administrator access to read and manage the fingerprint sensor" (a polkit policy installed for the helper). At the top is a **Use fingerprint for login and sudo** switch and a line about the sensor and the fix build; below are two tabs:
 
 - **Fingerprints** — every user's enrolled fingers on this install, and whether the sensor still has each one. A dead record (its template was re-enrolled elsewhere or removed by Windows) shows a warning with a **Remove dead records** button.
 - **Sensor** — every template on the sensor, and which user and finger on this install uses it. Templates not used here may belong to another Linux install, another user or Windows Hello; one install can't tell which, so they are never deleted without a warning.
@@ -200,7 +202,7 @@ Results appear as a one-line message (the full script output is behind **Details
 
 Records are never deleted: removed ones go to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the last 5 are kept). Each sensor job stops fprintd for a moment, as the sensor can only be used by one program at a time.
 
-The launcher checks the fix is installed and that everything the window needs is there; anything missing is listed with the command to install it (from a terminal it offers to run it). It needs PyGObject with GTK 3, libfprint's GObject introspection data and pkexec:
+The installer installs the packages it needs. If any are missing later, the launcher lists them with the command to install them (from a terminal it offers to run it) — PyGObject with GTK 3, libfprint's GObject introspection data and pkexec:
 
 - Fedora: `sudo dnf install python3-gobject gtk3` (introspection data comes with libfprint)
 - Debian / Ubuntu / Mint / MX: `sudo apt install python3-gi gir1.2-gtk-3.0 gir1.2-fprint-2.0`
@@ -289,11 +291,14 @@ session include system-local-login
 - `/etc/samsung-galaxybook-egismoc-sdcp.installed` — marker (commit, its date, source and install date)
 - `/var/lib/samsung-galaxybook/libfprint-system.sha256` — distro libfprint hash, to spot updates
 - `/usr/local/lib/libfprint-egismoc-sdcp/sensor-check` — boot-time sensor check program
+- `/usr/local/lib/libfprint-egismoc-sdcp/manager/` — Galaxy Book Fingerprint Manager (root-owned copy of `fingerprint-manager.sh`, `lib/` Python files and `tools/`)
+- `/usr/local/bin/galaxybook-fingerprint-manager` — link to start it
+- `/usr/local/share/applications/galaxybook-fingerprint-manager.desktop` and `/usr/local/share/icons/hicolor/scalable/apps/galaxybook-fingerprint-manager.svg` — its menu entry and icon
+- `/usr/share/polkit-1/actions/io.github.david-bartlett.galaxybook-fingerprint-manager.policy` — its password prompt
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh` and `/etc/systemd/system/samsung-galaxybook-fprint-sdcp-boot-check.service` — runs it at boot, before fprintd
 - `/run/samsung-galaxybook/fprint-sdcp-boot-status` — boot check result (cleared at every boot)
 - `/var/lib/samsung-galaxybook/removed-fingerprints/` — records cleared by the boot check (last 5 boots that cleared any)
 - `/var/lib/samsung-galaxybook/replaced-fingerprints/` — records moved aside by `import-fingerprint.sh --replace` (last 5)
-- `~/.local/share/applications/samsung-galaxybook-fingerprint-manager.desktop` — only if you ran `fingerprint-manager.sh --add-to-menu`
 - `~/.cache/samsung-galaxybook/fprint-sdcp-boot-shown` — remembers the boot check message was shown this boot
 
 ## Credits

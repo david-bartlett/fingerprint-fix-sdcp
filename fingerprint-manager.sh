@@ -1,70 +1,45 @@
 #!/bin/bash
 # =============================================================================
-# Samsung Galaxy Book — Fingerprint Fix (egismoc SDCP) — Fingerprint Manager
+# Samsung Galaxy Book Fixes — Galaxy Book Fingerprint Manager (fingerprint-fix-sdcp)
 # =============================================================================
-# Starts the Fingerprint Manager window (lib/fingerprint-manager.py) after
-# checking everything it needs is installed.
+# Starts the Galaxy Book Fingerprint Manager window (lib/fingerprint-manager.py)
+# after checking everything it needs is installed.
 #
-#   ./fingerprint-manager.sh                    start it (as yourself, not sudo)
-#   ./fingerprint-manager.sh --add-to-menu      add "Fingerprint Manager" to
-#                                               your app menu
-#   ./fingerprint-manager.sh --remove-from-menu take it out again
+#   ./fingerprint-manager.sh      run it from the fix folder (as yourself, not sudo)
 #
-# The menu entry points at this folder, so keep the folder where it is (or run
-# --add-to-menu again after moving it).
+# install.sh also installs a root-owned copy, started from the app menu
+# ("Galaxy Book Fingerprint Manager") or with: galaxybook-fingerprint-manager
+# (that command is a link to the installed copy of this script).
 # =============================================================================
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 APP="$HERE/lib/fingerprint-manager.py"
-DESKTOP="${XDG_DATA_HOME:-$HOME/.local/share}/applications/samsung-galaxybook-fingerprint-manager.desktop"
+NAME="Galaxy Book Fingerprint Manager"
 
 # Always print; from the app menu (no terminal) also show a notification.
 say() {
     echo -e "$*" >&2
     if [[ ! -t 2 ]] && command -v notify-send >/dev/null 2>&1; then
-        notify-send -a "Fingerprint Manager" -i dialog-error "Fingerprint Manager" "$(echo -e "$*")"
+        notify-send -a "$NAME" -i dialog-error "$NAME" "$(echo -e "$*")"
     fi
 }
 
 case "${1:-}" in
-    --add-to-menu)
-        mkdir -p "$(dirname "$DESKTOP")"
-        cat > "$DESKTOP" << EOF
-[Desktop Entry]
-Type=Application
-Name=Fingerprint Manager
-Comment=Test, enrol, share and tidy fingerprints on the Galaxy Book sensor
-Exec="$HERE/fingerprint-manager.sh"
-Icon=fingerprint-gui
-StartupWMClass=samsung-galaxybook-fingerprint-manager
-Terminal=false
-Categories=Settings;HardwareSettings;
-Keywords=fingerprint;fprint;sensor;login;
-EOF
-        chmod 644 "$DESKTOP"
-        command -v update-desktop-database >/dev/null 2>&1 \
-            && update-desktop-database "$(dirname "$DESKTOP")" 2>/dev/null
-        echo "Added \"Fingerprint Manager\" to your app menu ($DESKTOP)."
-        exit 0 ;;
-    --remove-from-menu)
-        rm -f "$DESKTOP"
-        echo "Removed \"Fingerprint Manager\" from your app menu."
-        exit 0 ;;
     -h|--help)
-        sed -n '7,14p' "$0" | sed 's/^# \{0,1\}//'
+        sed -n '5,12p' "$0" | sed 's/^# \{0,1\}//'
         exit 0 ;;
 esac
 
 # ── Run as the user: the window asks for the password itself when needed ──────
 if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
-    say "Run the Fingerprint Manager as yourself, not with sudo:\n  $HERE/fingerprint-manager.sh"
+    say "Run the $NAME as yourself, not with sudo."
     exit 1
 fi
 
 # ── The fix must be installed ─────────────────────────────────────────────────
 if [[ ! -f /etc/samsung-galaxybook-egismoc-sdcp.installed \
       || ! -f /usr/local/lib/libfprint-egismoc-sdcp/libfprint-2.so.2 ]]; then
-    say "fingerprint-fix-sdcp is not installed. Install it first:\n  sudo bash $HERE/install.sh"
+    say "fingerprint-fix-sdcp is not installed. Install it first:\n  sudo bash install.sh   (in the fingerprint-fix-sdcp folder)"
     exit 1
 fi
 
@@ -94,7 +69,7 @@ if [[ ${#missing[@]} -gt 0 ]]; then
     if [[ -n "$PM" ]]; then
         cmd="$PM ${missing[*]}"
         if [[ -t 0 && -t 1 ]]; then
-            echo "The Fingerprint Manager needs: ${missing[*]}"
+            echo "The $NAME needs: ${missing[*]}"
             read -r -p "Install them now ($cmd)? [Y/n] " ans
             if [[ -z "$ans" || "${ans,,}" == y* ]]; then
                 $cmd || { echo "Install failed — run it yourself: $cmd"; exit 1; }
@@ -102,11 +77,11 @@ if [[ ${#missing[@]} -gt 0 ]]; then
                 exit 1
             fi
         else
-            say "The Fingerprint Manager needs: ${missing[*]}\nInstall with:\n  $cmd"
+            say "The $NAME needs: ${missing[*]}\nInstall with:\n  $cmd"
             exit 1
         fi
     else
-        say "The Fingerprint Manager needs: ${missing[*]}"
+        say "The $NAME needs: ${missing[*]}"
         exit 1
     fi
 fi
