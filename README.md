@@ -36,7 +36,7 @@ Find your reader's ID with `lsusb | grep 1c7a`.
 4. Exits without changes if the distro libfprint already handles the sensor (override with `FORCE=1`)
 5. Fetches the pinned commit and builds the egismoc driver only (`-Ddrivers=egismoc -Dtod=false`)
 6. Installs the library to `/usr/local/lib/libfprint-egismoc-sdcp/` and adds a systemd drop-in so **only fprintd** loads it (`LD_LIBRARY_PATH`)
-7. Configures PAM (Fedora: authselect; Ubuntu/Debian/Mint: pam-auth-update; Arch: see below)
+7. Configures PAM (Fedora: authselect; Ubuntu/Debian/Mint: pam-auth-update; Arch-based: asks whether to add fingerprint to sudo and polkit — see below)
 8. Installs a login-time monitor and a boot-time sensor check (see below)
 9. Offers to import fingerprints exported from another install on this laptop, if `~/fingerprint-export.tgz` exists (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
 
@@ -131,7 +131,11 @@ sudo bash export-fingerprint.sh          # writes ~/fingerprint-export.tgz (all 
 
 **On the other install**, copy it to your home folder as `~/fingerprint-export.tgz`. The username there does not have to match — the fingerprints are imported for whoever imports them.
 
-- **While installing the fix:** if `~/fingerprint-export.tgz` exists and you have nothing enrolled, the installer asks `Import them? [Y/n]` (skipped after 30 seconds, or when run without a terminal, e.g. from the GUI app). It does not ask if the file isn't there. `FPRINT_IMPORT=/path/to/file.tgz` imports a file kept anywhere else.
+- **While installing the fix** (only when you have nothing enrolled on this install):
+  - if `~/fingerprint-export.tgz` exists, it is **imported automatically**;
+  - otherwise the installer asks `Do you have fingerprints exported from another install to import? [y/N]` (skipped after 30 seconds, or when run without a terminal, e.g. from the GUI app). Answer `y` and it asks for the path, with no time limit;
+  - `FPRINT_IMPORT=/path/to/file.tgz` imports a file kept anywhere else without asking.
+- **Before importing**, the fingerprints are checked against the sensor (fprintd is paused for a moment). An out-of-date export — made before re-enrolling, or before Windows wiped the sensor — is refused, so you never end up with a fingerprint that can't match. `--no-check` skips this.
 - **With the fix already installed:**
 
   ```bash
@@ -150,22 +154,35 @@ The import refuses records made on a different sensor, users who don't exist on 
 - **Answer N to deleting fingerprints when uninstalling** on one of them, or the others lose them too.
 - **Export again after deleting or re-enrolling** — an old export points at templates that no longer exist.
 
-## Enabling Fingerprint Authentication on Arch (manual)
+## Fingerprint for sudo and Admin Prompts on Arch-Based Distros
 
-Arch does not use authselect or pam-auth-update. Add `auth sufficient pam_fprintd.so` to the top of the auth section of the relevant files.
+Arch, CachyOS, Manjaro, EndeavourOS and other Arch-based distros have no authselect or pam-auth-update, so the installer asks:
 
-**sudo** — `/etc/pam.d/sudo`:
 ```
-#%PAM-1.0
-auth sufficient pam_fprintd.so
-auth include system-auth
-account include system-auth
-session include system-auth
+Enable fingerprint for sudo and admin prompts? [Y/n]
 ```
 
-**Login screen** — add `auth sufficient pam_fprintd.so` at the top of the auth section of `/etc/pam.d/system-local-login`.
+It waits for an answer (no time limit, because it changes how you log in to sudo) and is skipped when there is no terminal. `FPRINT_PAM=1` or `FPRINT_PAM=0` answers it in advance. The same is available any time with `arch-pam.sh`:
 
-**KDE lock screen** — `/etc/pam.d/kde-fingerprint`. KDE Plasma 6 has a known bug where `pam_faillock` counts successful fingerprint scans as failures, so use:
+```bash
+sudo bash arch-pam.sh enable     # sudo + polkit-1 (pkexec, graphical admin prompts)
+sudo bash arch-pam.sh status
+sudo bash arch-pam.sh disable    # removes exactly what 'enable' added
+```
+
+What it does:
+
+- Adds one `auth sufficient pam_fprintd.so` line, marked with a comment, above the first `auth` line of `/etc/pam.d/sudo` and `/etc/pam.d/polkit-1`. `polkit-1` normally lives only in `/usr/lib/pam.d`, so it is copied to `/etc/pam.d` first (that copy takes precedence).
+- Keeps a backup of each file (`*.bak-samsung-galaxybook`), and checks the edited file still contains every original line.
+- Leaves any file that already mentions `pam_fprintd` alone, so hand edits are never overwritten and running it twice changes nothing.
+- Is safe before enrolling: with no finger enrolled, `pam_fprintd` reports "not available" and you are asked for your password as usual.
+- Uninstalling the fix runs `arch-pam.sh disable`: only the marked lines are removed, and the `polkit-1` copy is deleted if it was created by the fix and not changed since.
+
+**Not changed:** the **KDE lock screen** already uses the fingerprint through its own `kde-fingerprint` service, and the **login screen** is left password-only (with fingerprint, Plasma's login screen waits for the sensor after you type a password).
+
+Test in a new terminal with `sudo -k; sudo true` and `pkexec true`. Keep a root terminal open (`sudo -i`) while testing PAM changes.
+
+**If the lock screen locks you out after a few successful fingerprint unlocks** — a known KDE Plasma 6 bug where `pam_faillock` counts successful fingerprint scans as failures — copy `/usr/lib/pam.d/kde-fingerprint` to `/etc/pam.d/kde-fingerprint` and use:
 ```
 #%PAM-1.0
 auth [success=1 ignore=ignore module_unknown=die default=bad] \
@@ -193,6 +210,7 @@ session include system-local-login
 - `/etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf` — makes fprintd load it
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-monitor.sh` — root monitor script
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-user-check.sh` — user login check
+- Arch-based, if you said yes: one marked line in `/etc/pam.d/sudo` and `/etc/pam.d/polkit-1` (plus `*.bak-samsung-galaxybook` backups, and `/var/lib/samsung-galaxybook/pam-polkit-1-created` if `polkit-1` was copied)
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh` — removes the fix once it is no longer needed
 - `/etc/systemd/system/samsung-galaxybook-fprint-sdcp-monitor.service`
 - `~/.config/systemd/user/samsung-galaxybook-fprint-sdcp-user-check.{service,timer}`

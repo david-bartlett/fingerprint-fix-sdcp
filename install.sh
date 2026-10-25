@@ -739,7 +739,31 @@ if [[ "$DISTRO" == "fedora" ]]; then
         && info "✓ Fingerprint auth enabled via authselect" \
         || warn "authselect failed — run 'sudo authselect enable-feature with-fingerprint' manually"
 elif [[ "$DISTRO" == "arch" ]]; then
-    info "Arch: PAM configuration is described in README.md"
+    # Arch-based distros have no authselect/pam-auth-update. Offer to add
+    # fingerprint to sudo and polkit (pkexec, admin prompts). This edits PAM,
+    # so it waits for an answer (no timeout) and never happens unattended.
+    # FPRINT_PAM=1 / FPRINT_PAM=0 answers without asking.
+    _pam="${FPRINT_PAM:-}"
+    if [[ -z "$_pam" ]]; then
+        if [[ -t 0 ]]; then
+            echo "  Arch-based distros don't enable fingerprint for sudo and admin prompts"
+            echo "  by themselves. This can add it to /etc/pam.d/sudo and polkit-1"
+            echo "  (pkexec, graphical password prompts), with backups. Until a finger is"
+            echo "  enrolled, they keep asking for your password as normal."
+            read -r -p "  Enable fingerprint for sudo and admin prompts? [Y/n] " _ans || _ans=n
+            [[ -z "$_ans" || "${_ans,,}" == y* ]] && _pam=1 || _pam=0
+        else
+            _pam=0
+            info "No terminal — not changing PAM. To enable later: sudo bash $SCRIPT_DIR/arch-pam.sh enable"
+        fi
+    fi
+    if [[ "$_pam" == "1" ]]; then
+        bash "$SCRIPT_DIR/arch-pam.sh" enable \
+            || warn "arch-pam.sh failed — see README.md for the manual PAM steps"
+    elif [[ -t 0 || -n "${FPRINT_PAM:-}" ]]; then
+        info "PAM not changed. To enable later: sudo bash $SCRIPT_DIR/arch-pam.sh enable"
+    fi
+    info "The KDE lock screen uses the fingerprint without changes (kde-fingerprint)"
 else
     # Linux Mint's own fingerprint PAM profile (fingwit) conflicts with fprintd's.
     PAM_FPRINT_PROFILE="fprintd"
@@ -755,40 +779,45 @@ else
     fi
 fi
 
-# ── Step 13: Optionally import fingerprints exported from another install ─────
-# Offered only when ~/fingerprint-export.tgz exists (where export-fingerprint.sh
-# writes it) and the user has nothing enrolled here. FPRINT_IMPORT=FILE imports
-# a file kept anywhere else without asking.
+# ── Step 13: Import fingerprints exported from another install ───────────────
+# ~/fingerprint-export.tgz (where export-fingerprint.sh writes it) is imported
+# automatically — import-fingerprint.sh first checks its fingerprints are
+# still on the sensor. Without it, the user is asked [y/N] (30s, then skip)
+# and, only if they say yes, for the path (no timeout).
+# FPRINT_IMPORT=FILE imports a file kept anywhere else without asking.
 step "Fingerprint Step 13: Importing fingerprints from another install (optional)"
 _imp_user="${FPRINT_USER:-${SUDO_USER:-}}"
 _imp_home=""
 [[ -n "$_imp_user" ]] && _imp_home=$(getent passwd "$_imp_user" | cut -d: -f6)
 _imp_file="${FPRINT_IMPORT:-}"
-_has_prints=false
-[[ -n "$_imp_user" && -n "$(find "/var/lib/fprint/$_imp_user" -type f 2>/dev/null | head -1)" ]] && _has_prints=true
-_offered=""
 if [[ -z "$_imp_user" ]]; then
     info "Could not tell which user to import for — skipping"
-elif $_has_prints; then
+elif [[ -n "$(find "/var/lib/fprint/$_imp_user" -type f 2>/dev/null | head -1)" ]]; then
     info "${_imp_user} already has fingerprints enrolled — skipping import"
-    _imp_file=""
-elif [[ -z "$_imp_file" && -n "$_imp_home" && -f "$_imp_home/fingerprint-export.tgz" ]]; then
-    _offered="$_imp_home/fingerprint-export.tgz"
-    if [[ -t 0 ]]; then
-        _when=$(date -r "$_offered" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "unknown date")
-        echo "  Found exported fingerprints: $_offered (saved $_when)"
-        if read -r -t 30 -p "  Import them for ${_imp_user}? [Y/n] (skips in 30s) " _ans; then
-            [[ -z "$_ans" || "${_ans,,}" == y* ]] && _imp_file="$_offered"
+else
+    if [[ -z "$_imp_file" && -n "$_imp_home" && -f "$_imp_home/fingerprint-export.tgz" ]]; then
+        _imp_file="$_imp_home/fingerprint-export.tgz"
+        info "Found $_imp_file — importing it"
+    elif [[ -z "$_imp_file" && -t 0 ]]; then
+        if read -r -t 30 -p "  Do you have fingerprints exported from another install to import? [y/N] (skips in 30s) " _ans; then
+            if [[ "${_ans,,}" == y* ]]; then
+                while true; do
+                    read -r -p "  Path to the export file (Enter to skip): " _imp_file || _imp_file=""
+                    [[ -z "$_imp_file" ]] && break
+                    # shellcheck disable=SC2088  # a typed "~/" means the user's home
+                    [[ "$_imp_file" == "~/"* && -n "$_imp_home" ]] && _imp_file="$_imp_home/${_imp_file#\~/}"
+                    [[ -f "$_imp_file" ]] && break
+                    echo "  Not found: $_imp_file"
+                done
+            fi
         else
             echo; info "No answer — skipping import"
         fi
     fi
-fi
-if [[ -n "$_imp_file" ]]; then
-    bash "$SCRIPT_DIR/import-fingerprint.sh" --user "$_imp_user" "$_imp_file" \
-        || warn "Import failed — the fix is installed. Fix the problem above and run:\n       sudo bash $SCRIPT_DIR/import-fingerprint.sh $_imp_file"
-elif [[ -n "$_offered" ]]; then
-    info "To import later:  sudo bash $SCRIPT_DIR/import-fingerprint.sh $_offered"
+    if [[ -n "$_imp_file" ]]; then
+        bash "$SCRIPT_DIR/import-fingerprint.sh" --user "$_imp_user" "$_imp_file" \
+            || warn "Not imported — the fix is installed. Enrol instead, or fix the problem above and run:\n       sudo bash $SCRIPT_DIR/import-fingerprint.sh $_imp_file"
+    fi
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────

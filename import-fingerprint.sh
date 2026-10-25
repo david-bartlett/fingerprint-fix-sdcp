@@ -8,6 +8,7 @@
 #
 #   sudo bash import-fingerprint.sh ~/fingerprint-export.tgz
 #   sudo bash import-fingerprint.sh --user NAME FILE.tgz
+#   sudo bash import-fingerprint.sh --no-check FILE.tgz   (skip the sensor check)
 #
 # The fingerprints are imported for the user running it (or --user NAME). That
 # user does not need the same name as on the install they were exported from.
@@ -53,6 +54,7 @@ ARCHIVE=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --user) TARGET_USER="${2:-}"; shift 2 || error "--user needs a name" ;;
+        --no-check) NO_CHECK=1; shift ;;
         -*)     error "Unknown option: $1" ;;
         *)      ARCHIVE="$1"; shift ;;
     esac
@@ -126,6 +128,30 @@ for f in "${FILES[@]}"; do
             || error "Could not convert record $n for $TARGET_USER — nothing was imported."
     fi
 done
+
+# ── Are these fingerprints still on the sensor? ───────────────────────────────
+# An old export (made before re-enrolling, or before Windows wiped the sensor)
+# points at templates that no longer exist and would never match. Check with
+# the sensor before importing. fprintd is stopped briefly so the check has the
+# sensor to itself. --no-check skips this.
+if [[ "${NO_CHECK:-0}" != "1" ]]; then
+    if [[ -x "$SENSOR_CHECK" ]]; then
+        mkdir -p "$TMP/store/$TARGET_USER/egismoc/$SERIAL"
+        cp "$TMP/ready"/* "$TMP/store/$TARGET_USER/egismoc/$SERIAL/"
+        systemctl stop fprintd 2>/dev/null || true
+        set +e
+        CHECK_OUT=$(FPRINT_STORE="$TMP/store" timeout 15 "$SENSOR_CHECK" 2>&1); CHECK_RC=$?
+        set -e
+        case $CHECK_RC in
+            0) info "✓ These fingerprints are still stored on the sensor" ;;
+            1) systemctl start fprintd 2>/dev/null || true
+               error "This export is out of date — its fingerprints are no longer stored on the sensor\n  (re-enrolled since, or removed by Windows). Nothing was imported.\n  Enrol instead (fprintd-enroll), or export again on the install where they work." ;;
+            *) warn "Could not check the sensor (${CHECK_OUT##*$'\n'}) — importing anyway." ;;
+        esac
+    else
+        warn "Cannot check the sensor ($SENSOR_CHECK missing) — importing without checking."
+    fi
+fi
 
 mkdir -p /var/lib/fprint
 install -d -m 700 -o root -g root "$DEST" "$DEST/egismoc" "$DEST/egismoc/$SERIAL"

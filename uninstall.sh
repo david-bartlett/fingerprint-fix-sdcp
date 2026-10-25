@@ -9,6 +9,8 @@
 
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
     echo "Please run as root: sudo bash uninstall.sh"
     exit 1
@@ -86,6 +88,19 @@ else
 fi
 
 # ── Step 2: Remove the fprintd drop-in and the library ────────────────────────
+# ── Undo the Arch PAM changes, if this fix made them ──────────────────────────
+# arch-pam.sh only removes lines it marked itself; hand edits are left alone.
+if grep -qsF "fingerprint-fix-sdcp (arch-pam.sh)" /etc/pam.d/sudo /etc/pam.d/polkit-1 \
+        || [[ -f /var/lib/samsung-galaxybook/pam-polkit-1-created ]]; then
+    step "Fingerprint Step 1b: Removing fingerprint from sudo and polkit"
+    if [[ -f "$SCRIPT_DIR/arch-pam.sh" ]]; then
+        bash "$SCRIPT_DIR/arch-pam.sh" disable \
+            || warn "arch-pam.sh disable failed — check /etc/pam.d/sudo and /etc/pam.d/polkit-1"
+    else
+        warn "arch-pam.sh not found next to this script — remove the marked lines in\n       /etc/pam.d/sudo and /etc/pam.d/polkit-1 by hand"
+    fi
+fi
+
 step "Fingerprint Step 2: Restoring the distro libfprint for fprintd"
 rm -f "$FPRINT_DROPIN" "${FPRINT_DROPIN}.testing"
 rmdir "$FPRINT_DROPIN_DIR" 2>/dev/null || true
