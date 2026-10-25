@@ -36,11 +36,26 @@ if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
     exit 1
 fi
 
-# ── The fix must be installed ─────────────────────────────────────────────────
-if [[ ! -f /etc/samsung-galaxybook-egismoc-sdcp.installed \
-      || ! -f /usr/local/lib/libfprint-egismoc-sdcp/libfprint-2.so.2 ]]; then
-    say "fingerprint-fix-sdcp is not installed. Install it first:\n  sudo bash install.sh   (in the fingerprint-fix-sdcp folder)"
+# ── It's a window: it needs a desktop session ─────────────────────────────────
+if [[ -z "${WAYLAND_DISPLAY:-}" && -z "${DISPLAY:-}" ]]; then
+    say "The $NAME is a window — run it from your desktop, not over SSH or a text console."
     exit 1
+fi
+
+# ── The fix must be installed (the same checks the helper makes) ──────────────
+if [[ ! -f /etc/samsung-galaxybook-egismoc-sdcp.installed \
+      || ! -f /usr/local/lib/libfprint-egismoc-sdcp/libfprint-2.so.2 \
+      || ! -f /etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf ]]; then
+    say "fingerprint-fix-sdcp is not installed (or is incomplete). Install it first:\n  sudo bash install.sh   (in the fingerprint-fix-sdcp folder)"
+    exit 1
+fi
+
+# ── Started from a downloaded folder: say if it differs from the installed copy
+INSTALLED="/usr/local/lib/libfprint-egismoc-sdcp/manager"
+if [[ "$HERE" != "$INSTALLED" && -d "$INSTALLED/lib" ]] \
+        && ! diff -rq "$HERE/lib" "$INSTALLED/lib" >/dev/null 2>&1; then
+    echo "Note: running the Manager from $HERE, which differs from the installed copy." >&2
+    echo "      Run 'sudo bash install.sh' there to update the installed one." >&2
 fi
 
 # ── Packages the window needs ─────────────────────────────────────────────────
@@ -56,9 +71,17 @@ missing=()
 if ! command -v python3 >/dev/null 2>&1; then
     missing+=("$P_PY" "$P_GI" "$P_GTK" "$P_FP" "$P_CA")
 else
+    # Python 3.9+ (all supported distros have newer); GTK 3.22+ (menus at the pointer)
+    python3 -c 'import sys; sys.exit(sys.version_info < (3, 9))' 2>/dev/null || {
+        say "The $NAME needs Python 3.9 or newer (this is $(python3 -V 2>&1))."; exit 1; }
     python3 -c 'import gi' 2>/dev/null || missing+=("$P_GI")
-    python3 -c 'import gi; gi.require_version("Gtk", "3.0"); from gi.repository import Gtk' 2>/dev/null \
-        || missing+=("$P_GTK")
+    if python3 -c 'import gi; gi.require_version("Gtk", "3.0"); from gi.repository import Gtk' 2>/dev/null; then
+        python3 -c 'import gi; gi.require_version("Gtk", "3.0"); from gi.repository import Gtk
+import sys; sys.exit(Gtk.check_version(3, 22, 0) is not None)' 2>/dev/null || {
+            say "The $NAME needs GTK 3.22 or newer."; exit 1; }
+    else
+        missing+=("$P_GTK")
+    fi
     python3 -c 'import gi; gi.require_version("FPrint", "2.0")' 2>/dev/null || missing+=("$P_FP")
     python3 -c 'import gi; gi.require_foreign("cairo")' 2>/dev/null || missing+=("$P_CA")
 fi

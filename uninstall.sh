@@ -107,19 +107,15 @@ rmdir "$FPRINT_DROPIN_DIR" 2>/dev/null || true
 rm -rf "$FPRINT_LIB_DIR"       # includes the Galaxy Book Fingerprint Manager (manager/)
 # Fingerprint Manager's menu entry, command, icon and polkit policy
 MGR_ID="galaxybook-fingerprint-manager"
-rm -f "/usr/local/bin/${MGR_ID}" "/usr/local/share/applications/${MGR_ID}.desktop" \
-      "/usr/local/share/applications/io.github.david_bartlett.GalaxyBookFingerprintManager.desktop" \
+rm -f "/usr/local/bin/${MGR_ID}" \
       "/usr/share/applications/io.github.david_bartlett.GalaxyBookFingerprintManager.desktop" \
       "/usr/local/share/icons/hicolor/scalable/apps/${MGR_ID}.svg" \
       "/usr/share/polkit-1/actions/io.github.david-bartlett.${MGR_ID}.policy"
 # Refresh the icon cache only if there is one (none is fine: GTK then reads the folder).
 [[ -f /usr/local/share/icons/hicolor/icon-theme.cache ]] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
     && gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor 2>/dev/null || true
-if command -v update-desktop-database >/dev/null 2>&1; then
-    update-desktop-database -q /usr/share/applications 2>/dev/null || true
-    [[ -d /usr/local/share/applications ]] \
-        && update-desktop-database -q /usr/local/share/applications 2>/dev/null || true
-fi
+command -v update-desktop-database >/dev/null 2>&1 \
+    && update-desktop-database -q /usr/share/applications 2>/dev/null || true
 systemctl daemon-reload
 systemctl restart fprintd 2>/dev/null || true
 info "✓ fprintd now uses the distro libfprint (it was never replaced)"
@@ -178,11 +174,5 @@ rm -rf "$FPRINT_REMOVED_DIR" "${FPRINT_STATE_DIR}/replaced-fingerprints"
 rmdir /run/samsung-galaxybook 2>/dev/null || true
 rmdir "$FPRINT_STATE_DIR" 2>/dev/null || true
 # PAM fingerprint authentication is left enabled on purpose.
-
-# Per-user menu entry left by an earlier test version of the Fingerprint Manager
-if [[ -n "${SUDO_USER:-}" ]]; then
-    _home=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-    rm -f "$_home/.local/share/applications/samsung-galaxybook-fingerprint-manager.desktop"
-fi
 
 info "✓ Fingerprint fix uninstalled"

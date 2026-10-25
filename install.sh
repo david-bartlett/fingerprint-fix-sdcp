@@ -17,7 +17,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # The installer needs its tools/ and lib/ folders — run it from the whole
 # fingerprint-fix-sdcp folder, not on its own.
 for _f in lib/sensor-check.c lib/fingerprint-manager.py lib/fingerprint-manager-helper.py \
-          lib/galaxybook-fingerprint-manager.svg lib/patches/sdcp-kdf-openssl30.patch fingerprint-manager.sh \
+          lib/galaxybook-fingerprint-manager.svg fingerprint-manager.sh \
           tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh; do
     [[ -f "$SCRIPT_DIR/$_f" ]] || { echo "Missing $SCRIPT_DIR/$_f — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
 done
@@ -69,8 +69,6 @@ MGR_APP_ID="io.github.david_bartlett.GalaxyBookFingerprintManager"
 # In /usr/share/applications: Cinnamon's menu doesn't notice a new entry in
 # /usr/local/share/applications until you log in again (often not even then).
 MGR_DESKTOP="/usr/share/applications/${MGR_APP_ID}.desktop"
-MGR_DESKTOP_OLD="/usr/local/share/applications/${MGR_ID}.desktop"   # name used before 2026-10-25
-MGR_DESKTOP_LOCAL="/usr/local/share/applications/${MGR_APP_ID}.desktop"   # place used before 2026-10-25
 MGR_ICON="/usr/local/share/icons/hicolor/scalable/apps/${MGR_ID}.svg"
 MGR_POLICY="/usr/share/polkit-1/actions/io.github.david-bartlett.${MGR_ID}.policy"
 FPRINT_DROPIN_DIR="/etc/systemd/system/fprintd.service.d"
@@ -377,7 +375,7 @@ cat > "$FPRINT_CLEANUP" << CLEANEOF
 rm -f "${FPRINT_DROPIN}"
 rmdir "${FPRINT_DROPIN_DIR}" 2>/dev/null || true
 rm -rf "${FPRINT_LIB_DIR}"
-rm -f "${MGR_BIN}" "${MGR_DESKTOP}" "${MGR_DESKTOP_OLD}" "${MGR_DESKTOP_LOCAL}" "${MGR_ICON}" "${MGR_POLICY}"
+rm -f "${MGR_BIN}" "${MGR_DESKTOP}" "${MGR_ICON}" "${MGR_POLICY}"
 rm -f "${FPRINT_SYSLIB_HASH}" "${FPRINT_MARKER}"
 rm -rf "${FPRINT_REMOVED_DIR}"
 rmdir "${FPRINT_STATE_DIR}" 2>/dev/null || true
@@ -877,7 +875,6 @@ ln -sfn "$MGR_DIR/fingerprint-manager.sh" "$MGR_BIN"
 install -Dm 644 "$SCRIPT_DIR/lib/${MGR_ID}.svg" "$MGR_ICON"
 
 mkdir -p "$(dirname "$MGR_DESKTOP")"
-rm -f "$MGR_DESKTOP_OLD" "$MGR_DESKTOP_LOCAL"
 cat > "$MGR_DESKTOP" << MGRDESKTOPEOF
 [Desktop Entry]
 Type=Application
@@ -923,16 +920,8 @@ command -v restorecon >/dev/null 2>&1 \
 # Refresh the icon cache only if there is one (none is fine: GTK then reads the folder).
 [[ -f /usr/local/share/icons/hicolor/icon-theme.cache ]] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
     && gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor 2>/dev/null || true
-if command -v update-desktop-database >/dev/null 2>&1; then
-    update-desktop-database -q /usr/share/applications 2>/dev/null || true
-    [[ -d /usr/local/share/applications ]] \
-        && update-desktop-database -q /usr/local/share/applications 2>/dev/null || true
-fi
-# An earlier test version could add a per-user menu entry — remove it.
-if [[ -n "${SUDO_USER:-}" ]]; then
-    _home=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-    rm -f "$_home/.local/share/applications/samsung-galaxybook-fingerprint-manager.desktop"
-fi
+command -v update-desktop-database >/dev/null 2>&1 \
+    && update-desktop-database -q /usr/share/applications 2>/dev/null || true
 info "✓ Galaxy Book Fingerprint Manager installed (app menu, or: ${MGR_ID})"
 
 # ── Done ──────────────────────────────────────────────────────────────────────

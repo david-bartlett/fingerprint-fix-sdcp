@@ -86,6 +86,10 @@ class Helper:
             err = (self.proc.stderr.read() or "").strip()
             rc = self.proc.wait()
             self.proc = None
+            if "authentication agent" in err.lower():
+                raise RuntimeError("No password prompt is available: this desktop has no polkit "
+                                   "authentication agent running.\nStart one (e.g. polkit-gnome or "
+                                   "lxpolkit) or log in to a full desktop, then press Refresh.")
             if rc in (126, 127):
                 raise RuntimeError("Authentication was cancelled or refused.\n"
                                    "Press Refresh to try again.")
