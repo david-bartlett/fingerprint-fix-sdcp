@@ -181,10 +181,13 @@ mkdir -p /var/lib/fprint
 if $HAS_RECORDS; then
     # Every check has passed: move the old records aside (records only — the
     # sensor is not touched), so they could be put back if ever needed.
-    OLD="/var/lib/samsung-galaxybook/replaced-fingerprints/$(date +%Y-%m-%d_%H%M%S)"
+    # The last 5 folders are kept.
+    REPLACED_DIR="/var/lib/samsung-galaxybook/replaced-fingerprints"
+    OLD="${REPLACED_DIR}/$(date +%Y-%m-%d_%H%M%S)"
     mkdir -p "$OLD"
-    chmod 700 /var/lib/samsung-galaxybook/replaced-fingerprints
+    chmod 700 "$REPLACED_DIR"
     mv "$DEST" "$OLD/"
+    ls -1dt "$REPLACED_DIR"/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf
     info "Moved ${TARGET_USER}'s previous records to $OLD"
 fi
 install -d -m 700 -o root -g root "$DEST" "$DEST/egismoc" "$DEST/egismoc/$SERIAL"
