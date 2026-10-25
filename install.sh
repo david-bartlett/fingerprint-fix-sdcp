@@ -230,6 +230,7 @@ fi
 
 # ── Step 5: Fetch the source ──────────────────────────────────────────────────
 step "Fingerprint Step 5: Fetching libfprint-egismoc-sdcp ($SDCP_BRANCH)"
+info "From: $SDCP_REPO_URL"
 rm -rf "$FPRINT_BUILD_DIR"
 mkdir -p "$FPRINT_BUILD_DIR"
 git -C "$FPRINT_BUILD_DIR" init -q
@@ -811,6 +812,10 @@ fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
 info "✓ Fingerprint fix installed — no reboot required"
+info "Built from: $SDCP_REPO_URL"
+info "            branch $SDCP_BRANCH, commit ${SDCP_COMMIT:0:12} (${SDCP_DATE})"
+[[ "$SDCP_SOURCE" == "fork" ]] \
+    || warn "This is a TEST build (not the usual fork). Run the installer again without\n       SDCP_REPO_URL to go back to the fork's build."
 echo
 echo "  Existing SDCP enrolments (from the old fingerprint-fix) are kept."
 echo "  Test with:  fprintd-verify"
