@@ -744,7 +744,7 @@ class Manager(Gtk.Window):
             hb.pack_start(FingerprintIcon(kind, 32), False, False, 0)
             texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
             texts.pack_start(self._label(long_title, "fpm-name", xalign=0), False, False, 0)
-            detail = sub if owners else "Another Linux install, another user or Windows Hello?"
+            detail = sub if owners else "Another distro, Windows Hello, or left over from a reinstall?"
             texts.pack_start(self._label(f"{detail} · template {t['id']}", "dim-label", "fpm-small",
                                          xalign=0, ellipsize=Pango.EllipsizeMode.END), False, False, 0)
             hb.pack_start(texts, True, True, 0)
