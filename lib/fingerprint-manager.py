@@ -138,15 +138,12 @@ CSS = b"""
 flowbox.fpm-cards, list.fpm-list { background-color: transparent; }
 flowbox.fpm-cards flowboxchild { padding: 3px; background-color: transparent; }
 flowbox.fpm-cards flowboxchild:selected { background-color: transparent; }
-flowbox.fpm-cards flowboxchild:selected .fpm-fcard { border: 2px solid @theme_selected_bg_color; padding: 9px 5px 8px 5px; }
+flowbox.fpm-cards flowboxchild.fpm-selected .fpm-fcard { border: 2px solid @theme_selected_bg_color; padding: 9px 5px 8px 5px;
+                                                       background-color: alpha(@theme_selected_bg_color, 0.08); }
 list.fpm-list row { padding: 0; margin-bottom: 6px; background-color: transparent; }
-list.fpm-list row:selected { background-color: transparent; }
-list.fpm-list row:selected .fpm-lcard { border-color: @theme_selected_bg_color;
+list.fpm-list row:selected, list.fpm-list row:hover, list.fpm-list row:active { background-color: transparent; }
+list.fpm-list row.fpm-selected .fpm-lcard { border-color: @theme_selected_bg_color;
                                         background-color: alpha(@theme_selected_bg_color, 0.10); }
-flowbox.fpm-cards flowboxchild:selected label, list.fpm-list row:selected label { color: @theme_fg_color; }
-flowbox.fpm-cards flowboxchild:selected label.fpm-ok, list.fpm-list row:selected label.fpm-ok { color: #26a269; }
-flowbox.fpm-cards flowboxchild:selected label.fpm-dead, list.fpm-list row:selected label.fpm-dead { color: #e01b24; }
-flowbox.fpm-cards flowboxchild:selected .fpm-add label { color: @theme_selected_bg_color; }
 .fpm-free { background-color: transparent; border: 1px dashed alpha(@theme_fg_color, 0.30); }
 .fpm-free label { color: alpha(@theme_fg_color, 0.45); }
 .fpm-id { font-family: monospace; font-size: 80%; }
@@ -362,7 +359,7 @@ class Manager(Gtk.Window):
         self.enrol_ok = False
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         top = Gtk.Box(spacing=6)
-        hint = Gtk.Label(label="Your fingers on this install. Select one to test or remove it.",
+        hint = Gtk.Label(label="Your fingers on this install. Click one to test or remove it; click again to deselect.",
                          xalign=0, wrap=True)
         hint.get_style_context().add_class("dim-label")
         hint.get_style_context().add_class("fpm-hint")
@@ -372,18 +369,17 @@ class Manager(Gtk.Window):
         top.pack_end(switch, False, False, 0)
         page.pack_start(top, False, False, 0)
 
-        self.cards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.MULTIPLE, homogeneous=True,
+        # Selection is ours, not GTK's: a click toggles a card/row on and off.
+        self.cards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=True,
                                  min_children_per_line=2, max_children_per_line=4,
                                  column_spacing=4, row_spacing=4, valign=Gtk.Align.START,
                                  activate_on_single_click=True)
         self.cards.get_style_context().add_class("fpm-cards")
-        self.cards.connect("selected-children-changed", self._on_cards_selected)
-        self.rows = Gtk.ListBox(selection_mode=Gtk.SelectionMode.MULTIPLE,
-                                activate_on_single_click=False)
+        self.cards.connect("child-activated", self._on_card_clicked)
+        self.rows = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE,
+                                activate_on_single_click=True)
         self.rows.get_style_context().add_class("fpm-list")
-        self.rows.connect("selected-rows-changed", self._on_rows_selected)
-        self.rows.connect("row-activated", lambda _l, row: getattr(row, "is_add", False)
-                          and self.on_enrol(None))
+        self.rows.connect("row-activated", self._on_card_clicked)
         self.rec_views = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         for name, widget in (("icons", self.cards), ("list", self.rows)):
             sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
@@ -422,16 +418,16 @@ class Manager(Gtk.Window):
         hint.get_style_context().add_class("dim-label")
         hint.get_style_context().add_class("fpm-hint")
         page.pack_start(hint, False, False, 0)
-        self.tcards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.MULTIPLE, homogeneous=True,
+        self.tcards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=True,
                                   min_children_per_line=5, max_children_per_line=5,
                                   column_spacing=4, row_spacing=4, valign=Gtk.Align.START,
                                   activate_on_single_click=True)
         self.tcards.get_style_context().add_class("fpm-cards")
-        self.tcards.connect("selected-children-changed", self._on_tcards_selected)
-        self.trows = Gtk.ListBox(selection_mode=Gtk.SelectionMode.MULTIPLE,
-                                 activate_on_single_click=False)
+        self.tcards.connect("child-activated", self._on_tcard_clicked)
+        self.trows = Gtk.ListBox(selection_mode=Gtk.SelectionMode.NONE,
+                                 activate_on_single_click=True)
         self.trows.get_style_context().add_class("fpm-list")
-        self.trows.connect("selected-rows-changed", self._on_trows_selected)
+        self.trows.connect("row-activated", self._on_tcard_clicked)
         self.tpl_views = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         for name, widget in (("icons", self.tcards), ("list", self.trows)):
             sw = Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER)
@@ -551,36 +547,23 @@ class Manager(Gtk.Window):
         return [[t["id"], ", ".join(t["used_by"]) or "Not used here", 1 if t["used_by"] else 0]
                 for t in self.templates if t["id"] in self.tsel]
 
-    def _on_tcards_selected(self, box):
-        if self._syncing_sel:
-            return
-        ids = set()
-        for child in box.get_selected_children():
-            if getattr(child, "is_free", False):
-                box.unselect_child(child)
-            else:
-                ids.add(child.tid)
-        self._set_tsel(ids)
+    @staticmethod
+    def _mark(widget, on):
+        ctx = widget.get_style_context()
+        (ctx.add_class if on else ctx.remove_class)("fpm-selected")
 
-    def _on_trows_selected(self, lst):
-        if self._syncing_sel:
+    def _on_tcard_clicked(self, _box, child):
+        """Click a template card or row: select it (only one at a time), or
+        deselect it if it is already selected."""
+        tid = getattr(child, "tid", None)
+        if tid is None:                                   # a free slot
             return
-        self._set_tsel({row.tid for row in lst.get_selected_rows()})
+        self._set_tsel(set() if tid in self.tsel else {tid})
 
     def _set_tsel(self, ids):
-        self.tsel = ids
-        self._syncing_sel = True
-        for child in self.tcards.get_children():
-            if getattr(child, "tid", None) in ids:
-                self.tcards.select_child(child)
-            else:
-                self.tcards.unselect_child(child)
-        for row in self.trows.get_children():
-            if getattr(row, "tid", None) in ids:
-                self.trows.select_row(row)
-            else:
-                self.trows.unselect_row(row)
-        self._syncing_sel = False
+        self.tsel = set(ids)
+        for w in self.tcards.get_children() + self.trows.get_children():
+            self._mark(w, getattr(w, "tid", None) in self.tsel)
         self._update_buttons()
 
     def _fill_templates(self, templates):
@@ -652,40 +635,23 @@ class Manager(Gtk.Window):
         self.trows.show_all()
         self._set_tsel({i for i in self.tsel if any(t["id"] == i for t in templates)})
 
-    def _on_cards_selected(self, box):
-        if self._syncing_sel:
+    def _on_card_clicked(self, _box, child):
+        """Click a finger card or row: select it (only one at a time), or
+        deselect it if it is already selected. The Enrol card / row opens
+        enrolment."""
+        if getattr(child, "is_add", False):
+            if self.enrol_ok:
+                GLib.idle_add(lambda: self.on_enrol(None) and False)
             return
-        keys = set()
-        for child in box.get_selected_children():
-            if getattr(child, "is_add", False):
-                box.unselect_child(child)
-                if self.enrol_ok:
-                    GLib.idle_add(lambda: self.on_enrol(None) and False)
-                continue
-            keys.add(child.key)
-        self._set_selection(keys)
-
-    def _on_rows_selected(self, lst):
-        if self._syncing_sel:
-            return
-        self._set_selection({row.key for row in lst.get_selected_rows()
-                             if not getattr(row, "is_add", False)})
+        key = getattr(child, "key", None)
+        if key is not None:
+            self._set_selection(set() if key in self.sel_keys else {key})
 
     def _set_selection(self, keys):
         """Keep both views showing the same selection."""
-        self.sel_keys = keys
-        self._syncing_sel = True
-        for child in self.cards.get_children():
-            if getattr(child, "key", None) in keys:
-                self.cards.select_child(child)
-            else:
-                self.cards.unselect_child(child)
-        for row in self.rows.get_children():
-            if getattr(row, "key", None) in keys:
-                self.rows.select_row(row)
-            else:
-                self.rows.unselect_row(row)
-        self._syncing_sel = False
+        self.sel_keys = set(keys)
+        for w in self.cards.get_children() + self.rows.get_children():
+            self._mark(w, getattr(w, "key", None) in self.sel_keys)
         self._update_buttons()
 
     def _icon_or_text(self, button, names, text):
