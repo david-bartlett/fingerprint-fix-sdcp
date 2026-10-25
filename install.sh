@@ -4,9 +4,9 @@
 # =============================================================================
 # Self-contained. Run as root: sudo bash install.sh
 #
-# Builds ONLY the egismoc driver from Abdallah Alkanani's libfprint-egismoc-sdcp
-# branch (libfprint-TOD v1.95.2 + Joshua Grisham's Egis SDCP driver, hardened),
-# pinned to a known commit, and points fprintd at it with a systemd drop-in.
+# Builds ONLY the egismoc driver from libfprint-egismoc-sdcp (our fork of
+# Abdallah Alkanani's repo: libfprint-TOD v1.95.2 + Joshua Grisham's Egis SDCP
+# driver, hardened) and points fprintd at it with a systemd drop-in.
 # The distro's libfprint is left untouched, so distro updates cannot overwrite
 # this fix and removing it is just deleting the drop-in.
 # =============================================================================
@@ -36,21 +36,18 @@ warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 step()  { echo -e "\n${BLUE}══ $* ${NC}"; }
 
-# ── Source pin ────────────────────────────────────────────────────────────────
-# PINNED_COMMIT is the tested build everyone gets by default. Change it (after
-# testing) to move to a newer commit.
-#   sudo bash install.sh                     → builds PINNED_COMMIT
-#   sudo SDCP_COMMIT=latest bash install.sh  → builds the newest commit on
-#                                              SDCP_BRANCH (untested)
-SDCP_REPO_URL="https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp.git"
+# ── Source ────────────────────────────────────────────────────────────────────
+# Builds the newest commit of SDCP_BRANCH in our fork of
+# abdallah-alkanani/libfprint-egismoc-sdcp. The fork is the release channel:
+# users get whatever it holds, so "Sync fork" on GitHub publishes an update.
+#
+# Test upstream changes BEFORE syncing the fork, by building the original repo:
+#   sudo SDCP_REPO_URL=https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp.git bash install.sh
+DEFAULT_SDCP_REPO_URL="https://github.com/david-bartlett/libfprint-egismoc-sdcp.git"
+SDCP_REPO_URL="${SDCP_REPO_URL:-$DEFAULT_SDCP_REPO_URL}"
 SDCP_BRANCH="egismoc-sdcp"
-PINNED_COMMIT="c4880d057e80c7095eb02d227c860ae8d8ddfe54"   # egismoc-sdcp, 2026-10-16
-case "${SDCP_COMMIT:-}" in
-    "")     SDCP_COMMIT="$PINNED_COMMIT" ;;
-    latest) ;;
-    *)      echo "ERROR: SDCP_COMMIT can only be 'latest' (or left unset for the tested build)."
-            exit 1 ;;
-esac
+[[ "$SDCP_REPO_URL" =~ ^https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(\.git)?$ ]] \
+    || { echo "ERROR: SDCP_REPO_URL must be an https://github.com/OWNER/REPO URL."; exit 1; }
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 FPRINT_LIB_DIR="/usr/local/lib/libfprint-egismoc-sdcp"
@@ -231,32 +228,24 @@ else
     info "Distro libfprint cannot use the sensor — proceeding with the fix"
 fi
 
-# ── Step 5: Fetch the pinned source ───────────────────────────────────────────
+# ── Step 5: Fetch the source ──────────────────────────────────────────────────
+step "Fingerprint Step 5: Fetching libfprint-egismoc-sdcp ($SDCP_BRANCH)"
 rm -rf "$FPRINT_BUILD_DIR"
 mkdir -p "$FPRINT_BUILD_DIR"
 git -C "$FPRINT_BUILD_DIR" init -q
 git -C "$FPRINT_BUILD_DIR" remote add origin "$SDCP_REPO_URL"
-if [[ "$SDCP_COMMIT" == "latest" ]]; then
-    step "Fingerprint Step 5: Fetching the LATEST libfprint-egismoc-sdcp ($SDCP_BRANCH)"
-    git -C "$FPRINT_BUILD_DIR" fetch -q --depth 1 origin "$SDCP_BRANCH" \
-        || error "Could not fetch branch ${SDCP_BRANCH} from:\n  ${SDCP_REPO_URL}\n  Check your internet connection. If the branch has been removed,\n  run the installer without SDCP_COMMIT to build the tested commit."
-    git -C "$FPRINT_BUILD_DIR" checkout -q FETCH_HEAD
-    SDCP_COMMIT=$(git -C "$FPRINT_BUILD_DIR" rev-parse HEAD)
-    SDCP_LABEL="latest"
-    if [[ "$SDCP_COMMIT" == "$PINNED_COMMIT" ]]; then
-        info "The latest commit is the tested one (${SDCP_COMMIT:0:12})"
-        SDCP_LABEL="pinned"
-    else
-        warn "Building ${SDCP_COMMIT:0:12} ($(git -C "$FPRINT_BUILD_DIR" log -1 --format=%cs)) —\n       newer than the tested ${PINNED_COMMIT:0:12} and NOT tested on Galaxy Books.\n       To go back, run the installer without SDCP_COMMIT (enrolments are kept)."
-    fi
+git -C "$FPRINT_BUILD_DIR" fetch -q --depth 1 origin "$SDCP_BRANCH" \
+    || error "Could not fetch branch ${SDCP_BRANCH} from:\n  ${SDCP_REPO_URL}\n  Check your internet connection and that the repository still exists."
+git -C "$FPRINT_BUILD_DIR" checkout -q FETCH_HEAD
+SDCP_COMMIT=$(git -C "$FPRINT_BUILD_DIR" rev-parse HEAD)
+SDCP_DATE=$(git -C "$FPRINT_BUILD_DIR" log -1 --format=%cs)
+if [[ "$SDCP_REPO_URL" == "$DEFAULT_SDCP_REPO_URL" ]]; then
+    SDCP_SOURCE="fork"
 else
-    step "Fingerprint Step 5: Fetching libfprint-egismoc-sdcp at ${SDCP_COMMIT:0:12}"
-    git -C "$FPRINT_BUILD_DIR" fetch -q --depth 1 origin "$SDCP_COMMIT" \
-        || error "Could not fetch commit ${SDCP_COMMIT} from:\n  ${SDCP_REPO_URL}\n  Check your internet connection. If the repository or commit has been\n  removed, this fix needs updating."
-    git -C "$FPRINT_BUILD_DIR" checkout -q FETCH_HEAD
-    SDCP_LABEL="pinned"
+    SDCP_SOURCE="$SDCP_REPO_URL"
+    warn "Building from ${SDCP_REPO_URL}, not the usual fork — for testing.\n       Run the installer without SDCP_REPO_URL to go back (enrolments are kept)."
 fi
-info "✓ Source at commit ${SDCP_COMMIT:0:12} (${SDCP_LABEL})"
+info "✓ Source at commit ${SDCP_COMMIT:0:12} (${SDCP_DATE})"
 
 # ── Step 6: Build only the egismoc driver ─────────────────────────────────────
 step "Fingerprint Step 6: Building libfprint (egismoc driver only)"
@@ -322,7 +311,7 @@ if [[ -n "$SYSLIB" ]]; then
     sha256sum "$SYSLIB" | awk '{print $1}' > "$FPRINT_SYSLIB_HASH"
     chmod 644 "$FPRINT_SYSLIB_HASH"
 fi
-echo "${SDCP_COMMIT:0:12} ${SDCP_LABEL} (installed $(date '+%Y-%m-%d'))" > "$FPRINT_MARKER"
+echo "${SDCP_COMMIT:0:12} ${SDCP_DATE} ${SDCP_SOURCE} (installed $(date '+%Y-%m-%d'))" > "$FPRINT_MARKER"
 info "✓ Marker and distro libfprint hash stored"
 
 # ── Step 10: Monitor — cleanup helper, scripts, polkit rule, services ─────────

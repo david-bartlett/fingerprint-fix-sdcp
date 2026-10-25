@@ -1,6 +1,6 @@
 # Fingerprint Fix (egismoc SDCP driver)
 
-Enables fingerprint authentication on Samsung Galaxy Book laptops with an EgisTec SDCP fingerprint sensor. It builds **only the egismoc driver** from [libfprint-egismoc-sdcp](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp), pinned to a tested commit, and points fprintd at it. **The distro's libfprint is not replaced.**
+Enables fingerprint authentication on Samsung Galaxy Book laptops with an EgisTec SDCP fingerprint sensor. It builds **only the egismoc driver** from [libfprint-egismoc-sdcp](https://github.com/david-bartlett/libfprint-egismoc-sdcp) (a fork of [Abdallah Alkanani's repo](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp)), and points fprintd at it. **The distro's libfprint is not replaced.**
 
 This is the successor to `fingerprint-fix`, which built the unmerged `feature/sdcp-v2` branch and installed it over the system libfprint. That fix has been removed from the repo; it is kept under the [`fingerprint-fix-final`](https://github.com/david-bartlett/samsung-galaxybook-fixes/tree/fingerprint-fix-final/extras/fingerprint-fix) tag. Installing this fix migrates an existing `fingerprint-fix` install automatically.
 
@@ -15,9 +15,10 @@ These sensors are Windows Hello readers that expect the host to use Microsoft's 
 | Base | [libfprint-TOD v1.95.2+tod1](https://gitlab.freedesktop.org/3v1n0/libfprint/-/tree/v1.95.2+tod1) — the released shared SDCP core (Benjamin Berg, Joshua Grisham, Marco Trevisan) |
 | Driver | Joshua Grisham's Egis SDCP driver from libfprint [MR !547](https://gitlab.freedesktop.org/libfprint/libfprint/-/merge_requests/547) / `feature/sdcp-v2`, ported onto that core by Abdallah Alkanani |
 | Extra fixes | Fresh random nonce for every identify, full certificate-chain, attestation and identity-MAC checks, bounds-checked responses, clean failed opens and suspend; Roman2K's longer finger wait for `05a5`; Philip Walsh's ET171 fixes |
-| Pinned commit | `c4880d057e80` on branch `egismoc-sdcp` (2026-10-16) — set in `install.sh` (`PINNED_COMMIT`); `SDCP_COMMIT=latest` builds the newest commit instead |
+| Source repo | [david-bartlett/libfprint-egismoc-sdcp](https://github.com/david-bartlett/libfprint-egismoc-sdcp), a fork of [abdallah-alkanani/libfprint-egismoc-sdcp](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp) with its full history and authorship, so new installs don't depend on the original repo staying online |
+| Version built | The newest commit of branch `egismoc-sdcp` **in the fork**. The fork is the release channel: updating it (**Sync fork** on GitHub) is how a new version reaches users. Currently `c4880d057e80` (2026-10-16) |
 
-See the upstream [`SDCP.md`](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp/blob/egismoc-sdcp/libfprint/drivers/egismoc/SDCP.md) for the protocol mapping and trust rules.
+See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc-sdcp/blob/egismoc-sdcp/libfprint/drivers/egismoc/SDCP.md) for the protocol mapping and trust rules.
 
 ## Supported Hardware
 
@@ -34,7 +35,7 @@ Find your reader's ID with `lsusb | grep 1c7a`.
 2. Installs build dependencies, fprintd and fprintd's PAM module
 3. **Migrates from the old `fingerprint-fix`** if it is installed: removes its monitor and restores the distro libfprint, **keeping enrolled fingerprints** (both builds use the same SDCP on-disk format)
 4. Exits without changes if the distro libfprint already handles the sensor (override with `FORCE=1`)
-5. Fetches the pinned commit and builds the egismoc driver only (`-Ddrivers=egismoc -Dtod=false`)
+5. Fetches the newest commit of `egismoc-sdcp` from the fork and builds the egismoc driver only (`-Ddrivers=egismoc -Dtod=false`)
 6. Installs the library to `/usr/local/lib/libfprint-egismoc-sdcp/` and adds a systemd drop-in so **only fprintd** loads it (`LD_LIBRARY_PATH`)
 7. Configures PAM (Fedora: authselect; Ubuntu/Debian/Mint: pam-auth-update; Arch-based: asks whether to add fingerprint to sudo and polkit — see below)
 8. Installs a login-time monitor and a boot-time sensor check (see below)
@@ -48,13 +49,15 @@ It does **not** delete `/var/lib/fprint`. Deleting fprintd's records by hand lea
 sudo bash install.sh
 ```
 
-This builds the tested, pinned commit. To try the newest upstream commit instead (not tested on Galaxy Books):
+This builds whatever the fork currently holds. `/etc/samsung-galaxybook-egismoc-sdcp.installed` records the commit, its date and where it came from.
+
+**Updating the fork (maintainer):** test the original repo's newest commit on your own laptop *before* clicking **Sync fork**, because syncing publishes it to everyone:
 
 ```bash
-sudo SDCP_COMMIT=latest bash install.sh
+sudo SDCP_REPO_URL=https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp.git bash install.sh
 ```
 
-The installer says when the newest commit is newer than the tested one. To go back, run `sudo bash install.sh` again — enrolled fingerprints are kept either way. `/etc/samsung-galaxybook-egismoc-sdcp.installed` records which commit is installed and whether it was `pinned` or `latest`.
+If it works, sync the fork. Either way, `sudo bash install.sh` puts you back on the fork's version — enrolled fingerprints are kept. `SDCP_REPO_URL` only accepts `https://github.com/OWNER/REPO` addresses.
 
 No reboot needed. Then test with `fprintd-verify`, or enrol:
 
@@ -217,7 +220,7 @@ session include system-local-login
 - `/etc/systemd/system/samsung-galaxybook-fprint-sdcp-monitor.service`
 - `~/.config/systemd/user/samsung-galaxybook-fprint-sdcp-user-check.{service,timer}`
 - `/etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules`
-- `/etc/samsung-galaxybook-egismoc-sdcp.installed` — marker (pinned commit and install date)
+- `/etc/samsung-galaxybook-egismoc-sdcp.installed` — marker (commit, its date, source and install date)
 - `/var/lib/samsung-galaxybook/libfprint-system.sha256` — distro libfprint hash, to spot updates
 - `/usr/local/lib/libfprint-egismoc-sdcp/sensor-check` — boot-time sensor check program
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh` and `/etc/systemd/system/samsung-galaxybook-fprint-sdcp-boot-check.service` — runs it at boot, before fprintd
