@@ -1,22 +1,24 @@
 # Fingerprint Fix (egismoc SDCP driver)
 
+Fingerprint login for **Samsung Galaxy Book 4 / Book 5 Pro** (and Book 3 / Book 4 with the `05a1` reader) on Linux.
+
 Enables fingerprint authentication on Samsung Galaxy Book laptops with an EgisTec SDCP fingerprint sensor. It builds **only the egismoc driver** from [libfprint-egismoc-sdcp](https://github.com/david-bartlett/libfprint-egismoc-sdcp) (a fork of [Abdallah Alkanani's repo](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp)), and points fprintd at it. **The distro's libfprint is not replaced.**
 
-This is the successor to `fingerprint-fix`, which built the unmerged `feature/sdcp-v2` branch and installed it over the system libfprint. That fix has been removed from the repo; it is kept under the [`fingerprint-fix-final`](https://github.com/david-bartlett/samsung-galaxybook-fixes/tree/fingerprint-fix-final/extras/fingerprint-fix) tag. Installing this fix migrates an existing `fingerprint-fix` install automatically.
+It replaces the older `fingerprint-fix` (part of Samsung Galaxy Book Fixes), which built the unmerged `feature/sdcp-v2` branch and installed it over the system libfprint. Installing this fix migrates an existing `fingerprint-fix` install automatically, keeping enrolled fingerprints.
 
-## What's in This Folder
+## What's in This Repository
 
 <details>
-<summary>Show the folder layout</summary>
+<summary>Show the layout</summary>
 
 | | |
 | --- | --- |
 | `install.sh` / `uninstall.sh` | Install or remove the fix |
-| `fingerprint-manager.sh` | Starts the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) from this folder (the installer also installs it) |
+| `fingerprint-manager.sh` | Starts the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) from the repository folder (the installer also installs it) |
 | `tools/` | Optional command-line tools: `export-fingerprint.sh`, `import-fingerprint.sh` ([sharing fingerprints](#sharing-fingerprints-between-linux-installs)), `fingerprint-pam.sh` ([fingerprint login on/off](#turning-fingerprint-login-on-or-off)), `arch-pam.sh` (used by it on Arch) |
 | `lib/` | Used by the above — not run directly: the Fingerprint Manager's Python files and icon, `sensor-check.c`, and `patches/` (fixes applied to the driver source at build time) |
 
-Keep the folder together: the installer and the Fingerprint Manager use the files in `tools/` and `lib/`.
+Keep the repository folder together: the installer and the Fingerprint Manager use the files in `tools/` and `lib/`.
 
 </details>
 
@@ -51,6 +53,8 @@ See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc
 
 Find your reader's ID with `lsusb | grep 1c7a`.
 
+Got it working on a model or distro not listed here? Please tell us with the [**It works on my laptop / distro**](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues/new?template=works_on.yml) form — that's how this list grows.
+
 ## What This Fix Does
 
 1. Checks the sensor is present
@@ -68,19 +72,30 @@ It does **not** delete `/var/lib/fprint`. Deleting fprintd's records by hand lea
 
 ## Install
 
+Needs `git` and an internet connection (the installer downloads and builds the driver):
+
 ```bash
+git clone https://github.com/david-bartlett/fingerprint-fix-sdcp
+cd fingerprint-fix-sdcp
 sudo bash install.sh
 ```
 
-This builds whatever the fork currently holds. `/etc/samsung-galaxybook-egismoc-sdcp.installed` records the commit, its date and where it came from.
+The installer checks your distro, installs the build packages it needs, builds the driver and sets everything up; at the end it offers to open the Fingerprint Manager. It works on Fedora, Debian / Ubuntu and their derivatives (Linux Mint, Zorin, Pop!_OS, MX Linux…) and Arch-based distros. `/etc/samsung-galaxybook-egismoc-sdcp.installed` records the driver commit, its date and where it came from.
 
-**Updating the fork (maintainer):** test the original repo's newest commit on your own laptop *before* clicking **Sync fork**, because syncing publishes it to everyone:
+**Updating:** in the `fingerprint-fix-sdcp` folder, run `git pull`, then `sudo bash install.sh` again. Enrolled fingerprints are kept.
+
+<details>
+<summary>For the maintainer: updating the driver fork</summary>
+
+This builds whatever the fork currently holds. Test the original repo's newest commit on your own laptop *before* clicking **Sync fork**, because syncing publishes it to everyone:
 
 ```bash
 sudo SDCP_REPO_URL=https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp.git bash install.sh
 ```
 
 If it works, sync the fork. Either way, `sudo bash install.sh` puts you back on the fork's version — enrolled fingerprints are kept. `SDCP_REPO_URL` only accepts `https://github.com/OWNER/REPO` addresses.
+
+</details>
 
 No reboot needed. Then test with `fprintd-verify`, or enrol:
 
@@ -203,7 +218,7 @@ A small window for looking after the fingerprints on the sensor. The installer i
 
 ```bash
 galaxybook-fingerprint-manager           # as yourself, not with sudo
-./fingerprint-manager.sh                 # or straight from this folder (e.g. while developing)
+./fingerprint-manager.sh                 # or straight from the repository folder (e.g. while developing)
 ```
 
 <p>
@@ -346,6 +361,14 @@ session include system-local-login
 - `~/.cache/samsung-galaxybook/fprint-sdcp-boot-shown` — remembers the boot check message was shown this boot
 
 </details>
+
+## Reporting Problems
+
+Use the [**Bug report**](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues/new?template=bug_report.yml) form. It asks for the laptop model, sensor ID, distro, fix build and the relevant logs, which usually saves a round of questions. Please check the [existing issues](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues) first.
+
+## Licence
+
+GPL-2.0-or-later — see [LICENSE](LICENSE). The driver it builds, libfprint, is LGPL-2.1-or-later.
 
 ## Credits
 
