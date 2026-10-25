@@ -370,7 +370,6 @@ class Manager(Gtk.Window):
         top = Gtk.Box(spacing=6)
         hint = Gtk.Label(label="Click a finger to select it, or a grey one to enrol it. Double-click to test.",
                          xalign=0, wrap=True)
-        hint.get_style_context().add_class("dim-label")
         hint.get_style_context().add_class("fpm-hint")
         top.pack_start(hint, True, True, 0)
         self.view_switches = []           # (cards button, list button) per tab
@@ -432,7 +431,6 @@ class Manager(Gtk.Window):
         page.pack_start(self.slots_bar, False, False, 0)
         hint = Gtk.Label(label="Grey = not used by this install: another Linux install, another "
                                "user or Windows Hello. Dashed = free.", xalign=0, wrap=True)
-        hint.get_style_context().add_class("dim-label")
         hint.get_style_context().add_class("fpm-hint")
         page.pack_start(hint, False, False, 0)
         self.tcards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=True,
@@ -996,7 +994,9 @@ class Manager(Gtk.Window):
         self.run_job("pam", done, op=op)
         return True                       # the switch follows the real state after refresh
 
-    def after_job(self, title):
+    def after_job(self, title, undo=False):
+        """undo: offer an Undo button that moves the records back (only for
+        Remove — their templates are still on the sensor)."""
         def done(res, err):
             if err:
                 self.refresh(lambda: self.error(err))
@@ -1021,9 +1021,27 @@ class Manager(Gtk.Window):
             summary = summary.replace(os.path.expanduser("~") + "/", "~/")
             first = title.split()[0].lower()
             text = summary if summary.lower().startswith(first) else f"{title}: {summary}"
-            self.refresh(lambda: self.message(text,
+            moved = res.get("moved") or []
+            action = ("Undo", lambda: self.undo_remove(moved)) if undo and moved else None
+            self.refresh(lambda: self.message(text, action=action,
                                               details=(res.get("output") or "") + extra or None))
         return done
+
+    def undo_remove(self, paths):
+        """Put records back that Remove has just moved aside."""
+        self._hide_message()
+
+        def done(res, err):
+            if err:
+                return self.refresh(lambda: self.error(err))
+            n, k = len(res["restored"]), len(res["skipped"])
+            text = f"Undone — put back {n} record(s)." if n else "Nothing was put back."
+            if k:
+                text += f" {k} could not be put back."
+            details = "\n".join((["Put back: " + ", ".join(res["restored"])] if n else [])
+                                 + (["Not put back: " + "; ".join(res["skipped"])] if k else []))
+            self.refresh(lambda: self.message(text, details=details or None))
+        self.run_job("restore", done, paths=paths)
 
     # ── actions ──
     def on_test(self, _btn, rec=None):
@@ -1362,7 +1380,7 @@ class Manager(Gtk.Window):
                         "stay on the sensor, so other installs sharing them keep working. The records "
                         "are moved to /var/lib/samsung-galaxybook/removed-fingerprints/.",
                         "Remove"):
-            self.run_job("remove_records", self.after_job("Removed from this install"),
+            self.run_job("remove_records", self.after_job("Removed from this install", undo=True),
                          records=[{"user": r[0], "finger": r[4]} for r in rows])
 
     def on_delete_templates(self, _btn):
