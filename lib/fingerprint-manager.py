@@ -167,21 +167,32 @@ SETTINGS = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser(
                         ICON_NAME, "settings")
 
 
-def load_view():
+def load_settings():
+    """key=value lines: view (icons/list), sensor_tab (1 = shown)."""
     try:
         with open(SETTINGS) as f:
-            return "list" if "view=list" in f.read() else "icons"
+            return dict(l.strip().split("=", 1) for l in f if "=" in l)
     except OSError:
-        return "icons"
+        return {}
+
+
+def save_setting(key, value):
+    try:
+        cfg = load_settings()
+        cfg[key] = str(value)
+        os.makedirs(os.path.dirname(SETTINGS), exist_ok=True)
+        with open(SETTINGS, "w") as f:
+            f.writelines(f"{k}={v}\n" for k, v in cfg.items())
+    except OSError:
+        pass
+
+
+def load_view():
+    return "list" if load_settings().get("view") == "list" else "icons"
 
 
 def save_view(view):
-    try:
-        os.makedirs(os.path.dirname(SETTINGS), exist_ok=True)
-        with open(SETTINGS, "w") as f:
-            f.write(f"view={view}\n")
-    except OSError:
-        pass
+    save_setting("view", view)
 
 
 # The fingerprint drawing (64×64 units): start point, then cubic segments.
@@ -289,8 +300,14 @@ class Manager(Gtk.Window):
         hb = Gtk.HeaderBar(show_close_button=True)
         self.set_titlebar(hb)
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
-        switcher = Gtk.StackSwitcher(stack=self.stack)
-        hb.set_custom_title(switcher)
+        # The tabs; with the Sensor tab hidden (the default) just a title.
+        self.switcher = Gtk.StackSwitcher(stack=self.stack)
+        self.title_lbl = Gtk.Label(label="Fingerprints")
+        self.title_lbl.get_style_context().add_class("title")
+        title_box = Gtk.Box()
+        title_box.pack_start(self.switcher, False, False, 0)
+        title_box.pack_start(self.title_lbl, False, False, 0)
+        hb.set_custom_title(title_box)
         self.refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.BUTTON)
         self.refresh_btn.set_tooltip_text("Read the sensor again")
         self.refresh_btn.connect("clicked", lambda *_: self.refresh())
@@ -303,6 +320,13 @@ class Manager(Gtk.Window):
         self.import_item = self._menu_item(menu, "Import fingerprints…", self.on_import)
         menu.append(Gtk.SeparatorMenuItem())
         self.restore_item = self._menu_item(menu, "Restore removed records…", self.on_restore)
+        menu.append(Gtk.SeparatorMenuItem())
+        self.sensor_item = Gtk.CheckMenuItem(label="Show the Sensor tab (advanced)")
+        self.sensor_item.set_tooltip_text("Every template stored on the sensor — including other "
+                                          "installs' and Windows Hello's — with delete and wipe")
+        self.sensor_item.set_active(load_settings().get("sensor_tab") == "1")
+        self.sensor_item.connect("toggled", lambda i: self._show_sensor_tab(i.get_active()))
+        menu.append(self.sensor_item)
         menu.append(Gtk.SeparatorMenuItem())
         self._menu_item(menu, "About", self.on_about)
         menu.show_all()
@@ -460,11 +484,13 @@ class Manager(Gtk.Window):
         row.pack_end(self.wipe_btn, False, False, 0)
         page.pack_start(row, False, False, 0)
         self.stack.add_titled(page, "sensor", "Sensor")
+        self.sensor_page = page
         self.pages = {"fingers": "Fingerprints", "sensor": "Sensor"}
 
         self._set_view(load_view(), save=False)
         self.connect("destroy", self.on_quit)
         self.show_all()
+        self._show_sensor_tab(self.sensor_item.get_active(), save=False)
         self._set_view(load_view(), save=False)
         self._update_buttons()
         GLib.idle_add(self.refresh)
@@ -542,6 +568,16 @@ class Manager(Gtk.Window):
         icons.connect("toggled", lambda b: self._set_view("icons" if b.get_active() else "list"))
         self.view_switches.append((icons, lst))
         return box, icons, lst
+
+    def _show_sensor_tab(self, show, save=True):
+        """The Sensor tab is for troubleshooting, so it's hidden unless chosen."""
+        if not show and self.stack.get_visible_child_name() == "sensor":
+            self.stack.set_visible_child_name("fingers")
+        self.sensor_page.set_visible(show)
+        self.switcher.set_visible(show)
+        self.title_lbl.set_visible(not show)
+        if save:
+            save_setting("sensor_tab", 1 if show else 0)
 
     def _set_view(self, view, save=True):
         if getattr(self, "_setting_view", False):
@@ -948,6 +984,7 @@ class Manager(Gtk.Window):
         for name, n in (("fingers", len(st["records"])), ("sensor", len(st["templates"]))):
             self.stack.child_set_property(self.stack.get_child_by_name(name), "title",
                                           f"{self.pages[name]} ({n})")
+        self.title_lbl.set_text(f"Fingerprints ({len(st['records'])})")
         marker = st.get("marker") or "unknown"
         build = marker.split()[0] if marker != "unknown" else marker
         self.info.set_text(f"Sensor {st['usb_id']} · {st['serial']} · fix build {build}")
@@ -955,7 +992,7 @@ class Manager(Gtk.Window):
         self.show_pam(st.get("pam") or {})
         dead = [r for r in st["records"] if r["on_sensor"] is False]
         if dead:
-            names = ", ".join(f"{r['name']} ({r['user']})" for r in dead)
+            names = ", ".join(f"{long_finger(r['name'])} ({r['user']})" for r in dead)
             self.message(f"No longer on the sensor: {names}.", Gtk.MessageType.WARNING,
                          details="These records point at templates the sensor no longer has "
                                  "(re-enrolled elsewhere, or removed by Windows), so they can "
@@ -1261,7 +1298,8 @@ class Manager(Gtk.Window):
                        "or for another user). Nothing was changed.")
             elif res == "enroll-data-full":
                 finish("✗", RED, "The sensor is full",
-                       "Delete templates you no longer need, then try again.")
+                       "Delete templates you no longer need on the Sensor tab (☰ → Show "
+                       "the Sensor tab), then try again.")
             elif res:
                 finish("✗", RED, "Enrolment failed", res)
             elif line.lower().startswith(("failed", "enrollstart failed", "impossible")):
