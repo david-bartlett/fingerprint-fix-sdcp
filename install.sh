@@ -106,10 +106,13 @@ check_hardware() {
 }
 
 # ── Check if fprintd can see our sensor via D-Bus ─────────────────────────────
+# Polls once a second for up to $1 seconds (default 10) and returns as soon as a
+# device is listed — fprintd resets the sensor over USB as it starts, so it can
+# take a few seconds to appear.
 check_fprintd_functional() {
+    local tries="${1:-10}" devices i
     systemctl start fprintd 2>/dev/null || return 1
-    local devices i
-    for i in 1 2 3 4 5 6 7 8 9 10; do
+    for ((i = 0; i < tries; i++)); do
         devices=$(gdbus call --system \
             --dest net.reactivated.Fprint \
             --object-path /net/reactivated/Fprint/Manager \
@@ -218,7 +221,10 @@ step "Fingerprint Step 4: Checking if the distro libfprint already supports the 
 # the old fix (we already know the distro libfprint wasn't enough).
 if [[ -f "$FPRINT_DROPIN" || "${MIGRATED:-0}" == "1" || "${FORCE:-0}" == "1" ]]; then
     info "Skipped (reinstall, migration or FORCE=1)"
-elif check_fprintd_functional; then
+# Only 3 seconds here: the distro libfprint can't use these sensors, so this
+# would otherwise always wait the full 10. Missing a slow start just means the
+# fix is installed anyway, which is harmless.
+elif check_fprintd_functional 3; then
     info "✓ fprintd can already see the sensor with the distro libfprint."
     info "  This fix is probably not needed. If fingerprint login still does not"
     info "  work (enrolled prints not kept, or verify always fails), install it"
