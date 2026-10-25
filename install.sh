@@ -289,6 +289,11 @@ for _patch in "$SCRIPT_DIR"/lib/patches/*.patch; do
         info "✓ Applied fix: ${_desc:-$_name}"
     elif git -C "$FPRINT_BUILD_DIR" apply --reverse --check "$_patch" 2>/dev/null; then
         info "Fix already in the source — not needed: ${_desc:-$_name}"
+    elif _needed=$(sed -n 's/^Needed-if-source-has: //p' "$_patch" | head -1) && [[ -n "$_needed" ]] \
+            && [[ -f "$FPRINT_BUILD_DIR/${_needed%%|*}" ]] \
+            && ! grep -qF -- "${_needed#*|}" "$FPRINT_BUILD_DIR/${_needed%%|*}"; then
+        # Fixed in the source in a different way: the code the fix replaces is gone.
+        info "Fix already in the source — not needed: ${_desc:-$_name}"
     else
         error "Fix ${_name} no longer fits the source at commit ${SDCP_COMMIT:0:12}.\n  The source has changed: check whether it still needs\n  lib/patches/${_name}.patch, then update or remove that file."
     fi

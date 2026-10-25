@@ -1,4 +1,5 @@
 Subject: SDCP key derivation (only needed when OpenSSL < 3.2, no change on newer versions)
+Needed-if-source-has: libfprint/fpi-sdcp.c|(void *) (g_bytes_get_data (context_b, NULL))
 
 Applied by install.sh to the libfprint-egismoc-sdcp source before building,
 only while the source still needs it (it is skipped once the source has the
