@@ -6,6 +6,9 @@ This is the successor to `fingerprint-fix`, which built the unmerged `feature/sd
 
 ## What's in This Folder
 
+<details>
+<summary>Show the folder layout</summary>
+
 | | |
 | --- | --- |
 | `install.sh` / `uninstall.sh` | Install or remove the fix |
@@ -15,11 +18,16 @@ This is the successor to `fingerprint-fix`, which built the unmerged `feature/sd
 
 Keep the folder together: the installer and the Fingerprint Manager use the files in `tools/` and `lib/`.
 
+</details>
+
 ## The Problem
 
 These sensors are Windows Hello readers that expect the host to use Microsoft's [Secure Device Connection Protocol](https://github.com/microsoft/SecureDeviceConnectionProtocol/wiki/Secure-Device-Connection-Protocol) (SDCP). Released libfprint has no SDCP support for the egismoc driver, so enrolled prints are not kept or the SDCP handshake fails.
 
 ## Where the Code Comes From
+
+<details>
+<summary>Show where the driver comes from</summary>
 
 | | |
 | --- | --- |
@@ -31,6 +39,8 @@ These sensors are Windows Hello readers that expect the host to use Microsoft's 
 | Build-time fixes | `lib/patches/*.patch`, applied by the installer to the fetched source **only while the source still needs them** (skipped once the fix is in the source; the install stops if the source has changed so much a fix no longer fits). The installer prints which it applied, and they are recorded in `/etc/samsung-galaxybook-egismoc-sdcp.installed`. None at the moment. The last one, `sdcp-kdf-openssl30` (on OpenSSL 3.0/3.1, e.g. Ubuntu 24.04 / Linux Mint 22, the SDCP key derivation dropped half its input, so every connection failed with "SDCP ConnectResponse claim validation failed"), is now upstream in Abdallah's `egismoc-sdcp` branch ([3b0ee1f](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp/commit/3b0ee1f40fececc78ca44b218ea094390df6f58a)) and was confirmed on Linux Mint 22.3 (OpenSSL 3.0.13). A patch can name the code it replaces (`Needed-if-source-has: file|text`), so it is also skipped when upstream fixes the same thing differently |
 
 See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc-sdcp/blob/egismoc-sdcp/libfprint/drivers/egismoc/SDCP.md) for the protocol mapping and trust rules.
+
+</details>
 
 ## Supported Hardware
 
@@ -103,6 +113,9 @@ sudo systemctl daemon-reload && sudo systemctl restart fprintd
 
 ## The Monitor
 
+<details>
+<summary>Show how the monitor works</summary>
+
 A user timer fires 10 seconds after login and starts a root service (allowed by a polkit rule). The service:
 
 - notifies you if the fix's library or drop-in has gone missing;
@@ -111,7 +124,12 @@ A user timer fires 10 seconds after login and starts a root service (allowed by 
 
 Notifications are written to `/run/samsung-galaxybook/fprint-sdcp-status` and shown by the user check script in your own session.
 
+</details>
+
 ## Boot-Time Sensor Check
+
+<details>
+<summary>Show how the boot-time check works</summary>
 
 Windows Hello deletes templates it did not create when Windows boots with its fingerprint device enabled, so your Linux fingerprints can vanish from the sensor while their records remain. Without a check, the fingerprint just stops working with no explanation.
 
@@ -126,6 +144,8 @@ At every boot, a small service compares fprintd's records with the templates act
 
 The check is a small C program (`lib/sensor-check.c`) that the installer builds against the egismoc SDCP library. It gives up after a few seconds if the sensor does not appear, and never fails the boot. Its output is in `journalctl -u samsung-galaxybook-fprint-sdcp-boot-check`.
 
+</details>
+
 ## Dual-Boot Warning
 
 The sensor has a single template store shared by every OS:
@@ -134,6 +154,9 @@ The sensor has a single template store shared by every OS:
 - **fprintd** deletes an unknown template when you enrol a finger that matches it, and deletes unknown templates when the sensor is full. Enrolling the same finger in two Linux installs breaks the first one — use a different finger per install, or share one enrolment between installs (below).
 
 ## Sharing Fingerprints Between Linux Installs
+
+<details>
+<summary>Show how to share fingerprints between installs</summary>
 
 Several Linux installs on the same laptop can share one enrolment instead of each enrolling the same finger (which would make them delete each other's templates). fprintd's record for a finger holds only the ID of its template on the sensor — no fingerprint image and no secret — so the same record works on every install that runs this fix.
 
@@ -171,6 +194,8 @@ The import refuses records made on a different sensor, users who don't exist on 
 - **Do not enrol the same finger on any of them.** fprintd would delete the other installs' template.
 - **Answer N to deleting fingerprints when uninstalling** on one of them, or the others lose them too.
 - **Export again after deleting or re-enrolling** — an old export points at templates that no longer exist.
+
+</details>
 
 ## Galaxy Book Fingerprint Manager
 
@@ -233,6 +258,9 @@ sudo bash tools/fingerprint-pam.sh disable    # enrolled fingerprints are kept
 
 ## Fingerprint for sudo and Admin Prompts on Arch-Based Distros
 
+<details>
+<summary>Show the Arch details</summary>
+
 Arch, CachyOS, Manjaro, EndeavourOS and other Arch-based distros have no authselect or pam-auth-update, so the installer asks:
 
 ```
@@ -277,13 +305,23 @@ session include system-local-login
 
 > ⚠️ Always keep a root terminal open while editing PAM files.
 
+</details>
+
 ## Security Notes (from upstream)
+
+<details>
+<summary>Show the security notes</summary>
 
 - The reader's certificate must chain to Microsoft's certificates and carry the Windows Hello biometric key usage; both attestation signatures and every identity MAC are checked.
 - Certificate expiry dates are ignored because these readers ship with expired factory certificates. There is no revocation list or firmware denylist.
 - The Linux host holds the SDCP session secret. This protects against a spoofed or replayed USB device, but not against a compromised root account.
 
+</details>
+
 ## Files Installed
+
+<details>
+<summary>Show every file the installer adds</summary>
 
 - `/usr/local/lib/libfprint-egismoc-sdcp/libfprint-2.so.2` — the egismoc SDCP build
 - `/etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf` — makes fprintd load it
@@ -306,6 +344,8 @@ session include system-local-login
 - `/var/lib/samsung-galaxybook/removed-fingerprints/` — records cleared by the boot check (last 5 boots that cleared any)
 - `/var/lib/samsung-galaxybook/replaced-fingerprints/` — records moved aside by `import-fingerprint.sh --replace` (last 5)
 - `~/.cache/samsung-galaxybook/fprint-sdcp-boot-shown` — remembers the boot check message was shown this boot
+
+</details>
 
 ## Credits
 
