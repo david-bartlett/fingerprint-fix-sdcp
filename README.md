@@ -87,7 +87,7 @@ The installer checks your distro, installs the build packages it needs, builds t
 <details>
 <summary>For the maintainer: updating the driver fork</summary>
 
-This builds whatever the fork currently holds. Test the original repo's newest commit on your own laptop *before* clicking **Sync fork**, because syncing publishes it to everyone:
+This builds whatever the fork currently holds. Test the original repo's newest commit on your own laptop *before* clicking **Sync fork**, because syncing publishes it to everyone. `bash tools/test-latest-libfprint.sh` checks whether upstream has anything newer than the fork and, if so, installs it for testing — or do it by hand:
 
 ```bash
 sudo SDCP_REPO_URL=https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp.git bash install.sh
