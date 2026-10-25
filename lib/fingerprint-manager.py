@@ -23,10 +23,19 @@ import sys
 import threading
 import json
 
+# The app ID: on Wayland the panel/taskbar takes the window's icon from the
+# .desktop file with this name (fingerprint-manager.sh --add-to-menu writes
+# it), and ignores icons set on the window itself. It must be set before GTK
+# starts, i.e. before Gtk is imported.
+APP_ID = "samsung-galaxybook-fingerprint-manager"
+
 try:
     import gi
     gi.require_version("Gtk", "3.0")
-    from gi.repository import Gtk, GLib, Pango
+    from gi.repository import GLib
+    GLib.set_prgname(APP_ID)
+    GLib.set_application_name("Fingerprint Manager")
+    from gi.repository import Gtk, Pango
 except (ImportError, ValueError) as e:
     sys.exit(f"Fingerprint Manager needs PyGObject with GTK 3 ({e}).\n"
              "  Fedora:  sudo dnf install python3-gobject gtk3\n"

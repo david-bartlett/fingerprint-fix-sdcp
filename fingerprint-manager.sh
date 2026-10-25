@@ -36,6 +36,7 @@ Name=Fingerprint Manager
 Comment=Test, enrol, share and tidy fingerprints on the Galaxy Book sensor
 Exec="$HERE/fingerprint-manager.sh"
 Icon=fingerprint-gui
+StartupWMClass=samsung-galaxybook-fingerprint-manager
 Terminal=false
 Categories=Settings;HardwareSettings;
 Keywords=fingerprint;fprint;sensor;login;
