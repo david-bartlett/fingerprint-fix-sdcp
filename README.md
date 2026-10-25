@@ -15,7 +15,7 @@ It replaces the older `fingerprint-fix` (part of Samsung Galaxy Book Fixes), whi
 | --- | --- |
 | `install.sh` / `uninstall.sh` | Install or remove the fix |
 | `fingerprint-manager.sh` | Starts the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) from the repository folder (the installer also installs it) |
-| `tools/` | Optional command-line tools: `export-fingerprint.sh`, `import-fingerprint.sh` ([sharing fingerprints](#sharing-fingerprints-between-linux-installs)), `fingerprint-pam.sh` ([fingerprint login on/off](#turning-fingerprint-login-on-or-off)), `arch-pam.sh` (used by it on Arch) |
+| `tools/` | Optional command-line tools: `export-fingerprint.sh`, `import-fingerprint.sh` ([sharing fingerprints](#sharing-fingerprints-between-linux-installs)), `fingerprint-pam.sh` ([fingerprint login on/off](#turning-fingerprint-login-on-or-off)), `arch-pam.sh` (used by it on Arch), `test-latest-libfprint.sh` (maintainer: try upstream's newest driver), and `dev/` (sensor debugging scripts) |
 | `lib/` | Used by the above — not run directly: the Fingerprint Manager's Python files and icon, `sensor-check.c`, and `patches/` (fixes applied to the driver source at build time) |
 
 Keep the repository folder together: the installer and the Fingerprint Manager use the files in `tools/` and `lib/`.
