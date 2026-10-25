@@ -15,7 +15,7 @@
 set -e
 
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    echo "Please run with sudo: sudo bash export-fingerprint.sh"
+    echo "Please run with sudo: sudo bash $0"
     exit 1
 fi
 
@@ -81,7 +81,7 @@ info "Exported ${NAMES[*]} for ${USER_NAME} to ${OUT}"
 echo
 echo "  On the other install, copy it to the same place in your home folder"
 echo "  (~/fingerprint-export.tgz) and the installer offers to import it, or run:"
-echo "      sudo bash import-fingerprint.sh"
+echo "      sudo bash $(dirname "$0")/import-fingerprint.sh"
 echo "  It is imported for whoever runs it — the username there can differ."
 echo
 echo "  Re-export after deleting or re-enrolling these fingers — the old file"

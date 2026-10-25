@@ -93,11 +93,11 @@ fi
 if grep -qsF "fingerprint-fix-sdcp (arch-pam.sh)" /etc/pam.d/sudo /etc/pam.d/polkit-1 \
         || [[ -f /var/lib/samsung-galaxybook/pam-polkit-1-created ]]; then
     step "Fingerprint Step 1b: Removing fingerprint from sudo and polkit"
-    if [[ -f "$SCRIPT_DIR/arch-pam.sh" ]]; then
-        bash "$SCRIPT_DIR/arch-pam.sh" disable \
+    if [[ -f "$SCRIPT_DIR/tools/arch-pam.sh" ]]; then
+        bash "$SCRIPT_DIR/tools/arch-pam.sh" disable \
             || warn "arch-pam.sh disable failed — check /etc/pam.d/sudo and /etc/pam.d/polkit-1"
     else
-        warn "arch-pam.sh not found next to this script — remove the marked lines in\n       /etc/pam.d/sudo and /etc/pam.d/polkit-1 by hand"
+        warn "tools/arch-pam.sh not found — remove the marked lines in\n       /etc/pam.d/sudo and /etc/pam.d/polkit-1 by hand"
     fi
 fi
 
@@ -163,5 +163,11 @@ rm -rf "$FPRINT_REMOVED_DIR" "${FPRINT_STATE_DIR}/replaced-fingerprints"
 rmdir /run/samsung-galaxybook 2>/dev/null || true
 rmdir "$FPRINT_STATE_DIR" 2>/dev/null || true
 # PAM fingerprint authentication is left enabled on purpose.
+
+# Fingerprint Manager menu entry (fingerprint-manager.sh --add-to-menu)
+if [[ -n "${SUDO_USER:-}" ]]; then
+    _home=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    rm -f "$_home/.local/share/applications/samsung-galaxybook-fingerprint-manager.desktop"
+fi
 
 info "✓ Fingerprint fix uninstalled"

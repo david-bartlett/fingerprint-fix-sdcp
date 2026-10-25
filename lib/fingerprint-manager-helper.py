@@ -10,7 +10,7 @@
 # Talking to the sensor needs root, the fix's SDCP library and fprintd stopped
 # for a moment, so every sensor job stops fprintd, does its one job and starts
 # fprintd again. Import and export use import-fingerprint.sh and
-# export-fingerprint.sh from this folder, with all their checks.
+# export-fingerprint.sh from ../tools, with all their checks.
 #
 # Records are never deleted: anything removed from /var/lib/fprint is moved to
 # /var/lib/samsung-galaxybook/removed-fingerprints/<date>/ (last 5 kept), the
@@ -41,6 +41,7 @@ import subprocess
 import time
 
 HERE = os.path.dirname(os.path.realpath(__file__))
+TOOLS = os.path.join(os.path.dirname(HERE), "tools")    # import/export/PAM scripts
 STORE = "/var/lib/fprint"
 REMOVED_DIR = "/var/lib/samsung-galaxybook/removed-fingerprints"
 REPLACED_DIR = "/var/lib/samsung-galaxybook/replaced-fingerprints"
@@ -341,7 +342,7 @@ def run_script(argv, env_extra=None):
     env = dict(os.environ)
     env.pop("LD_LIBRARY_PATH", None)        # the scripts use the system tools
     env.update(env_extra or {})
-    r = subprocess.run(["bash"] + argv, cwd=HERE, env=env, stdin=subprocess.DEVNULL,
+    r = subprocess.run(["bash"] + argv, cwd=TOOLS, env=env, stdin=subprocess.DEVNULL,
                        capture_output=True, text=True, timeout=120)
     text = ANSI.sub("", (r.stdout or "") + (r.stderr or "")).strip()
     if r.returncode != 0:
@@ -352,7 +353,7 @@ def run_script(argv, env_extra=None):
 # ── Fingerprint for login and sudo (PAM) — via fingerprint-pam.sh ─────────────
 def pam_state():
     try:
-        out = run_script([os.path.join(HERE, "fingerprint-pam.sh"), "status", "--short"])
+        out = run_script([os.path.join(TOOLS, "fingerprint-pam.sh"), "status", "--short"])
         state, method, detail = (out["output"].splitlines()[-1].split("|") + ["", ""])[:3]
         return {"state": state, "method": method, "detail": detail}
     except Exception as e:
@@ -363,7 +364,7 @@ def do_pam(req):
     op = req.get("op")
     if op not in ("enable", "disable"):
         raise Fail("op must be enable or disable")
-    out = run_script([os.path.join(HERE, "fingerprint-pam.sh"), op])
+    out = run_script([os.path.join(TOOLS, "fingerprint-pam.sh"), op])
     return dict(pam_state(), output=out["output"])
 
 
@@ -455,12 +456,12 @@ def do_restore(req):
 
 def do_export(req):
     out = req.get("file") or ""
-    argv = [os.path.join(HERE, "export-fingerprint.sh")] + ([out] if out else [])
+    argv = [os.path.join(TOOLS, "export-fingerprint.sh")] + ([out] if out else [])
     return run_script(argv, {"SUDO_USER": calling_user()})
 
 
 def do_import(req):
-    argv = [os.path.join(HERE, "import-fingerprint.sh"), "--user", calling_user()]
+    argv = [os.path.join(TOOLS, "import-fingerprint.sh"), "--user", calling_user()]
     if req.get("replace"):
         argv.append("--replace")
     if req.get("file"):

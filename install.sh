@@ -14,6 +14,11 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The installer needs its tools/ and lib/ folders — run it from the whole
+# fingerprint-fix-sdcp folder, not on its own.
+for _f in lib/sensor-check.c tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh; do
+    [[ -f "$SCRIPT_DIR/$_f" ]] || { echo "Missing $SCRIPT_DIR/$_f — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
+done
 
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
     echo "Please run as root: sudo bash install.sh"
@@ -269,7 +274,7 @@ info "Build complete"
 # makes it load the library from FPRINT_LIB_DIR, never the distro libfprint.
 SENSOR_CHECK_BUILT=false
 # shellcheck disable=SC2046  # pkg-config output must be word-split
-if gcc -O2 -Wall -o build/sensor-check "$SCRIPT_DIR/sensor-check.c" \
+if gcc -O2 -Wall -o build/sensor-check "$SCRIPT_DIR/lib/sensor-check.c" \
         -Ilibfprint -Ibuild/libfprint \
         $(pkg-config --cflags glib-2.0 gio-2.0 gobject-2.0 gusb) \
         -Lbuild/libfprint -lfprint-2 \
@@ -734,8 +739,8 @@ step "Fingerprint Step 12: Enabling fingerprint authentication"
 # Fedora, pam-auth-update on Ubuntu/Debian/MX, Mint's fingwit profile on Mint,
 # arch-pam.sh on Arch); the Fingerprint Manager uses the same script.
 if [[ "$DISTRO" != "arch" ]]; then
-    bash "$SCRIPT_DIR/fingerprint-pam.sh" enable \
-        || warn "Could not enable fingerprint authentication — try: sudo bash $SCRIPT_DIR/fingerprint-pam.sh enable"
+    bash "$SCRIPT_DIR/tools/fingerprint-pam.sh" enable \
+        || warn "Could not enable fingerprint authentication — try: sudo bash $SCRIPT_DIR/tools/fingerprint-pam.sh enable"
 else
     # Arch-based distros have no authselect/pam-auth-update. Offer to add
     # fingerprint to sudo and polkit (pkexec, admin prompts). This edits PAM,
@@ -752,14 +757,14 @@ else
             [[ -z "$_ans" || "${_ans,,}" == y* ]] && _pam=1 || _pam=0
         else
             _pam=0
-            info "No terminal — not changing PAM. To enable later: sudo bash $SCRIPT_DIR/fingerprint-pam.sh enable"
+            info "No terminal — not changing PAM. To enable later: sudo bash $SCRIPT_DIR/tools/fingerprint-pam.sh enable"
         fi
     fi
     if [[ "$_pam" == "1" ]]; then
-        bash "$SCRIPT_DIR/fingerprint-pam.sh" enable \
+        bash "$SCRIPT_DIR/tools/fingerprint-pam.sh" enable \
             || warn "Could not enable it — see README.md for the manual PAM steps"
     elif [[ -t 0 || -n "${FPRINT_PAM:-}" ]]; then
-        info "PAM not changed. To enable later: sudo bash $SCRIPT_DIR/fingerprint-pam.sh enable"
+        info "PAM not changed. To enable later: sudo bash $SCRIPT_DIR/tools/fingerprint-pam.sh enable"
     fi
     info "The KDE lock screen uses the fingerprint without changes (kde-fingerprint)"
 fi
@@ -800,8 +805,8 @@ else
         fi
     fi
     if [[ -n "$_imp_file" ]]; then
-        bash "$SCRIPT_DIR/import-fingerprint.sh" --user "$_imp_user" "$_imp_file" \
-            || warn "Not imported — the fix is installed. Enrol instead, or fix the problem above and run:\n       sudo bash $SCRIPT_DIR/import-fingerprint.sh $_imp_file"
+        bash "$SCRIPT_DIR/tools/import-fingerprint.sh" --user "$_imp_user" "$_imp_file" \
+            || warn "Not imported — the fix is installed. Enrol instead, or fix the problem above and run:\n       sudo bash $SCRIPT_DIR/tools/import-fingerprint.sh $_imp_file"
     fi
 fi
 
@@ -830,5 +835,9 @@ echo "      fprintd-delete \$USER"
 echo
 echo "  Fingerprints exported on another install of this laptop"
 echo "  (export-fingerprint.sh) can be imported here instead of enrolling:"
-echo "      sudo bash $SCRIPT_DIR/import-fingerprint.sh ~/fingerprint-export.tgz"
+echo "      sudo bash $SCRIPT_DIR/tools/import-fingerprint.sh ~/fingerprint-export.tgz"
+echo
+echo "  Fingerprint Manager — test, enrol, export/import and more in a window"
+echo "  (run as yourself; --add-to-menu puts it in your app menu):"
+echo "      $SCRIPT_DIR/fingerprint-manager.sh"
 echo

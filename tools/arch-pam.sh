@@ -23,7 +23,7 @@
 set -e
 
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    echo "Please run as root: sudo bash arch-pam.sh enable|disable|status"
+    echo "Please run as root: sudo bash $0 enable|disable|status"
     exit 1
 fi
 
@@ -157,5 +157,5 @@ case "${1:-}" in
              echo "  Undo:                    sudo bash $(basename "$0") disable" ;;
     disable) for s in "${SERVICES[@]}"; do disable_one "$s"; done ;;
     status)  for s in "${SERVICES[@]}"; do status_one "$s"; done ;;
-    *)       error "Usage: sudo bash arch-pam.sh enable|disable|status" ;;
+    *)       error "Usage: sudo bash $0 enable|disable|status" ;;
 esac

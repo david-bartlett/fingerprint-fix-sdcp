@@ -132,7 +132,7 @@ case "$ACTION" in
         fi
         ;;
     enable|disable)
-        [[ "${EUID:-$(id -u)}" -eq 0 ]] || error "Please run with sudo: sudo bash fingerprint-pam.sh $ACTION"
+        [[ "${EUID:-$(id -u)}" -eq 0 ]] || error "Please run with sudo: sudo bash $0 $ACTION"
         "${DISTRO}_set" "$ACTION"
         IFS='|' read -r state method detail <<< "$(status)"
         case "$ACTION:$state" in
@@ -145,7 +145,7 @@ case "$ACTION" in
         esac
         ;;
     *)
-        echo "Usage: sudo bash fingerprint-pam.sh enable|disable"
-        echo "       bash fingerprint-pam.sh status [--short]"
+        echo "Usage: sudo bash $0 enable|disable"
+        echo "       bash $0 status [--short]"
         exit 1 ;;
 esac

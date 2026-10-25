@@ -9,7 +9,8 @@
 #   • test a fingerprint, remove dead records, delete templates, wipe the sensor
 #   • export / import fingerprints to share them with another install
 #
-#   python3 fingerprint-manager.py          (run as yourself, not with sudo)
+#   ./fingerprint-manager.sh     (the launcher in the folder above — run it as
+#                                 yourself, not with sudo)
 #
 # It asks for your password once (pkexec) to start fingerprint-manager-helper.py,
 # which does the root work. Needs fingerprint-fix-sdcp installed, PyGObject

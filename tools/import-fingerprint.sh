@@ -23,7 +23,7 @@
 set -e
 
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
-    echo "Please run with sudo: sudo bash import-fingerprint.sh [FILE.tgz]"
+    echo "Please run with sudo: sudo bash $0 [FILE.tgz]"
     exit 1
 fi
 
@@ -73,7 +73,7 @@ getent passwd "$TARGET_USER" >/dev/null || error "User '$TARGET_USER' does not e
 if [[ -z "$ARCHIVE" ]]; then
     ARCHIVE="$(getent passwd "$TARGET_USER" | cut -d: -f6)/fingerprint-export.tgz"
     [[ -f "$ARCHIVE" ]] \
-        || error "No file given and $ARCHIVE not found.\n  Copy the export there, or give its path:\n  sudo bash import-fingerprint.sh /path/to/fingerprint-export.tgz"
+        || error "No file given and $ARCHIVE not found.\n  Copy the export there, or give its path:\n  sudo bash $0 /path/to/fingerprint-export.tgz"
     info "Using $ARCHIVE"
 fi
 [[ -f "$ARCHIVE" ]] || error "File not found: $ARCHIVE"
@@ -128,7 +128,7 @@ HAS_RECORDS=false
 if [[ -d "$DEST" ]] && [[ -n "$(find "$DEST" -type f 2>/dev/null | head -1)" ]]; then
     HAS_RECORDS=true
     [[ "${REPLACE:-0}" == "1" ]] \
-        || error "${TARGET_USER} already has fingerprints on this install — nothing imported.\n  To replace them with these, run again with --replace:\n    sudo bash import-fingerprint.sh --replace [FILE.tgz]\n  (Don't use fprintd-delete for this: it also deletes the fingerprints from the\n  sensor, which breaks every other install sharing them.)"
+        || error "${TARGET_USER} already has fingerprints on this install — nothing imported.\n  To replace them with these, run again with --replace:\n    sudo bash $0 --replace [FILE.tgz]\n  (Don't use fprintd-delete for this: it also deletes the fingerprints from the\n  sensor, which breaks every other install sharing them.)"
 fi
 
 # ── Extract to a temporary folder, then install with fprintd's permissions ────

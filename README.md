@@ -4,6 +4,17 @@ Enables fingerprint authentication on Samsung Galaxy Book laptops with an EgisTe
 
 This is the successor to `fingerprint-fix`, which built the unmerged `feature/sdcp-v2` branch and installed it over the system libfprint. That fix has been removed from the repo; it is kept under the [`fingerprint-fix-final`](https://github.com/david-bartlett/samsung-galaxybook-fixes/tree/fingerprint-fix-final/extras/fingerprint-fix) tag. Installing this fix migrates an existing `fingerprint-fix` install automatically.
 
+## What's in This Folder
+
+| | |
+| --- | --- |
+| `install.sh` / `uninstall.sh` | Install or remove the fix |
+| `fingerprint-manager.sh` | Starts the [Fingerprint Manager](#fingerprint-manager) window |
+| `tools/` | Optional command-line tools: `export-fingerprint.sh`, `import-fingerprint.sh` ([sharing fingerprints](#sharing-fingerprints-between-linux-installs)), `fingerprint-pam.sh` ([fingerprint login on/off](#turning-fingerprint-login-on-or-off)), `arch-pam.sh` (used by it on Arch) |
+| `lib/` | Used by the above — not run directly: the Fingerprint Manager's Python files and `sensor-check.c` |
+
+Keep the folder together: the installer and the Fingerprint Manager use the files in `tools/` and `lib/`.
+
 ## The Problem
 
 These sensors are Windows Hello readers that expect the host to use Microsoft's [Secure Device Connection Protocol](https://github.com/microsoft/SecureDeviceConnectionProtocol/wiki/Secure-Device-Connection-Protocol) (SDCP). Released libfprint has no SDCP support for the egismoc driver, so enrolled prints are not kept or the SDCP handshake fails.
@@ -111,7 +122,7 @@ At every boot, a small service compares fprintd's records with the templates act
 - Each Linux install that shared the fingerprint clears its own dead record at its own next boot.
 - A removed fingerprint cannot be restored from an export — the export only points at the template on the sensor, and the template is what was deleted.
 
-The check is a small C program (`sensor-check.c`) that the installer builds against the egismoc SDCP library. It gives up after a few seconds if the sensor does not appear, and never fails the boot. Its output is in `journalctl -u samsung-galaxybook-fprint-sdcp-boot-check`.
+The check is a small C program (`lib/sensor-check.c`) that the installer builds against the egismoc SDCP library. It gives up after a few seconds if the sensor does not appear, and never fails the boot. Its output is in `journalctl -u samsung-galaxybook-fprint-sdcp-boot-check`.
 
 ## Dual-Boot Warning
 
@@ -129,7 +140,7 @@ Several Linux installs on the same laptop can share one enrolment instead of eac
 **On the install where the fingers are enrolled:**
 
 ```bash
-sudo bash export-fingerprint.sh          # writes ~/fingerprint-export.tgz (all your fingers)
+sudo bash tools/export-fingerprint.sh          # writes ~/fingerprint-export.tgz (all your fingers)
 ```
 
 **On the other install**, copy it to your home folder as `~/fingerprint-export.tgz`. The username there does not have to match — the fingerprints are imported for whoever imports them.
@@ -142,10 +153,10 @@ sudo bash export-fingerprint.sh          # writes ~/fingerprint-export.tgz (all 
 - **With the fix already installed:**
 
   ```bash
-  sudo bash import-fingerprint.sh                           # uses ~/fingerprint-export.tgz
-  sudo bash import-fingerprint.sh /path/to/file.tgz         # a file kept elsewhere
-  sudo bash import-fingerprint.sh --user NAME               # for another user (their ~/fingerprint-export.tgz)
-  sudo bash import-fingerprint.sh --replace                 # replace fingerprints already on this install
+  sudo bash tools/import-fingerprint.sh                           # uses ~/fingerprint-export.tgz
+  sudo bash tools/import-fingerprint.sh /path/to/file.tgz         # a file kept elsewhere
+  sudo bash tools/import-fingerprint.sh --user NAME               # for another user (their ~/fingerprint-export.tgz)
+  sudo bash tools/import-fingerprint.sh --replace                 # replace fingerprints already on this install
   fprintd-verify
   ```
 
@@ -164,7 +175,9 @@ The import refuses records made on a different sensor, users who don't exist on 
 A small window for looking after the fingerprints on the sensor, with the fix installed:
 
 ```bash
-python3 fingerprint-manager.py      # run as yourself, not with sudo
+./fingerprint-manager.sh                 # run as yourself, not with sudo
+./fingerprint-manager.sh --add-to-menu   # add "Fingerprint Manager" to your app menu
+./fingerprint-manager.sh --remove-from-menu
 ```
 
 It asks for your password once per session (pkexec). At the top is a **Use fingerprint for login and sudo** switch and a line about the sensor and the fix build; below are two tabs:
@@ -187,7 +200,7 @@ Results appear as a one-line message (the full script output is behind **Details
 
 Records are never deleted: removed ones go to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the last 5 are kept). Each sensor job stops fprintd for a moment, as the sensor can only be used by one program at a time.
 
-Keep `fingerprint-manager.py` and `fingerprint-manager-helper.py` in this folder with the other scripts (import, export, `fingerprint-pam.sh`, `arch-pam.sh`). It needs PyGObject with GTK 3 and libfprint's GObject introspection data:
+The launcher checks the fix is installed and that everything the window needs is there; anything missing is listed with the command to install it (from a terminal it offers to run it). It needs PyGObject with GTK 3, libfprint's GObject introspection data and pkexec:
 
 - Fedora: `sudo dnf install python3-gobject gtk3` (introspection data comes with libfprint)
 - Debian / Ubuntu / Mint / MX: `sudo apt install python3-gi gir1.2-gtk-3.0 gir1.2-fprint-2.0`
@@ -198,9 +211,9 @@ Keep `fingerprint-manager.py` and `fingerprint-manager-helper.py` in this folder
 `fingerprint-pam.sh` turns fingerprint for login, sudo and admin prompts on or off the way each distro expects — the installer and the Fingerprint Manager both use it, so it also puts things right if the PAM setting was lost:
 
 ```bash
-bash fingerprint-pam.sh status
-sudo bash fingerprint-pam.sh enable
-sudo bash fingerprint-pam.sh disable    # enrolled fingerprints are kept
+bash tools/fingerprint-pam.sh status
+sudo bash tools/fingerprint-pam.sh enable
+sudo bash tools/fingerprint-pam.sh disable    # enrolled fingerprints are kept
 ```
 
 | Distro | How |
@@ -221,9 +234,9 @@ Enable fingerprint for sudo and admin prompts? [Y/n]
 It waits for an answer (no time limit, because it changes how you log in to sudo) and is skipped when there is no terminal. `FPRINT_PAM=1` or `FPRINT_PAM=0` answers it in advance. The same is available any time with `fingerprint-pam.sh`, or directly with `arch-pam.sh`:
 
 ```bash
-sudo bash arch-pam.sh enable     # sudo + polkit-1 (pkexec, graphical admin prompts)
-sudo bash arch-pam.sh status
-sudo bash arch-pam.sh disable    # removes exactly what 'enable' added
+sudo bash tools/arch-pam.sh enable     # sudo + polkit-1 (pkexec, graphical admin prompts)
+sudo bash tools/arch-pam.sh status
+sudo bash tools/arch-pam.sh disable    # removes exactly what 'enable' added
 ```
 
 What it does:
@@ -280,6 +293,7 @@ session include system-local-login
 - `/run/samsung-galaxybook/fprint-sdcp-boot-status` — boot check result (cleared at every boot)
 - `/var/lib/samsung-galaxybook/removed-fingerprints/` — records cleared by the boot check (last 5 boots that cleared any)
 - `/var/lib/samsung-galaxybook/replaced-fingerprints/` — records moved aside by `import-fingerprint.sh --replace` (last 5)
+- `~/.local/share/applications/samsung-galaxybook-fingerprint-manager.desktop` — only if you ran `fingerprint-manager.sh --add-to-menu`
 - `~/.cache/samsung-galaxybook/fprint-sdcp-boot-shown` — remembers the boot check message was shown this boot
 
 ## Credits
