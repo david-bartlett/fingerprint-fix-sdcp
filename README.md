@@ -145,12 +145,13 @@ sudo bash export-fingerprint.sh          # writes ~/fingerprint-export.tgz (all 
   sudo bash import-fingerprint.sh                           # uses ~/fingerprint-export.tgz
   sudo bash import-fingerprint.sh /path/to/file.tgz         # a file kept elsewhere
   sudo bash import-fingerprint.sh --user NAME               # for another user (their ~/fingerprint-export.tgz)
+  sudo bash import-fingerprint.sh --replace                 # replace fingerprints already on this install
   fprintd-verify
   ```
 
 When the username differs from the one that exported them, each record's owner is rewritten for the new user (by the small `sensor-check` helper the installer builds). The template on the sensor is the same either way. Exports made under the older name `fprint-<user>.tgz` import the same way.
 
-The import refuses records made on a different sensor, users who don't exist on this install, and archives containing anything other than fingerprint records. It never overwrites existing fingerprints, because that would orphan their templates on the sensor.
+The import refuses records made on a different sensor, users who don't exist on this install, and archives containing anything other than fingerprint records. If the user already has fingerprints on this install it stops and changes nothing; `--replace` replaces them instead, after all the checks have passed. The old records are moved to `/var/lib/samsung-galaxybook/replaced-fingerprints/<date>/`, and nothing is deleted from the sensor, so other installs sharing those fingerprints keep working. Don't use `fprintd-delete` to make room for an import — it deletes the fingerprints from the sensor too, breaking every install that shares them.
 
 **Once installs share fingerprints:**
 
@@ -227,6 +228,7 @@ session include system-local-login
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh` and `/etc/systemd/system/samsung-galaxybook-fprint-sdcp-boot-check.service` — runs it at boot, before fprintd
 - `/run/samsung-galaxybook/fprint-sdcp-boot-status` — boot check result (cleared at every boot)
 - `/var/lib/samsung-galaxybook/removed-fingerprints/` — records cleared by the boot check (last 5 boots that cleared any)
+- `/var/lib/samsung-galaxybook/replaced-fingerprints/` — records moved aside by `import-fingerprint.sh --replace`
 - `~/.cache/samsung-galaxybook/fprint-sdcp-boot-shown` — remembers the boot check message was shown this boot
 
 ## Credits

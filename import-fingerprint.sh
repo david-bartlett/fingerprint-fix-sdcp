@@ -10,13 +10,14 @@
 #   sudo bash import-fingerprint.sh FILE.tgz
 #   sudo bash import-fingerprint.sh --user NAME [FILE.tgz]   (default: NAME's home)
 #   sudo bash import-fingerprint.sh --no-check [FILE.tgz]    (skip the sensor check)
+#   sudo bash import-fingerprint.sh --replace [FILE.tgz]     (replace this install's
+#                       records; old ones are moved aside, the sensor is not touched)
 #
 # The fingerprints are imported for the user running it (or --user NAME). That
 # user does not need the same name as on the install they were exported from.
 #
 # Checks first that the records are for this laptop's sensor and that the user
-# has nothing enrolled (records are never overwritten — that would orphan
-# templates on the sensor).
+# has nothing enrolled here (existing records are only replaced with --replace).
 # =============================================================================
 
 set -e
@@ -56,6 +57,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --user) TARGET_USER="${2:-}"; shift 2 || error "--user needs a name" ;;
         --no-check) NO_CHECK=1; shift ;;
+        --replace)  REPLACE=1; shift ;;
         -*)     error "Unknown option: $1" ;;
         *)      ARCHIVE="$1"; shift ;;
     esac
@@ -117,10 +119,16 @@ if [[ "$SRC_USER" != "$TARGET_USER" && ! -x "$SENSOR_CHECK" ]]; then
     error "These fingerprints were exported by '$SRC_USER'. Importing them for '$TARGET_USER'\n  needs $SENSOR_CHECK, which is missing.\n  Reinstall the fix (sudo bash install.sh) and try again."
 fi
 
-# ── Never overwrite existing records ──────────────────────────────────────────
+# ── Existing records: never overwritten, only replaced with --replace ─────────
+# --replace moves this install's records aside (it does NOT delete anything on
+# the sensor: other installs may share those templates). fprintd-delete would
+# delete the templates too, breaking every install that shares them.
 DEST="/var/lib/fprint/${TARGET_USER}"
+HAS_RECORDS=false
 if [[ -d "$DEST" ]] && [[ -n "$(find "$DEST" -type f 2>/dev/null | head -1)" ]]; then
-    error "${TARGET_USER} already has fingerprints enrolled on this install — not importing.\n  Overwriting them would leave their templates orphaned on the sensor.\n  To replace them: fprintd-delete ${TARGET_USER}, then run this again."
+    HAS_RECORDS=true
+    [[ "${REPLACE:-0}" == "1" ]] \
+        || error "${TARGET_USER} already has fingerprints on this install — nothing imported.\n  To replace them with these, run again with --replace:\n    sudo bash import-fingerprint.sh --replace [FILE.tgz]\n  (Don't use fprintd-delete for this: it also deletes the fingerprints from the\n  sensor, which breaks every other install sharing them.)"
 fi
 
 # ── Extract to a temporary folder, then install with fprintd's permissions ────
@@ -170,6 +178,15 @@ if [[ "${NO_CHECK:-0}" != "1" ]]; then
 fi
 
 mkdir -p /var/lib/fprint
+if $HAS_RECORDS; then
+    # Every check has passed: move the old records aside (records only — the
+    # sensor is not touched), so they could be put back if ever needed.
+    OLD="/var/lib/samsung-galaxybook/replaced-fingerprints/$(date +%Y-%m-%d_%H%M%S)"
+    mkdir -p "$OLD"
+    chmod 700 /var/lib/samsung-galaxybook/replaced-fingerprints
+    mv "$DEST" "$OLD/"
+    info "Moved ${TARGET_USER}'s previous records to $OLD"
+fi
 install -d -m 700 -o root -g root "$DEST" "$DEST/egismoc" "$DEST/egismoc/$SERIAL"
 NAMES=()
 for f in "$TMP/ready"/*; do

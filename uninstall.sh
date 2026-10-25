@@ -159,7 +159,7 @@ fi
 step "Fingerprint Step 4: Removing state files"
 rm -f "$FPRINT_MARKER" "$FPRINT_SYSLIB_HASH" /run/samsung-galaxybook/fprint-sdcp-status \
       "$FPRINT_BOOT_STATUS"
-rm -rf "$FPRINT_REMOVED_DIR"
+rm -rf "$FPRINT_REMOVED_DIR" "${FPRINT_STATE_DIR}/replaced-fingerprints"
 rmdir /run/samsung-galaxybook 2>/dev/null || true
 rmdir "$FPRINT_STATE_DIR" 2>/dev/null || true
 # PAM fingerprint authentication is left enabled on purpose.
