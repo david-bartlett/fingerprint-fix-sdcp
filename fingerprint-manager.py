@@ -104,97 +104,153 @@ class Helper:
 
 
 # ── Window ────────────────────────────────────────────────────────────────────
+CSS = b"""
+.fpm-card { border: 1px solid alpha(currentColor, 0.15); border-radius: 8px; padding: 10px 12px; }
+.fpm-hint { font-size: 90%; }
+.fpm-status { font-size: 90%; }
+"""
+
+
+def summarise(text):
+    """One line from a script's output: its last [INFO]/[ERROR] line, or the
+    last line. The full text is kept for the Details button."""
+    lines = [l.strip() for l in (text or "").splitlines() if l.strip()]
+    tagged = [l for l in lines if l.startswith(("[INFO]", "[ERROR]", "[WARN]"))]
+    pick = (tagged or lines or [""])[-1]
+    for tag in ("[INFO]", "[ERROR]", "[WARN]"):
+        pick = pick.replace(tag, "").strip()
+    return pick
+
+
 class Manager(Gtk.Window):
     def __init__(self):
         super().__init__(title=TITLE)
-        self.set_default_size(560, 620)
+        self.set_default_size(560, 600)
         self.set_icon_name("fingerprint-gui")
         self.helper = Helper()
         self.status = None
         self.busy = False
+        self._pam_syncing = False
+        self._msg_timer = 0
+        self._msg_details = None
 
-        hb = Gtk.HeaderBar(show_close_button=True, title=TITLE)
+        prov = Gtk.CssProvider()
+        prov.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(self.get_screen(), prov,
+                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+        # ── header bar: refresh · [Fingerprints | Sensor] · menu ──
+        hb = Gtk.HeaderBar(show_close_button=True)
         self.set_titlebar(hb)
+        self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
+        switcher = Gtk.StackSwitcher(stack=self.stack)
+        hb.set_custom_title(switcher)
         self.refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.BUTTON)
         self.refresh_btn.set_tooltip_text("Read the sensor again")
         self.refresh_btn.connect("clicked", lambda *_: self.refresh())
         hb.pack_start(self.refresh_btn)
         self.spinner = Gtk.Spinner()
-        hb.pack_end(self.spinner)
+        hb.pack_start(self.spinner)
 
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin=12)
-        self.add(box)
+        menu = Gtk.Menu()
+        self.export_item = self._menu_item(menu, "Export fingerprints…", self.on_export)
+        self.import_item = self._menu_item(menu, "Import fingerprints…", self.on_import)
+        menu.append(Gtk.SeparatorMenuItem())
+        self.restore_item = self._menu_item(menu, "Restore removed records…", self.on_restore)
+        menu.show_all()
+        self.menu_btn = Gtk.MenuButton(popup=menu)
+        self.menu_btn.set_image(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
+        self.menu_btn.set_tooltip_text("Export, import, restore")
+        hb.pack_end(self.menu_btn)
 
-        self.info = Gtk.Label(xalign=0, wrap=True, selectable=True)
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin=12)
+        self.add(outer)
+
+        # ── top card: login/sudo switch + sensor line ──
+        card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        card.get_style_context().add_class("fpm-card")
+        row = Gtk.Box(spacing=12)
+        texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        title = Gtk.Label(xalign=0)
+        title.set_markup("<b>Use fingerprint for login and sudo</b>")
+        texts.pack_start(title, False, False, 0)
+        self.pam_detail = Gtk.Label(xalign=0, wrap=True)
+        self.pam_detail.get_style_context().add_class("dim-label")
+        self.pam_detail.get_style_context().add_class("fpm-hint")
+        texts.pack_start(self.pam_detail, False, False, 0)
+        row.pack_start(texts, True, True, 0)
+        self.pam_switch = Gtk.Switch(valign=Gtk.Align.CENTER)
+        self.pam_switch.connect("state-set", self.on_pam_switch)
+        row.pack_end(self.pam_switch, False, False, 0)
+        card.pack_start(row, False, False, 0)
+        card.pack_start(Gtk.Separator(), False, False, 0)
+        self.info = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
         self.info.get_style_context().add_class("dim-label")
-        box.pack_start(self.info, False, False, 0)
+        self.info.get_style_context().add_class("fpm-status")
+        card.pack_start(self.info, False, False, 0)
+        outer.pack_start(card, False, False, 0)
 
+        # ── message bar: one short line, Details… for the full text ──
         self.msg_bar = Gtk.InfoBar(show_close_button=True)
-        self.msg_bar.connect("response", lambda b, *_: b.hide())
-        self.msg_label = Gtk.Label(xalign=0, wrap=True, selectable=True)
-        self.msg_bar.get_content_area().add(self.msg_label)
+        self.msg_bar.connect("response", self._on_msg_response)
+        self.msg_label = Gtk.Label(xalign=0, wrap=True, lines=2,
+                                   ellipsize=Pango.EllipsizeMode.END)
+        msg_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        msg_box.pack_start(self.msg_label, False, False, 0)
+        msg_btns = Gtk.Box(spacing=6)
+        self.msg_action_btn = Gtk.Button(label="")
+        self.msg_action_btn.connect("clicked", lambda *_: self._on_msg_response(None, 2))
+        msg_btns.pack_start(self.msg_action_btn, False, False, 0)
+        self.msg_details_btn = Gtk.Button(label="Details…")
+        self.msg_details_btn.connect("clicked", lambda *_: self._on_msg_response(None, 1))
+        msg_btns.pack_start(self.msg_details_btn, False, False, 0)
+        msg_box.pack_start(msg_btns, False, False, 0)
+        self.msg_bar.get_content_area().add(msg_box)
         self.msg_bar.set_no_show_all(True)
-        self.msg_label.show()
-        box.pack_start(self.msg_bar, False, False, 0)
+        msg_box.show_all()
+        outer.pack_start(self.msg_bar, False, False, 0)
+        self._msg_action = None
 
-        # Records on this install: user, finger, enrolled, status, finger no., on sensor
+        outer.pack_start(self.stack, True, True, 0)
+
+        # ── page 1: fingerprints on this install ──
+        # store: user, finger, enrolled, status, finger no., on sensor
         self.rec_store = Gtk.ListStore(str, str, str, str, str, int)
         self.rec_view = self._table(self.rec_store, ["User", "Finger", "Enrolled", "Status"])
-        box.pack_start(self._section("Fingerprints on this install", self.rec_view,
-            "Each record here points at a template on the sensor. If that template is gone "
-            "(re-enrolled elsewhere, or removed by Windows) the record is dead and can never match."),
-            True, True, 0)
+        page = self._page(self.rec_view,
+                          "Fingers enrolled on this install, and whether the sensor still has each one.")
         row = Gtk.Box(spacing=6)
         self.test_btn = self._button(row, "Test fingerprint", self.on_test,
                                      "Test the selected finger — or, with none selected, "
                                      "any of your fingers, as login and sudo do")
         self.enrol_btn = self._button(row, "Enrol a finger…", self.on_enrol,
                                       "Enrol a new finger for you on this install")
-        self.restore_btn = self._button(row, "Restore…", self.on_restore,
-                                        "Put back records that were moved aside "
-                                        "(by the boot check, this tool or an import)")
-        box.pack_start(row, False, False, 0)
-        row = Gtk.Box(spacing=6)
-        self.dead_btn = self._button(row, "Remove dead records", self.on_remove_dead,
-                                     "Clear records whose template is no longer on the sensor")
-        self.unlink_btn = self._button(row, "Remove from this install…", self.on_remove_selected,
-                                       "Remove the selected records here only — the sensor "
-                                       "keeps the template, so installs sharing it keep working")
-        box.pack_start(row, False, False, 0)
+        self.unlink_btn = Gtk.Button(label="Remove…")
+        self.unlink_btn.set_tooltip_text("Remove the selected fingerprints from this install only — "
+                                         "the sensor keeps them, so installs sharing them keep working")
+        self.unlink_btn.connect("clicked", self.on_remove_selected)
+        row.pack_end(self.unlink_btn, False, False, 0)
+        page.pack_start(row, False, False, 0)
+        self.stack.add_titled(page, "fingers", "Fingerprints")
 
-        # Templates on the sensor: id, used by, used here (1/0)
+        # ── page 2: templates on the sensor ──
+        # store: id, used by, used here (1/0)
         self.tpl_store = Gtk.ListStore(str, str, int)
         self.tpl_view = self._table(self.tpl_store, ["Template", "Used by"])
-        box.pack_start(self._section("Templates on the sensor", self.tpl_view,
-            "Templates not used here may belong to another Linux install, another user, "
-            "or Windows Hello. This install can't tell which."), True, True, 0)
+        page = self._page(self.tpl_view,
+                          "Templates not used here may belong to another Linux install, "
+                          "another user or Windows Hello.")
         row = Gtk.Box(spacing=6)
-        self.del_btn = self._button(row, "Delete from sensor…", self.on_delete_templates,
+        self.del_btn = self._button(row, "Delete…", self.on_delete_templates,
                                     "Delete the selected templates from the sensor")
-        box.pack_start(row, False, False, 0)
-
-        # Fingerprint for login and sudo (PAM)
-        box.pack_start(Gtk.Separator(), False, False, 0)
-        row = Gtk.Box(spacing=6)
-        self.pam_label = Gtk.Label(xalign=0, wrap=True)
-        row.pack_start(self.pam_label, True, True, 0)
-        self.pam_btn = Gtk.Button(label="Enable")
-        self.pam_btn.connect("clicked", self.on_pam)
-        row.pack_end(self.pam_btn, False, False, 0)
-        box.pack_start(row, False, False, 0)
-
-        box.pack_start(Gtk.Separator(), False, False, 0)
-        row = Gtk.Box(spacing=6)
-        self.export_btn = self._button(row, "Export…", self.on_export,
-                                       "Save your fingerprints to share with another install")
-        self.import_btn = self._button(row, "Import…", self.on_import,
-                                       "Load fingerprints exported on another install")
         self.wipe_btn = Gtk.Button(label="Wipe sensor…")
         self.wipe_btn.get_style_context().add_class("destructive-action")
         self.wipe_btn.set_tooltip_text("Delete every template on the sensor — every install and Windows")
         self.wipe_btn.connect("clicked", self.on_wipe)
         row.pack_end(self.wipe_btn, False, False, 0)
-        box.pack_start(row, False, False, 0)
+        page.pack_start(row, False, False, 0)
+        self.stack.add_titled(page, "sensor", "Sensor")
+        self.pages = {"fingers": "Fingerprints", "sensor": "Sensor"}
 
         self.rec_view.get_selection().connect("changed", lambda *_: self._update_buttons())
         self.tpl_view.get_selection().connect("changed", lambda *_: self._update_buttons())
@@ -217,19 +273,20 @@ class Manager(Gtk.Window):
             view.append_column(col)
         return view
 
-    def _section(self, title, view, hint):
-        vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        lbl = Gtk.Label(xalign=0)
-        lbl.set_markup(f"<b>{GLib.markup_escape_text(title)}</b>")
-        vb.pack_start(lbl, False, False, 0)
+    def _page(self, view, hint):
+        vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         h = Gtk.Label(label=hint, xalign=0, wrap=True)
         h.get_style_context().add_class("dim-label")
+        h.get_style_context().add_class("fpm-hint")
         vb.pack_start(h, False, False, 0)
         sw = Gtk.ScrolledWindow(shadow_type=Gtk.ShadowType.IN)
-        sw.set_min_content_height(110)
+        sw.set_min_content_height(160)
         sw.add(view)
         vb.pack_start(sw, True, True, 0)
         return vb
+
+    def _section(self, title, view, hint):            # used by dialogs
+        return self._page(view, hint)
 
     def _button(self, row, label, cb, tip):
         b = Gtk.Button(label=label)
@@ -237,6 +294,12 @@ class Manager(Gtk.Window):
         b.connect("clicked", cb)
         row.pack_start(b, False, False, 0)
         return b
+
+    def _menu_item(self, menu, label, cb):
+        item = Gtk.MenuItem(label=label)
+        item.connect("activate", cb)
+        menu.append(item)
+        return item
 
     def _selected(self, view, col):
         model, paths = view.get_selection().get_selected_rows()
@@ -250,23 +313,49 @@ class Manager(Gtk.Window):
         self.refresh_btn.set_sensitive(not self.busy)
         self.test_btn.set_sensitive(ready and any(r["on_sensor"] for r in mine))
         self.enrol_btn.set_sensitive(ready and len(mine) < 10)
-        self.restore_btn.set_sensitive(ready)
-        pam = (st or {}).get("pam", {}).get("state")
-        self.pam_btn.set_sensitive(ready and pam in ("enabled", "disabled", "partial"))
-        self.pam_btn.set_label("Disable" if pam == "enabled" else "Enable")
-        self.dead_btn.set_sensitive(ready and any(r["on_sensor"] is False for r in recs))
         self.unlink_btn.set_sensitive(ready and bool(self._selected(self.rec_view, 0)))
-        self.del_btn.set_sensitive(ready and st["features"].get("STORAGE_DELETE", False)
-                                   and bool(self._selected(self.tpl_view, 0)) if ready else False)
-        self.export_btn.set_sensitive(ready and any(r["on_sensor"] for r in mine))
-        self.import_btn.set_sensitive(ready)
-        self.wipe_btn.set_sensitive(ready and bool(st["templates"] or recs))
+        self.del_btn.set_sensitive(bool(ready and st["features"].get("STORAGE_DELETE", False)
+                                        and self._selected(self.tpl_view, 0)))
+        self.wipe_btn.set_sensitive(bool(ready and (st["templates"] or recs)))
+        self.export_item.set_sensitive(ready and any(r["on_sensor"] for r in mine))
+        self.import_item.set_sensitive(ready)
+        self.restore_item.set_sensitive(ready)
+        pam = (st or {}).get("pam", {}).get("state")
+        self.pam_switch.set_sensitive(ready and pam in ("enabled", "disabled", "partial"))
 
     # ── messages ──
-    def message(self, text, kind=Gtk.MessageType.INFO):
+    def message(self, text, kind=Gtk.MessageType.INFO, details=None, action=None):
+        """Show a short message. details: full text behind a Details… button.
+        action: (label, callback) for a button. Plain info messages fade after 10 s."""
+        if self._msg_timer:
+            GLib.source_remove(self._msg_timer)
+            self._msg_timer = 0
         self.msg_bar.set_message_type(kind)
         self.msg_label.set_text(text)
+        self.msg_label.set_tooltip_text(text if len(text) > 80 else None)
+        self._msg_details = details if details and details.strip() != text.strip() else None
+        self.msg_details_btn.set_visible(bool(self._msg_details))
+        self._msg_action = action
+        self.msg_action_btn.set_visible(bool(action))
+        self.msg_action_btn.get_parent().set_visible(bool(action or self._msg_details))
+        if action:
+            self.msg_action_btn.set_label(action[0])
         self.msg_bar.show()
+        if kind == Gtk.MessageType.INFO and not action:
+            self._msg_timer = GLib.timeout_add_seconds(10, self._hide_message)
+
+    def _hide_message(self):
+        self._msg_timer = 0
+        self.msg_bar.hide()
+        return False
+
+    def _on_msg_response(self, _bar, resp):
+        if resp == 1 and self._msg_details:
+            self.show_output("Details", self._msg_details)
+        elif resp == 2 and self._msg_action:
+            self._msg_action[1]()
+        else:
+            self._hide_message()
 
     def confirm(self, title, text, ok_label, destructive=True):
         d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
@@ -311,8 +400,13 @@ class Manager(Gtk.Window):
 
         threading.Thread(target=work, daemon=True).start()
 
+    def error(self, err):
+        """Show a script/helper error: its key line, full text under Details…"""
+        self.message(summarise(err) or err, Gtk.MessageType.ERROR, details=err)
+
     def refresh(self, after=None):
-        self.msg_bar.hide()
+        if self.msg_bar.get_message_type() != Gtk.MessageType.INFO:
+            self._hide_message()            # old errors/warnings; new ones follow
 
         def done(st, err):
             if err:
@@ -320,8 +414,8 @@ class Manager(Gtk.Window):
                 self.rec_store.clear()
                 self.tpl_store.clear()
                 self.info.set_text("")
-                self.pam_label.set_text("")
-                self.message(err, Gtk.MessageType.ERROR)
+                self.pam_detail.set_text("")
+                self.error(err)
             else:
                 self.show_status(st)
             self._update_buttons()
@@ -337,83 +431,93 @@ class Manager(Gtk.Window):
         self.rec_store.clear()
         for r in st["records"]:
             if r.get("error"):
-                state = f"Unreadable record ({r['error']})"
+                state = "Unreadable record"
             elif r["on_sensor"]:
                 state = "✓ On the sensor"
             else:
-                state = "✗ Gone from the sensor — dead record"
+                state = "✗ Gone from the sensor"
             self.rec_store.append([r["user"], r["name"], r["enrolled"], state, r["finger"],
                                    1 if r["on_sensor"] else 0])
         self.tpl_store.clear()
         for t in st["templates"]:
-            used = ", ".join(t["used_by"]) if t["used_by"] else \
-                "Not used here — another install, another user, or Windows Hello?"
+            used = ", ".join(t["used_by"]) if t["used_by"] else "Not used here"
             self.tpl_store.append([t["id"], used, 1 if t["used_by"] else 0])
+        for name, n in (("fingers", len(st["records"])), ("sensor", len(st["templates"]))):
+            self.stack.child_set_property(self.stack.get_child_by_name(name), "title",
+                                          f"{self.pages[name]} ({n})")
         marker = st.get("marker") or "unknown"
-        self.info.set_text(f"{st.get('device_name', 'Fingerprint sensor')}  ·  {st['usb_id']}  ·  "
-                           f"sensor {st['serial']}\nfingerprint-fix-sdcp: {marker}\n"
-                           f"{len(st['records'])} record(s) on this install  ·  "
-                           f"{len(st['templates'])} template(s) on the sensor")
+        build = marker.split()[0] if marker != "unknown" else marker
+        self.info.set_text(f"Sensor {st['usb_id']} · {st['serial']} · fix build {build}")
+        self.info.set_tooltip_text(f"{st.get('device_name', '')}\nfingerprint-fix-sdcp: {marker}")
         self.show_pam(st.get("pam") or {})
         dead = [r for r in st["records"] if r["on_sensor"] is False]
         if dead:
             names = ", ".join(f"{r['name']} ({r['user']})" for r in dead)
-            self.message(f"These fingerprints are no longer on the sensor: {names}.\n"
-                         "Remove the dead records, then import a current export or enrol again.",
-                         Gtk.MessageType.WARNING)
+            self.message(f"No longer on the sensor: {names}.", Gtk.MessageType.WARNING,
+                         details="These records point at templates the sensor no longer has "
+                                 "(re-enrolled elsewhere, or removed by Windows), so they can "
+                                 "never match. Remove them, then import a current export or "
+                                 "enrol again.",
+                         action=("Remove dead records", lambda: self.on_remove_dead(None)))
 
     def show_pam(self, pam):
         state = pam.get("state", "unavailable")
-        words = {"enabled": ("#26a269", "On"), "disabled": ("#c01c28", "Off"),
-                 "partial": ("#e5a50a", "Partly on")}
-        colour, word = words.get(state, ("#e5a50a", "Can't tell"))
-        detail = " — ".join(x for x in (pam.get("method"), pam.get("detail")) if x)
-        self.pam_label.set_markup(
-            f"<b>Fingerprint for login and sudo:</b> "
-            f'<span foreground="{colour}" weight="bold">{word}</span>\n'
-            f"<small>{GLib.markup_escape_text(detail)}</small>")
+        self._pam_syncing = True
+        on = state == "enabled"
+        self.pam_switch.set_active(on)
+        self.pam_switch.set_state(on)
+        self._pam_syncing = False
+        how = " — ".join(x for x in (pam.get("method"), pam.get("detail")) if x)
+        lead = {"enabled": "On", "disabled": "Off", "partial": "Partly on"}.get(state, "Not available")
+        self.pam_detail.set_text(f"{lead} · {how}" if how else lead)
 
-    def on_pam(self, _btn):
-        pam = self.status.get("pam", {})
-        if pam.get("state") == "enabled":
-            if not self.confirm("Turn off fingerprint for login and sudo?",
-                                "Login, sudo and admin prompts will ask for your password only. "
-                                "Your enrolled fingerprints are kept, and you can turn this "
-                                "back on here at any time.", "Turn off"):
-                return
-            op = "disable"
-        else:
-            op = "enable"
+    def on_pam_switch(self, _sw, want_on):
+        if self._pam_syncing:
+            return False
+        if not want_on and not self.confirm(
+                "Turn off fingerprint for login and sudo?",
+                "Login, sudo and admin prompts will ask for your password only. Your enrolled "
+                "fingerprints are kept, and you can turn this back on at any time.", "Turn off"):
+            self.show_pam(self.status.get("pam", {}))
+            return True
+        op = "enable" if want_on else "disable"
 
         def done(res, err):
             if err:
-                self.refresh(lambda: self.message(err, Gtk.MessageType.ERROR))
+                self.refresh(lambda: self.error(err))
             else:
                 word = "on" if op == "enable" else "off"
-                self.refresh(lambda: self.message(
-                    f"Fingerprint for login and sudo is now {word}.", Gtk.MessageType.INFO))
+                self.refresh(lambda: self.message(f"Fingerprint for login and sudo is now {word}."))
         self.run_job("pam", done, op=op)
+        return True                       # the switch follows the real state after refresh
 
     def after_job(self, title):
         def done(res, err):
             if err:
-                self.refresh(lambda: self.message(err, Gtk.MessageType.ERROR))
+                self.refresh(lambda: self.error(err))
                 return
-            lines = []
+            parts = []
             if res.get("output"):
-                lines.append(res["output"])
+                parts.append(summarise(res["output"]))
             if res.get("deleted") not in (None, [], 0):
                 n = res["deleted"] if isinstance(res["deleted"], int) else len(res["deleted"])
-                lines.append(f"Deleted {n} template(s) from the sensor.")
+                parts.append(f"Deleted {n} template(s) from the sensor.")
             if res.get("left"):
-                lines.append(f"{res['left']} template(s) could not be deleted.")
+                parts.append(f"{res['left']} template(s) could not be deleted.")
             if res.get("moved"):
                 head, sep, tail = res["moved"][0].partition("/removed-fingerprints/")
                 folder = f"{head}{sep}{tail.split('/')[0]}/" if sep \
                     else os.path.dirname(res["moved"][0]) + "/"
-                lines.append(f"Moved {len(res['moved'])} record(s) to {folder}")
-            self.refresh(lambda: self.message(f"{title}: " + ("\n".join(lines) or "done."),
-                                              Gtk.MessageType.INFO))
+                parts.append(f"Moved {len(res['moved'])} record(s) aside.")
+                extra = f"\n\nMoved to {folder}"
+            else:
+                extra = ""
+            summary = " ".join(p for p in parts if p) or "Done."
+            summary = summary.replace(os.path.expanduser("~") + "/", "~/")
+            first = title.split()[0].lower()
+            text = summary if summary.lower().startswith(first) else f"{title}: {summary}"
+            self.refresh(lambda: self.message(text,
+                                              details=(res.get("output") or "") + extra or None))
         return done
 
     # ── actions ──
@@ -656,7 +760,7 @@ class Manager(Gtk.Window):
         """List records moved aside and put the chosen ones back."""
         def listed(res, err):
             if err:
-                return self.message(err, Gtk.MessageType.ERROR)
+                return self.error(err)
             self._restore_dialog(res["records"])
         self.run_job("list_moved", listed)
 
@@ -710,14 +814,15 @@ class Manager(Gtk.Window):
 
         def done(res, err):
             if err:
-                return self.refresh(lambda: self.message(err, Gtk.MessageType.ERROR))
+                return self.refresh(lambda: self.error(err))
             text = []
             if res["restored"]:
                 text.append("Restored: " + ", ".join(res["restored"]))
             if res["skipped"]:
                 text.append("Not restored: " + "; ".join(res["skipped"]))
-            self.refresh(lambda: self.message("\n".join(text) or "Nothing restored.",
-                                              Gtk.MessageType.INFO))
+            n, k = len(res["restored"]), len(res["skipped"])
+            short = f"Restored {n} record(s)." + (f" {k} not restored." if k else "")
+            self.refresh(lambda: self.message(short, details="\n".join(text)))
         self.run_job("restore", done, paths=paths)
 
     def on_remove_dead(self, _btn):

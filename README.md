@@ -167,24 +167,23 @@ A small window for looking after the fingerprints on the sensor, with the fix in
 python3 fingerprint-manager.py      # run as yourself, not with sudo
 ```
 
-It asks for your password once per session (pkexec) and then shows:
+It asks for your password once per session (pkexec). At the top is a **Use fingerprint for login and sudo** switch and a line about the sensor and the fix build; below are two tabs:
 
-- **Fingerprints on this install** — every user's enrolled fingers, and whether each one is still stored on the sensor or is a dead record (its template was re-enrolled elsewhere or removed by Windows).
-- **Templates on the sensor** — every template, and which user and finger on this install uses it. Templates not used here may belong to another Linux install, another user or Windows Hello; one install can't tell which, so they are never deleted without a warning.
+- **Fingerprints** — every user's enrolled fingers on this install, and whether the sensor still has each one. A dead record (its template was re-enrolled elsewhere or removed by Windows) shows a warning with a **Remove dead records** button.
+- **Sensor** — every template on the sensor, and which user and finger on this install uses it. Templates not used here may belong to another Linux install, another user or Windows Hello; one install can't tell which, so they are never deleted without a warning.
 
-What it can do:
+| Where | Control | What it does |
+|---|---|---|
+| Top | Use fingerprint for login and sudo | Turns PAM fingerprint on or off with `fingerprint-pam.sh` (see below). Turning it off keeps your enrolled fingerprints |
+| Fingerprints | Test fingerprint | Tests the selected finger, or with none selected any of your fingers (as login and sudo do), and shows a clear Match / No match with the finger that matched. It asks the sensor directly (fprintd pauses for a moment), because fprintd doesn't report which finger matched |
+| Fingerprints | Enrol a finger… | Enrols a new finger for you with `fprintd-enroll`, with a progress bar. It warns first that enrolling a finger already stored for another install or Windows Hello deletes it from there — useful on desktops without a fingerprint settings page, such as Xfce (MX Linux) |
+| Fingerprints | Remove… | Moves the selected records off this install; the template stays, so installs sharing it keep working |
+| Sensor | Delete… | Deletes the selected templates from the sensor (and moves aside any record here that used them) |
+| Sensor | Wipe sensor… | Deletes every template on the sensor (every Linux install and Windows Hello) after you type WIPE; moves every record here aside |
+| ☰ menu | Export / Import fingerprints… | Runs `export-fingerprint.sh` / `import-fingerprint.sh` with all their checks; importing over your existing fingerprints uses `--replace` |
+| ☰ menu | Restore removed records… | Lists records moved to `removed-fingerprints/` or `replaced-fingerprints/` and puts the chosen ones back — only if their template is still on the sensor and that finger hasn't been enrolled again here |
 
-| Button | What it does |
-|---|---|
-| Test fingerprint | Tests the selected finger, or with none selected any of your fingers (as login and sudo do), and shows a clear Match / No match with the finger that matched. It asks the sensor directly (fprintd pauses for a moment), because fprintd doesn't report which finger matched |
-| Enrol a finger… | Enrols a new finger for you with `fprintd-enroll`, with a progress bar. It warns first that enrolling a finger already stored for another install or Windows Hello deletes it from there — useful on desktops without a fingerprint settings page, such as Xfce (MX Linux) |
-| Restore… | Lists records moved to `removed-fingerprints/` or `replaced-fingerprints/` and puts the chosen ones back — only if their template is still on the sensor and that finger hasn't been enrolled again here |
-| Remove dead records | Moves records whose template is gone; the sensor is not touched |
-| Remove from this install… | Moves the selected records; the template stays, so installs sharing it keep working |
-| Delete from sensor… | Deletes the selected templates from the sensor (and moves aside any record here that used them) |
-| Export… / Import… | Runs `export-fingerprint.sh` / `import-fingerprint.sh` with all their checks; importing over your existing fingerprints uses `--replace` |
-| Wipe sensor… | Deletes every template on the sensor (every Linux install and Windows Hello) after you type WIPE; moves every record here aside |
-| Fingerprint for login and sudo — Enable / Disable | Shows whether PAM uses the fingerprint and turns it on or off with `fingerprint-pam.sh` (see below). Turning it off keeps your enrolled fingerprints |
+Results appear as a one-line message (the full script output is behind **Details…**); information messages disappear after 10 seconds.
 
 Records are never deleted: removed ones go to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the last 5 are kept). Each sensor job stops fprintd for a moment, as the sensor can only be used by one program at a time.
 
