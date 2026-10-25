@@ -547,7 +547,7 @@ class Manager(Gtk.Window):
         self.connect("destroy", self.on_quit)
         self.show_all()
         self._show_sensor_tab(self.sensor_item.get_active(), save=False)
-        self.message("Measuring the message area: " + "two full lines of text " * 8,
+        self.message("Measuring the message area: ",
                      Gtk.MessageType.WARNING,
                      details="x", action=("Undo", lambda: None))
         self.msg_slot.set_size_request(-1, self.msg_bar.get_preferred_height_for_width(596)[1])
