@@ -23,7 +23,7 @@ See the upstream [`SDCP.md`](https://github.com/abdallah-alkanani/libfprint-egis
 
 | USB ID | Galaxy Book Model | Status |
 | --- | --- | --- |
-| `1c7a:05a5` | Galaxy Book 4 / Book 5 Pro | **Confirmed working** on Galaxy Book 5 Pro 14" (940XHA), Fedora 45 and Linux Mint 27 (beta), 2026-10-24 — including an existing enrolment migrated from `fingerprint-fix` without re-enrolling |
+| `1c7a:05a5` | Galaxy Book 4 / Book 5 Pro | **Confirmed working** on Galaxy Book 5 Pro 14" (940XHA): Fedora 45, Linux Mint 27 (beta), Ubuntu 26.04 and MX Linux (Xfce), 2026-10-24/25 — including an existing enrolment migrated from `fingerprint-fix` without re-enrolling |
 | `1c7a:05a1` | Galaxy Book 3 / Book 4 (ETU905A80-E) | Tested upstream with this build (597 logins through `pam_fprintd`) |
 
 Find your reader's ID with `lsusb | grep 1c7a`.
@@ -38,7 +38,7 @@ Find your reader's ID with `lsusb | grep 1c7a`.
 6. Installs the library to `/usr/local/lib/libfprint-egismoc-sdcp/` and adds a systemd drop-in so **only fprintd** loads it (`LD_LIBRARY_PATH`)
 7. Configures PAM (Fedora: authselect; Ubuntu/Debian/Mint: pam-auth-update; Arch: see below)
 8. Installs a login-time monitor and a boot-time sensor check (see below)
-9. Offers to import fingerprints exported from another install on this laptop (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
+9. Offers to import fingerprints exported from another install on this laptop, if `~/fingerprint-export.tgz` exists (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
 
 It does **not** delete `/var/lib/fprint`. Deleting fprintd's records by hand leaves the templates on the sensor as orphans.
 
@@ -62,7 +62,7 @@ No reboot needed. Then test with `fprintd-verify`, or enrol:
 fprintd-enroll
 ```
 
-KDE: System Settings → Users → Fingerprint Authentication · GNOME: Settings → System → Users → Fingerprint Login · Mint: Menu → Fingerprints
+KDE: System Settings → Users → Fingerprint Authentication · GNOME: Settings → System → Users → Fingerprint Login · Mint: Menu → Fingerprints · Xfce (e.g. MX Linux) has no fingerprint settings page — use `fprintd-enroll`, `fprintd-list $USER` and `fprintd-delete $USER` in a terminal
 
 If `fprintd-verify` never matches, those prints were enrolled with a non-SDCP driver. Delete them — this also frees their slots on the sensor — and enrol again:
 
@@ -123,22 +123,26 @@ Several Linux installs on the same laptop can share one enrolment instead of eac
 
 **Tested:** a finger enrolled on Fedora 45, exported and imported on Linux Mint 27 (beta) (via `FPRINT_IMPORT` during install), verified on Mint — and still verified on Fedora afterwards (940XHA, 2026-10-24).
 
-**On the install where the finger is enrolled:**
+**On the install where the fingers are enrolled:**
 
 ```bash
-sudo bash export-fingerprint.sh          # writes ~/fprint-<user>.tgz
+sudo bash export-fingerprint.sh          # writes ~/fingerprint-export.tgz (all your fingers)
 ```
 
-**On the other install** (fix installed, nothing enrolled for that user, same username):
+**On the other install**, copy it to your home folder as `~/fingerprint-export.tgz`. The username there does not have to match — the fingerprints are imported for whoever imports them.
 
-```bash
-sudo bash import-fingerprint.sh ~/fprint-<user>.tgz
-fprintd-verify
-```
+- **While installing the fix:** if `~/fingerprint-export.tgz` exists and you have nothing enrolled, the installer asks `Import them? [Y/n]` (skipped after 20 seconds, or when run without a terminal, e.g. from the GUI app). It does not ask if the file isn't there. `FPRINT_IMPORT=/path/to/file.tgz` imports a file kept anywhere else.
+- **With the fix already installed:**
 
-The installer also offers this at the end: enter the path when asked, or set `FPRINT_IMPORT=/path/to/fprint-<user>.tgz`. It skips the question if fingerprints are already enrolled.
+  ```bash
+  sudo bash import-fingerprint.sh ~/fingerprint-export.tgz
+  sudo bash import-fingerprint.sh --user NAME FILE.tgz      # for another user
+  fprintd-verify
+  ```
 
-The import refuses records made on a different sensor, records for a user who does not exist on this install, and archives containing anything other than fingerprint records. It never overwrites existing fingerprints, because that would orphan their templates on the sensor.
+When the username differs from the one that exported them, each record's owner is rewritten for the new user (by the small `sensor-check` helper the installer builds). The template on the sensor is the same either way. Exports made under the older name `fprint-<user>.tgz` import the same way.
+
+The import refuses records made on a different sensor, users who don't exist on this install, and archives containing anything other than fingerprint records. It never overwrites existing fingerprints, because that would orphan their templates on the sensor.
 
 **Once installs share fingerprints:**
 

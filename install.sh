@@ -756,32 +756,39 @@ else
 fi
 
 # ── Step 13: Optionally import fingerprints exported from another install ─────
-# FPRINT_IMPORT=/path/to/fprint-<user>.tgz answers this without asking.
+# Offered only when ~/fingerprint-export.tgz exists (where export-fingerprint.sh
+# writes it) and the user has nothing enrolled here. FPRINT_IMPORT=FILE imports
+# a file kept anywhere else without asking.
 step "Fingerprint Step 13: Importing fingerprints from another install (optional)"
-_import="${FPRINT_IMPORT:-}"
+_imp_user="${FPRINT_USER:-${SUDO_USER:-}}"
+_imp_home=""
+[[ -n "$_imp_user" ]] && _imp_home=$(getent passwd "$_imp_user" | cut -d: -f6)
+_imp_file="${FPRINT_IMPORT:-}"
 _has_prints=false
-[[ -n "$(find /var/lib/fprint -type f 2>/dev/null | head -1)" ]] && _has_prints=true
-if [[ -z "$_import" ]]; then
-    if $_has_prints; then
-        info "Fingerprints already enrolled on this install — skipping import"
-    elif [[ -t 0 ]]; then
-        echo "  If you exported fingerprints on another install of this laptop"
-        echo "  (export-fingerprint.sh), you can use them here without enrolling."
-        if ! read -r -t 30 -p "  Path to fprint-<user>.tgz (Enter to skip, skips in 30s): " _import; then
-            echo; _import=""
+[[ -n "$_imp_user" && -n "$(find "/var/lib/fprint/$_imp_user" -type f 2>/dev/null | head -1)" ]] && _has_prints=true
+_offered=""
+if [[ -z "$_imp_user" ]]; then
+    info "Could not tell which user to import for — skipping"
+elif $_has_prints; then
+    info "${_imp_user} already has fingerprints enrolled — skipping import"
+    _imp_file=""
+elif [[ -z "$_imp_file" && -n "$_imp_home" && -f "$_imp_home/fingerprint-export.tgz" ]]; then
+    _offered="$_imp_home/fingerprint-export.tgz"
+    if [[ -t 0 ]]; then
+        _when=$(date -r "$_offered" '+%Y-%m-%d %H:%M' 2>/dev/null || echo "unknown date")
+        echo "  Found exported fingerprints: $_offered (saved $_when)"
+        if read -r -t 20 -p "  Import them for ${_imp_user}? [Y/n] (skips in 20s) " _ans; then
+            [[ -z "$_ans" || "${_ans,,}" == y* ]] && _imp_file="$_offered"
+        else
+            echo; info "No answer — skipping import"
         fi
     fi
 fi
-if [[ -n "$_import" ]]; then
-    # "~/..." typed at the prompt means the user's home, not root's
-    # shellcheck disable=SC2088  # matching a literal "~/" on purpose
-    if [[ "$_import" == "~/"* && -n "$FPRINT_USER" ]]; then
-        _import="$(getent passwd "$FPRINT_USER" | cut -d: -f6)/${_import#\~/}"
-    fi
-    bash "$SCRIPT_DIR/import-fingerprint.sh" "$_import" \
-        || warn "Import failed — the fix is installed. Fix the problem above and run:\n       sudo bash $SCRIPT_DIR/import-fingerprint.sh FILE.tgz"
-elif ! $_has_prints; then
-    info "No import — enrol fingerprints as shown below"
+if [[ -n "$_imp_file" ]]; then
+    bash "$SCRIPT_DIR/import-fingerprint.sh" --user "$_imp_user" "$_imp_file" \
+        || warn "Import failed — the fix is installed. Fix the problem above and run:\n       sudo bash $SCRIPT_DIR/import-fingerprint.sh $_imp_file"
+elif [[ -n "$_offered" ]]; then
+    info "To import later:  sudo bash $SCRIPT_DIR/import-fingerprint.sh $_offered"
 fi
 
 # ── Done ──────────────────────────────────────────────────────────────────────
@@ -799,4 +806,11 @@ echo "  Enrol in the desktop instead:"
 echo "      KDE:   System Settings -> Users -> Fingerprint Authentication"
 echo "      GNOME: Settings -> System -> Users -> Fingerprint Login"
 echo "      Mint:  Menu -> Fingerprints"
+echo "      Xfce (e.g. MX Linux) and other desktops without a fingerprint"
+echo "      settings page: use the terminal — fprintd-enroll, fprintd-list \$USER,"
+echo "      fprintd-delete \$USER"
+echo
+echo "  Fingerprints exported on another install of this laptop"
+echo "  (export-fingerprint.sh) can be imported here instead of enrolling:"
+echo "      sudo bash $SCRIPT_DIR/import-fingerprint.sh ~/fingerprint-export.tgz"
 echo

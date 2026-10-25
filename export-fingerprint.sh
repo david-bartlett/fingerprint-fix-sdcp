@@ -5,7 +5,7 @@
 # Saves your enrolled fingerprint records so another Linux install on THIS
 # laptop can use the same fingerprints (see import-fingerprint.sh).
 #
-#   sudo bash export-fingerprint.sh            → ~/fprint-<user>.tgz
+#   sudo bash export-fingerprint.sh            → ~/fingerprint-export.tgz
 #   sudo bash export-fingerprint.sh FILE.tgz   → FILE.tgz
 #
 # The records hold only the ID of each template stored on the sensor — no
@@ -56,7 +56,7 @@ FILES=("$SRC"/*)
 shopt -u nullglob
 [[ ${#FILES[@]} -gt 0 ]] || error "No fingerprints enrolled for ${USER_NAME} on this sensor — nothing to export."
 
-OUT="${1:-${USER_HOME}/fprint-${USER_NAME}.tgz}"
+OUT="${1:-${USER_HOME}/fingerprint-export.tgz}"
 [[ "$OUT" == *.tgz || "$OUT" == *.tar.gz ]] || OUT="${OUT}.tgz"
 
 tar -C /var/lib/fprint -czf "$OUT" "$REL"
@@ -70,9 +70,10 @@ for f in "${FILES[@]}"; do
 done
 info "Exported ${NAMES[*]} for ${USER_NAME} to ${OUT}"
 echo
-echo "  On the other install (with fingerprint-fix-sdcp installed and nothing"
-echo "  enrolled for ${USER_NAME}):"
-echo "      sudo bash import-fingerprint.sh $(basename "$OUT")"
+echo "  On the other install, copy it to the same place in your home folder"
+echo "  (~/fingerprint-export.tgz) and the installer offers to import it, or run:"
+echo "      sudo bash import-fingerprint.sh ~/$(basename "$OUT")"
+echo "  It is imported for whoever runs it — the username there can differ."
 echo
 echo "  Re-export after deleting or re-enrolling these fingers — the old file"
 echo "  will point at templates that no longer exist."

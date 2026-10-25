@@ -6,11 +6,15 @@
 # install on THIS laptop, so both installs share the same fingerprints without
 # enrolling again.
 #
-#   sudo bash import-fingerprint.sh ~/fprint-<user>.tgz
+#   sudo bash import-fingerprint.sh ~/fingerprint-export.tgz
+#   sudo bash import-fingerprint.sh --user NAME FILE.tgz
 #
-# Checks first that the records are for this laptop's sensor, that the user
-# exists here, and that the user has nothing enrolled (records are never
-# overwritten — that would orphan templates on the sensor).
+# The fingerprints are imported for the user running it (or --user NAME). That
+# user does not need the same name as on the install they were exported from.
+#
+# Checks first that the records are for this laptop's sensor and that the user
+# has nothing enrolled (records are never overwritten — that would orphan
+# templates on the sensor).
 # =============================================================================
 
 set -e
@@ -29,6 +33,9 @@ FINGERS=(unknown left-thumb left-index-finger left-middle-finger left-ring-finge
          left-little-finger right-thumb right-index-finger right-middle-finger
          right-ring-finger right-little-finger)
 
+# Built by install.sh; rewrites the owner stored inside a record.
+SENSOR_CHECK="/usr/local/lib/libfprint-egismoc-sdcp/sensor-check"
+
 # libfprint's device ID for this sensor is its USB serial number.
 sensor_serial() {
     local d
@@ -40,9 +47,24 @@ sensor_serial() {
     return 1
 }
 
-ARCHIVE="${1:-}"
-[[ -n "$ARCHIVE" ]] || error "Usage: sudo bash import-fingerprint.sh FILE.tgz"
+# ── Arguments ─────────────────────────────────────────────────────────────────
+TARGET_USER=""
+ARCHIVE=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --user) TARGET_USER="${2:-}"; shift 2 || error "--user needs a name" ;;
+        -*)     error "Unknown option: $1" ;;
+        *)      ARCHIVE="$1"; shift ;;
+    esac
+done
+[[ -n "$ARCHIVE" ]] || error "Usage: sudo bash import-fingerprint.sh [--user NAME] FILE.tgz"
 [[ -f "$ARCHIVE" ]] || error "File not found: $ARCHIVE"
+
+TARGET_USER="${TARGET_USER:-${SUDO_USER:-}}"
+[[ -n "$TARGET_USER" && "$TARGET_USER" != "root" ]] \
+    || error "Run this with sudo from the account to import into, or use --user NAME."
+[[ "$TARGET_USER" =~ ^[a-z_][a-z0-9_.-]*$ ]] || error "Invalid username: $TARGET_USER"
+getent passwd "$TARGET_USER" >/dev/null || error "User '$TARGET_USER' does not exist on this install."
 
 # ── The fix must be installed — the distro libfprint cannot use SDCP records ──
 [[ -f /etc/samsung-galaxybook-egismoc-sdcp.installed ]] \
@@ -52,7 +74,7 @@ SERIAL=$(sensor_serial) || error "EgisTec fingerprint sensor (1c7a:05a5 / 1c7a:0
 
 # ── Check the archive: only <user>/egismoc/<serial>/<finger> files and dirs ───
 tar -tzf "$ARCHIVE" >/dev/null 2>&1 || error "Not a valid .tgz archive: $ARCHIVE"
-USER_NAME=""
+SRC_USER=""
 while read -r perms _ _ _ _ path; do
     path="${path%/}"
     case "${perms:0:1}" in
@@ -62,39 +84,53 @@ while read -r perms _ _ _ _ path; do
     [[ "$path" =~ ^([a-z_][a-z0-9_.-]*)(/egismoc(/([A-Za-z0-9._-]+)(/([0-9]+))?)?)?$ ]] \
         || error "Unexpected path in archive: $path"
     u="${BASH_REMATCH[1]}"; s="${BASH_REMATCH[4]}"; f="${BASH_REMATCH[6]}"
-    [[ -z "$USER_NAME" || "$USER_NAME" == "$u" ]] || error "Archive contains records for more than one user."
-    USER_NAME="$u"
+    [[ -z "$SRC_USER" || "$SRC_USER" == "$u" ]] || error "Archive contains records for more than one user."
+    SRC_USER="$u"
     [[ -z "$s" || "$s" == "$SERIAL" ]] \
         || error "These records are for a different fingerprint sensor ($s).\n  This laptop's sensor is $SERIAL — records only work on the sensor they were made on."
     if [[ -n "$f" ]]; then
         [[ "${perms:0:1}" == "-" && "$f" -ge 1 && "$f" -le 10 ]] || error "Unexpected entry in archive: $path"
     fi
 done < <(tar -tzvf "$ARCHIVE" 2>/dev/null)
-[[ -n "$USER_NAME" ]] || error "Archive is empty: $ARCHIVE"
+[[ -n "$SRC_USER" ]] || error "Archive is empty: $ARCHIVE"
 
-getent passwd "$USER_NAME" >/dev/null \
-    || error "The records are for user '$USER_NAME', who does not exist on this install.\n  Records can only be imported for the same username."
+# Records exported by another username need their owner rewritten.
+if [[ "$SRC_USER" != "$TARGET_USER" && ! -x "$SENSOR_CHECK" ]]; then
+    error "These fingerprints were exported by '$SRC_USER'. Importing them for '$TARGET_USER'\n  needs $SENSOR_CHECK, which is missing.\n  Reinstall the fix (sudo bash install.sh) and try again."
+fi
 
 # ── Never overwrite existing records ──────────────────────────────────────────
-DEST="/var/lib/fprint/${USER_NAME}"
+DEST="/var/lib/fprint/${TARGET_USER}"
 if [[ -d "$DEST" ]] && [[ -n "$(find "$DEST" -type f 2>/dev/null | head -1)" ]]; then
-    error "${USER_NAME} already has fingerprints enrolled on this install — not importing.\n  Overwriting them would leave their templates orphaned on the sensor.\n  To replace them: fprintd-delete ${USER_NAME}, then run this again."
+    error "${TARGET_USER} already has fingerprints enrolled on this install — not importing.\n  Overwriting them would leave their templates orphaned on the sensor.\n  To replace them: fprintd-delete ${TARGET_USER}, then run this again."
 fi
 
 # ── Extract to a temporary folder, then install with fprintd's permissions ────
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 tar -C "$TMP" --no-same-owner --no-same-permissions -xzf "$ARCHIVE"
-SRC="$TMP/${USER_NAME}/egismoc/${SERIAL}"
+SRC="$TMP/${SRC_USER}/egismoc/${SERIAL}"
 shopt -s nullglob
 FILES=("$SRC"/*)
 shopt -u nullglob
 [[ ${#FILES[@]} -gt 0 ]] || error "Archive contains no fingerprint records."
 
+# Prepare every record first, so a failure leaves nothing half-imported.
+mkdir -p "$TMP/ready"
+for f in "${FILES[@]}"; do
+    n=$(basename "$f")
+    if [[ "$SRC_USER" == "$TARGET_USER" ]]; then
+        cp "$f" "$TMP/ready/$n"
+    else
+        "$SENSOR_CHECK" --set-owner "$TARGET_USER" "$f" "$TMP/ready/$n" \
+            || error "Could not convert record $n for $TARGET_USER — nothing was imported."
+    fi
+done
+
 mkdir -p /var/lib/fprint
 install -d -m 700 -o root -g root "$DEST" "$DEST/egismoc" "$DEST/egismoc/$SERIAL"
 NAMES=()
-for f in "${FILES[@]}"; do
+for f in "$TMP/ready"/*; do
     n=$(basename "$f")
     install -m 600 -o root -g root "$f" "$DEST/egismoc/$SERIAL/$n"
     NAMES+=("${FINGERS[$n]}")
@@ -102,10 +138,14 @@ done
 command -v restorecon >/dev/null 2>&1 && restorecon -R "$DEST" 2>/dev/null || true
 
 systemctl restart fprintd 2>/dev/null || true
-info "Imported ${NAMES[*]} for ${USER_NAME}"
+if [[ "$SRC_USER" == "$TARGET_USER" ]]; then
+    info "Imported ${NAMES[*]} for ${TARGET_USER}"
+else
+    info "Imported ${NAMES[*]} for ${TARGET_USER} (exported by ${SRC_USER})"
+fi
 echo
 echo "  Check it works (touch the sensor when asked):"
-echo "      fprintd-verify ${USER_NAME}"
+echo "      fprintd-verify ${TARGET_USER}"
 echo
 echo "  These fingerprints are now shared with the install they came from:"
 echo "   • Do NOT enrol the same finger on either install — fprintd would delete"

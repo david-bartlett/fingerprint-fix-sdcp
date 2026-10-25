@@ -15,6 +15,12 @@
  *          1 = at least one record has no template on the sensor
  *          2 = could not check (no sensor, open/list failed, ...)
  *
+ * Second mode, used by import-fingerprint.sh (does not touch the sensor):
+ *   sensor-check --set-owner USER IN OUT
+ *     Reads the fprintd record IN, sets its owner to USER and writes it to
+ *     OUT, so a fingerprint exported by one user can be imported for another.
+ *     Exit 0 on success, 2 on error.
+ *
  * Testing only (not used by the fix):
  *   FPRINT_STORE          use this folder instead of /var/lib/fprint
  *   SENSOR_CHECK_DRIVER   look for this driver instead of egismoc
@@ -80,8 +86,40 @@ load_records (const char *store, const char *driver, const char *device_id)
   return records;
 }
 
-int
-main (void)
+/* --set-owner USER IN OUT: rewrite the username stored inside a record */
+static int
+set_owner (const char *user, const char *in, const char *out)
+{
+  g_autoptr(GError) error = NULL;
+  g_autoptr(FpPrint) print = NULL;
+  g_autofree guchar *data = NULL;
+  g_autofree guchar *new_data = NULL;
+  gsize len = 0, new_len = 0;
+
+  if (!g_file_get_contents (in, (char **) &data, &len, &error))
+    {
+      g_printerr ("Cannot read %s: %s\n", in, error->message);
+      return 2;
+    }
+  print = fp_print_deserialize (data, len, &error);
+  if (!print)
+    {
+      g_printerr ("Not a valid fingerprint record: %s\n", in);
+      return 2;
+    }
+  fp_print_set_username (print, user);
+  if (!fp_print_serialize (print, &new_data, &new_len, &error) ||
+      !g_file_set_contents (out, (const char *) new_data, new_len, &error))
+    {
+      g_printerr ("Cannot write %s: %s\n", out, error ? error->message : "unknown error");
+      return 2;
+    }
+  return 0;
+}
+
+/* Default mode: compare fprintd's records with the templates on the sensor */
+static int
+check_sensor (void)
 {
   const char *store = g_getenv ("FPRINT_STORE") ? g_getenv ("FPRINT_STORE") : "/var/lib/fprint";
   const char *driver = g_getenv ("SENSOR_CHECK_DRIVER") ? g_getenv ("SENSOR_CHECK_DRIVER") : "egismoc";
@@ -155,4 +193,19 @@ main (void)
   if (missing == 0)
     g_print ("OK %u records, %u templates on sensor\n", records->len, stored->len);
   return missing ? 1 : 0;
+}
+
+int
+main (int argc, char **argv)
+{
+  if (argc >= 2 && g_strcmp0 (argv[1], "--set-owner") == 0)
+    {
+      if (argc != 5 || argv[2][0] == '\0')
+        {
+          g_printerr ("Usage: %s --set-owner USER IN OUT\n", argv[0]);
+          return 2;
+        }
+      return set_owner (argv[2], argv[3], argv[4]);
+    }
+  return check_sensor ();
 }
