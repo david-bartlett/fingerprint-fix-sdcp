@@ -126,7 +126,8 @@ for USER_HOME in /home/*/; do
     rm -f "$USER_TIMER" "$USER_SVC" \
         "${USER_HOME}.config/systemd/user/graphical-session.target.wants/${FPRINT_USER_CHECK_TIMER}" \
         "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-boot-shown" \
-        "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-welcome-shown"
+        "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-welcome-shown" \
+        "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-pam-hint-shown"
     [[ -n "$USER_ID" ]] && sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/${USER_ID}" \
         systemctl --user daemon-reload 2>/dev/null || true
     info "Removed user timer and service for $USER_NAME"

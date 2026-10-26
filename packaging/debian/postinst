@@ -16,6 +16,8 @@ if [ "$1" = configure ]; then
         systemctl --global enable "$USER_CHECK" >/dev/null 2>&1 || true
         echo "Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger"
         echo "and turn on fingerprint login."
+        # The same hint as a notification now, for anyone logged into a desktop.
+        /usr/lib/fingerprint-fix-sdcp/notify-users.sh || true
     fi
 
     # What the distro libfprint looked like, so the monitor tests it again

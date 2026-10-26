@@ -16,7 +16,8 @@ for _home in /home/*/; do
     rm -f "${_udir}/samsung-galaxybook-fprint-sdcp-user-check.timer" "${_udir}/samsung-galaxybook-fprint-sdcp-user-check.service" \
           "${_udir}/graphical-session.target.wants/samsung-galaxybook-fprint-sdcp-user-check.timer" \
           "${_home}.cache/samsung-galaxybook/fprint-sdcp-boot-shown" \
-          "${_home}.cache/samsung-galaxybook/fprint-sdcp-welcome-shown"
+          "${_home}.cache/samsung-galaxybook/fprint-sdcp-welcome-shown" \
+          "${_home}.cache/samsung-galaxybook/fprint-sdcp-pam-hint-shown"
 done
 rm -f /etc/samsung-galaxybook/session-helper.d/fingerprint-fix-sdcp
 # /run/samsung-galaxybook/fprint-sdcp-status is left for the user check script.
