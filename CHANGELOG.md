@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 1.2.1 — 2026-10-26
 
 - README: Credits link to Abdallah Alkanani's libfprint-egismoc-sdcp; "Version built" describes the pinned `DRIVER` commit (it still described building the fork's newest commit)
