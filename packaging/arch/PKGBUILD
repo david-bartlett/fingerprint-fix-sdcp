@@ -113,8 +113,7 @@ package() {
     install -d "$p/etc/xdg/autostart"
     bash "$render" package session-autostart.desktop.in \
         > "$p/etc/xdg/autostart/fingerprint-fix-sdcp-session.desktop"
-    # polkit's rules folder is root:polkitd 750 on Arch
-    install -d -m750 -o root -g 102 "$p/usr/share/polkit-1/rules.d"
+    install -d "$p/usr/share/polkit-1/rules.d"
     bash "$render" package polkit-monitor.rules.in \
         > "$p/usr/share/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
 
