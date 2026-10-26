@@ -167,7 +167,10 @@ check_sensor (void)
       FpPrint *record = g_ptr_array_index (records, i - 1);
       const char *kind = print_kind (record);
 
-      if (g_strcmp0 (kind, "sdcp") != 0)
+      /* Only a type we can name and that isn't SDCP: an unreadable type is
+       * compared as before rather than reported as another driver's. */
+      if (g_strcmp0 (kind, "sdcp") != 0 && g_strcmp0 (kind, "unknown") != 0
+          && g_strcmp0 (kind, "undefined") != 0)
         {
           g_print ("OTHERDRIVER %s %s %s %s\n", kind,
                    (const char *) g_object_get_data (G_OBJECT (record), "user"),
