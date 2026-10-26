@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Arch: admin dialogs (pkexec, graphical password prompts) take a typed password after at most 10 seconds instead of 30 (`arch-pam.sh`: polkit-1 gets `timeout=10`; package upgrades update existing lines)
+- Arch package: `packaging/arch/PKGBUILD` builds the fix as a pacman package, installed under `/usr`
+- Scripts and units that `install.sh` used to write inline are now real files in `packaging/files/`, shared by `install.sh` and the packages; their paths are in `lib/fixpaths.sh`. `install.sh` writes the same files as before
+- The Manager, its helper and the export / import tools find the fix whether it was installed by `install.sh` or as a package
+- First login after installing: a notification points to the Galaxy Book Fingerprint Manager when no finger is enrolled yet
+- Fingerprint login check: commented-out `pam_fprintd` lines no longer count as enabled (Arch status and enable, Debian status)
+
 ## 1.0.0 — 2026-10-25
 
 First release as its own repository (previously `extras/fingerprint-fix-sdcp` in Samsung Galaxy Book Fixes).

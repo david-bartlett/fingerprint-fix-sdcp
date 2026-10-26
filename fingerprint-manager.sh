@@ -43,19 +43,26 @@ if [[ -z "${WAYLAND_DISPLAY:-}" && -z "${DISPLAY:-}" ]]; then
 fi
 
 # ── The fix must be installed (the same checks the helper makes) ──────────────
-if [[ ! -f /etc/samsung-galaxybook-egismoc-sdcp.installed \
-      || ! -f /usr/local/lib/libfprint-egismoc-sdcp/libfprint-2.so.2 \
-      || ! -f /etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf ]]; then
-    say "fingerprint-fix-sdcp is not installed (or is incomplete). Install it first:\n  sudo bash install.sh   (in the fingerprint-fix-sdcp folder)"
+# lib/fixpaths.sh knows both layouts: a package (/usr) or install.sh (/usr/local).
+# shellcheck source=lib/fixpaths.sh
+. "$HERE/lib/fixpaths.sh" 2>/dev/null \
+    || { say "Missing $HERE/lib/fixpaths.sh — keep the whole fingerprint-fix-sdcp folder together."; exit 1; }
+fix_detect
+if ! fix_installed; then
+    say "fingerprint-fix-sdcp is not installed (or is incomplete). Install it first:\n  the fingerprint-fix-sdcp package, or: sudo bash install.sh   (in the fingerprint-fix-sdcp folder)"
     exit 1
 fi
 
 # ── Started from a downloaded folder: say if it differs from the installed copy
-INSTALLED="/usr/local/lib/libfprint-egismoc-sdcp/manager"
+INSTALLED="$MGR_DIR"
 if [[ "$HERE" != "$INSTALLED" && -d "$INSTALLED/lib" ]] \
         && ! diff -rq "$HERE/lib" "$INSTALLED/lib" >/dev/null 2>&1; then
     echo "Note: running the Manager from $HERE, which differs from the installed copy." >&2
-    echo "      Run 'sudo bash install.sh' there to update the installed one." >&2
+    if [[ "$FIX_LAYOUT" == package ]]; then
+        echo "      The installed one is updated with the fingerprint-fix-sdcp package." >&2
+    else
+        echo "      Run 'sudo bash install.sh' there to update the installed one." >&2
+    fi
 fi
 
 # ── Packages the window needs ─────────────────────────────────────────────────

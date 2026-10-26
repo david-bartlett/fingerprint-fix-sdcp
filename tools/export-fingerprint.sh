@@ -24,6 +24,12 @@ info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 
+# Where the fix is installed: a package (/usr) or install.sh (/usr/local).
+# shellcheck source-path=SCRIPTDIR source=../lib/fixpaths.sh
+. "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/fixpaths.sh" 2>/dev/null \
+    || error "lib/fixpaths.sh not found — keep the whole fingerprint-fix-sdcp folder together."
+fix_detect
+
 FINGERS=(unknown left-thumb left-index-finger left-middle-finger left-ring-finger
          left-little-finger right-thumb right-index-finger right-middle-finger
          right-ring-finger right-little-finger)
@@ -51,9 +57,7 @@ command -v fprintd-list >/dev/null 2>&1 && systemctl cat fprintd.service >/dev/n
     || error "fprintd is not installed — there are no fingerprints to export."
 ldconfig -p 2>/dev/null | grep -q 'libfprint-2\.so\.2 ' \
     || error "libfprint is not installed — there are no fingerprints to export."
-[[ -f /etc/samsung-galaxybook-egismoc-sdcp.installed \
-   && -f /usr/local/lib/libfprint-egismoc-sdcp/libfprint-2.so.2 \
-   && -f /etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf ]] \
+fix_installed \
     || error "fingerprint-fix-sdcp is not installed (or incomplete) here. Fingerprints\n  enrolled without it can't be used on another install. Install it first:\n  sudo bash install.sh"
 
 SERIAL=$(sensor_serial) || error "EgisTec fingerprint sensor (1c7a:05a5 / 1c7a:05a1) not found."
