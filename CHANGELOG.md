@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- README: Credits link to Abdallah Alkanani's libfprint-egismoc-sdcp; "Version built" describes the pinned `DRIVER` commit (it still described building the fork's newest commit)
+
 ## 1.2.0 — 2026-10-26
 
 - `uninstall.sh` always keeps enrolled fingerprints; it no longer offers to delete them (an accidental *y* also wiped the templates on the sensor). Delete fingers in the Fingerprint Manager instead
