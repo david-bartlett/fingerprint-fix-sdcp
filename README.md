@@ -101,8 +101,8 @@ sudo SDCP_REPO_URL=https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp.g
 
 1. If the driver changes: sync the fork, then put the new commit's full id in `DRIVER`.
 2. Raise the number in `VERSION` — `1.0.1` for fixes, `1.1.0` for new features, `2.0.0` when users need to do something differently.
-3. Add a section for it at the top of `CHANGELOG.md`; commit and push.
-4. On GitHub: **Releases → Draft a new release**, tag `v` + the version (e.g. `v1.1.0`), and paste the changelog section as the notes.
+3. Add a section for it at the top of `CHANGELOG.md` (`## 1.1.0 — date`, or `## Unreleased`, which gets the number and date at release); commit and push.
+4. Tag the commit `v` + the version (e.g. `v1.1.0`) and push the tag: `git tag -a v1.1.0 -m 1.1.0 && git push origin v1.1.0`. The *Release packages* workflow creates the GitHub release with the changelog section as its notes, builds the packages and attaches them. Steps 2–4 can also be done in one go with the Release button of `fingerprint-repo-gui.py` (samsung-galaxybook-dev-tools).
 
 </details>
 
