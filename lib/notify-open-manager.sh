@@ -19,3 +19,4 @@ if notify-send --help 2>&1 | grep -q -- '--action'; then
 else
     notify-send "${args[@]}" "$title" "$msg"
 fi
+exit 0
