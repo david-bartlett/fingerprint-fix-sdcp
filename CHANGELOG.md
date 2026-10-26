@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.2 — 2026-10-26
 
 **Driver:** unchanged, libfprint-egismoc-sdcp `3b0ee1f`.
 
