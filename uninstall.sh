@@ -80,9 +80,14 @@ rmdir "$FPRINT_DROPIN_DIR" 2>/dev/null || true
 rm -rf "$FPRINT_LIB_DIR"       # includes the Galaxy Book Fingerprint Manager (manager/)
 # Fingerprint Manager's menu entry, command, icon and polkit policy
 rm -f "$MGR_BIN" "$MGR_DESKTOP" "$MGR_ICON" "$MGR_POLICY"
-# Refresh the icon cache only if there is one (none is fine: GTK then reads the folder).
-[[ -f /usr/local/share/icons/hicolor/icon-theme.cache ]] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
-    && gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor 2>/dev/null || true
+# Refresh the icon caches only where there is one (none is fine: GTK then reads
+# the folder). /usr/local held the icon before 1.3.2: remove that copy.
+LEGACY_ICON=/usr/local/share/icons/hicolor/scalable/apps/galaxybook-fingerprint-manager.svg
+rm -f "$LEGACY_ICON"
+for _icons in "$(dirname "$(dirname "$(dirname "$MGR_ICON")")")" /usr/local/share/icons/hicolor; do
+    [[ -f "$_icons/icon-theme.cache" ]] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
+        && gtk-update-icon-cache -q -t -f "$_icons" 2>/dev/null || true
+done
 command -v update-desktop-database >/dev/null 2>&1 \
     && update-desktop-database -q /usr/share/applications 2>/dev/null || true
 systemctl daemon-reload
