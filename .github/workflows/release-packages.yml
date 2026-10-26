@@ -3,9 +3,12 @@
 #
 # Runs when a release is published (tag v<VERSION>), or by hand for an existing
 # tag: Actions → Release packages → Run workflow.
-# Each package is built on the oldest system it supports, so it also installs
-# on the newer ones: Fedora 44 (→ 45), Ubuntu 24.04 (→ 26.04, Mint 22 / 27,
-# Debian 13 / MX 25), Arch (rolling).
+# The .rpm and .deb are built once per supported release, on that release:
+# their library dependencies come from the system they're built on, and
+# distros rename library packages between releases (Ubuntu 26.04: libgusb2 →
+# libgusb2a). The file names say which release each is for (.fc45,
+# ~ubuntu26.04, ~debian13). Mint uses its Ubuntu base's .deb, MX its Debian
+# base's. Arch is rolling: one package.
 
 name: Release packages
 
@@ -40,10 +43,13 @@ jobs:
           fi
 
   rpm:
-    name: rpm (Fedora 44)
+    name: rpm (Fedora ${{ matrix.fedora }})
     needs: check
     runs-on: ubuntu-latest
-    container: fedora:44
+    strategy:
+      matrix:
+        fedora: ["44", "45"]
+    container: fedora:${{ matrix.fedora }}
     steps:
       - run: >
           dnf -y install git rpm-build gcc meson ninja-build patch tar gzip curl
@@ -55,15 +61,18 @@ jobs:
       - run: bash packaging/rpm/build.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: rpm
+          name: rpm-fedora${{ matrix.fedora }}
           path: packaging/out/*.rpm
           if-no-files-found: error
 
   deb:
-    name: deb (Ubuntu 24.04)
+    name: deb (${{ matrix.image }})
     needs: check
     runs-on: ubuntu-latest
-    container: ubuntu:24.04
+    strategy:
+      matrix:
+        image: ["ubuntu:24.04", "ubuntu:26.04", "debian:13"]
+    container: ${{ matrix.image }}
     steps:
       - run: |
           apt-get update
@@ -75,9 +84,11 @@ jobs:
           ref: ${{ env.TAG }}
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: bash packaging/debian/build.sh
+      - name: Name the artifact
+        run: echo "ARTIFACT=deb-$(echo '${{ matrix.image }}' | tr ':' '-')" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
-          name: deb
+          name: ${{ env.ARTIFACT }}
           path: packaging/out/*.deb
           if-no-files-found: error
 
