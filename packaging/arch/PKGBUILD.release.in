@@ -24,6 +24,7 @@ depends=(
 )
 makedepends=('git' 'meson' 'ninja' 'pkgconf' 'glib2-devel' 'patch')
 install=fingerprint-fix-sdcp.install
+options=('!debug')            # no separate -debug package in the release downloads
 source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz"
         "libfprint-egismoc-sdcp::git+https://github.com/david-bartlett/libfprint-egismoc-sdcp.git#commit=$_driver")
 sha256sums=('@SHA256@'
