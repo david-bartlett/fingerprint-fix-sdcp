@@ -2051,9 +2051,26 @@ class Manager(Gtk.Window):
     def _open_folder_detached(self, folder):
         """Open a folder in the file manager as its own process, so it still
         opens when the Manager quits straight afterwards (show_uri hands the
-        request over asynchronously and is lost if the Manager exits first)."""
+        request over asynchronously and is lost if the Manager exits first).
+
+        On Wayland a program may only bring a window to the front with an
+        activation token from the user's click; without one, a file manager
+        that is already open (or minimised) gets the folder but stays behind.
+        GTK makes the token; xdg-open and the file manager pass it on."""
+        env = dict(os.environ)
         try:
-            subprocess.Popen(["xdg-open", folder], start_new_session=True,
+            app = Gio.AppInfo.get_default_for_type("inode/directory", False)
+            if app:
+                ctx = self.get_display().get_app_launch_context()
+                ctx.set_timestamp(Gtk.get_current_event_time())
+                token = ctx.get_startup_notify_id(app, [Gio.File.new_for_path(folder)])
+                if token:
+                    env["XDG_ACTIVATION_TOKEN"] = token     # Wayland
+                    env["DESKTOP_STARTUP_ID"] = token       # X11 startup notification
+        except Exception:                                   # no token: the folder still opens
+            pass
+        try:
+            subprocess.Popen(["xdg-open", folder], start_new_session=True, env=env,
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL)
         except OSError:                              # no xdg-open: GTK's way
