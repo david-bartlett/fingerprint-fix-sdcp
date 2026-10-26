@@ -45,7 +45,9 @@ fix_layout() {
         FPRINT_MARKER="$FIX_PACKAGE_MARKER"
         FPRINT_UNIT_DIR="/usr/lib/systemd/system"
         FPRINT_USER_UNIT_DIR="/usr/lib/systemd/user"
-        FPRINT_SCRIPT_DIR="$FPRINT_LIB_DIR"
+        # Fedora keeps scripts in /usr/libexec (SELinux labels them as
+        # programs there); Arch and Debian in the library folder.
+        FPRINT_SCRIPT_DIR="${FIX_PACKAGE_SCRIPT_DIR:-$FPRINT_LIB_DIR}"
         FPRINT_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/monitor.sh"
         FPRINT_USER_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/user-check.sh"
         FPRINT_BOOT_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/boot-check.sh"
@@ -56,7 +58,7 @@ fix_layout() {
         # Package-owned copies: names that can't clash with the shared helper's
         # files (the target itself is the same unit, so either copy works).
         SESSION_HELPER_TARGET="/usr/lib/systemd/user/samsung-galaxybook-session.target"
-        SESSION_HELPER_SCRIPT="${FPRINT_LIB_DIR}/session-start.sh"
+        SESSION_HELPER_SCRIPT="${FPRINT_SCRIPT_DIR}/session-start.sh"
         SESSION_HELPER_AUTOSTART="/etc/xdg/autostart/fingerprint-fix-sdcp-session.desktop"
         ;;
     *)

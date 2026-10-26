@@ -36,6 +36,6 @@ Install enables the boot check and the per-user login check (they start at the n
 8. Upgrade: raise `pkgrel`, `makepkg -si` — fingerprints still verify.
 9. Remove: `sudo pacman -R fingerprint-fix-sdcp` — `/var/lib/fprint` is still there, fprintd no longer maps the driver. Reinstall and verify again.
 
-## For the AUR later
+## The release PKGBUILD
 
-Replace the repository source with the release tarball, write `pkgver` and `_driver` as fixed values, generate `.SRCINFO` (`makepkg --printsrcinfo > .SRCINFO`) and check with `namcap`.
+Each GitHub release gets a `PKGBUILD` (from `PKGBUILD.release.in`) that builds that release from its tarball, plus the built `.pkg.tar.zst`. The same file can go to the AUR later, with a `.SRCINFO` (`makepkg --printsrcinfo > .SRCINFO`). Both PKGBUILDs use the shared `packaging/build-driver.sh` and `packaging/install-files.sh`; see `packaging/README.md`.
