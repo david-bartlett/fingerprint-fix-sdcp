@@ -5,6 +5,7 @@
 - Packages: `.rpm` (Fedora), `.deb` (Ubuntu, Mint, Debian 13 / MX 25) and Arch, installed under `/usr`; built and attached to each GitHub release automatically, with a PKGBUILD for building from source (`packaging/README.md`)
 - Scripts and units that `install.sh` used to write inline are now real files in `packaging/files/`, shared by `install.sh` and the packages; their paths are in `lib/fixpaths.sh`. `install.sh` writes the same files as before
 - The Manager, its helper and the export / import tools find the fix whether it was installed by `install.sh` or as a package
+- Fingerprint Manager: an *Update* button appears when a newer release is on GitHub, with how to update for the way the fix was installed (checked once a day; menu → *Check for new versions* turns it off)
 - First login after installing: a notification points to the Galaxy Book Fingerprint Manager when no finger is enrolled yet
 - Fingerprint login check: commented-out `pam_fprintd` lines no longer count as enabled (Arch status and enable, Debian status)
 
