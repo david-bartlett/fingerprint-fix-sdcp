@@ -114,7 +114,8 @@ for USER_HOME in /home/*/; do
         "${USER_HOME}.config/systemd/user/graphical-session.target.wants/${FPRINT_USER_CHECK_TIMER}" \
         "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-boot-shown" \
         "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-welcome-shown" \
-        "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-pam-hint-shown"
+        "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-pam-hint-shown" \
+        "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-other-driver-shown"
     [[ -n "$USER_ID" ]] && sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/${USER_ID}" \
         systemctl --user daemon-reload 2>/dev/null || true
     info "Removed user timer and service for $USER_NAME"
@@ -143,7 +144,7 @@ fi
 # ── Step 4: Remove state files ────────────────────────────────────────────────
 step "Fingerprint Step 4: Removing state files"
 rm -f "$FPRINT_MARKER" "$FPRINT_SYSLIB_HASH" /run/samsung-galaxybook/fprint-sdcp-status \
-      "$FPRINT_BOOT_STATUS"
+      "$FPRINT_BOOT_STATUS" /run/samsung-galaxybook/fprint-sdcp-other-driver
 rm -rf "$FPRINT_REMOVED_DIR" "${FPRINT_STATE_DIR}/replaced-fingerprints"
 rmdir /run/samsung-galaxybook 2>/dev/null || true
 rmdir "$FPRINT_STATE_DIR" 2>/dev/null || true

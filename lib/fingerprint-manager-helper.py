@@ -144,6 +144,20 @@ def enroll_date(p):
     return ""
 
 
+# The kind of print a record holds, from its serialized header: libfprint
+# writes "FP3" then a GVariant "(issbymsmsia{sv}v)" whose first field is the
+# print type (1 raw, 2 nbis, 3 sdcp). This driver enrols "sdcp"; "raw" ones were
+# enrolled with the distro's (pre-SDCP) egismoc driver or another non-SDCP
+# build, and can never match here.
+PRINT_KINDS = {1: "raw", 2: "nbis", 3: "sdcp"}
+
+
+def print_kind(data):
+    if len(data) >= 7 and data[:3] == b"FP3":
+        return PRINT_KINDS.get(int.from_bytes(data[3:7], "little"), "unknown")
+    return "unknown"
+
+
 def read_records(serial):
     """Every fprintd record for this sensor, for every user on this install."""
     out = []
@@ -155,7 +169,9 @@ def read_records(serial):
                "path": path, "print": None}
         try:
             with open(path, "rb") as f:
-                rec["print"] = FPrint.Print.deserialize(f.read())
+                data = f.read()
+            rec["kind"] = print_kind(data)
+            rec["print"] = FPrint.Print.deserialize(data)
         except Exception as e:
             rec["error"] = str(e)
         out.append(rec)
@@ -305,6 +321,7 @@ def do_status(req):
         st["records"].append({"user": r["user"], "finger": r["finger"], "name": r["name"],
                               "path": r["path"], "on_sensor": on, "template": tid,
                               "enrolled": enroll_date(r["print"]) if r["print"] else "",
+                              "print_kind": r.get("kind", "unknown"),
                               "error": r.get("error")})
     st["templates"].sort(key=lambda t: (not t["used_by"], t["id"]))
     st["pam"] = pam_state()
@@ -322,6 +339,26 @@ def do_remove_records(req):
     moved = move_records(paths)
     subprocess.run(["systemctl", "restart", "fprintd"], capture_output=True)
     return {"moved": moved}
+
+
+def do_delete_other_driver(req):
+    """Records enrolled with another driver: delete their templates from the
+    sensor (the driver can still delete these old prints, which frees the
+    slot), then move the records aside."""
+    wanted = {(r["user"], r["finger"]) for r in req.get("records", [])}
+    _, serial = sensor_usb()
+    records = [r for r in read_records(serial) if (r["user"], r["finger"]) in wanted
+               and r.get("kind") not in (None, "sdcp") and r["print"] is not None]
+    deleted, left = 0, 0
+    with Sensor() as dev:
+        for r in records:
+            try:
+                dev.delete_print_sync(r["print"], None)
+                deleted += 1
+            except Exception:
+                left += 1            # not on the sensor any more: only the record goes
+    moved = move_records([r["path"] for r in records])
+    return {"deleted": deleted, "moved": moved}
 
 
 def do_delete_templates(req):
@@ -543,6 +580,7 @@ def do_import(req):
 
 
 ACTIONS = {"status": do_status, "remove_records": do_remove_records,
+           "delete_other_driver": do_delete_other_driver,
            "delete_templates": do_delete_templates, "wipe": do_wipe,
            "export": do_export, "import": do_import, "test": do_test,
            "pam": do_pam, "list_moved": do_list_moved, "restore": do_restore}

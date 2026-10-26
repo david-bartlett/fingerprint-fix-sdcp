@@ -5,6 +5,7 @@
 # Status files: line 1 = icon, line 2 = title, line 3 = message.
 FPRINT_STATUS_FILE="/run/samsung-galaxybook/fprint-sdcp-status"
 FPRINT_BOOT_STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
+FPRINT_OTHER_STATUS="/run/samsung-galaxybook/fprint-sdcp-other-driver"
 [[ -f "@FPRINT_MARKER@" ]] || exit 0
 
 show() {
@@ -27,6 +28,17 @@ if [[ -s "$FPRINT_BOOT_STATUS" ]]; then
     if [[ "$(cat "$SHOWN" 2>/dev/null)" != "$BOOT_ID" ]]; then
         show "$FPRINT_BOOT_STATUS"
         mkdir -p "$(dirname "$SHOWN")" && echo "$BOOT_ID" > "$SHOWN"
+    fi
+fi
+
+# Fingers enrolled with another driver (found by the boot check): shown once
+# per user for each set of fingers, not at every boot.
+if [[ -s "$FPRINT_OTHER_STATUS" ]]; then
+    SHOWN="${XDG_CACHE_HOME:-$HOME/.cache}/samsung-galaxybook/fprint-sdcp-other-driver-shown"
+    SUM=$(sha256sum < "$FPRINT_OTHER_STATUS" | cut -d' ' -f1)
+    if [[ "$(cat "$SHOWN" 2>/dev/null)" != "$SUM" ]]; then
+        show "$FPRINT_OTHER_STATUS"
+        mkdir -p "$(dirname "$SHOWN")" && echo "$SUM" > "$SHOWN"
     fi
 fi
 

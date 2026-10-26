@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Fingerprint Manager: when Windows is installed on the laptop, a reminder at the bottom of the window to disable the fingerprint reader in Windows (Windows Hello deletes Linux fingerprints when it starts with the reader enabled), with the steps in its tooltip. Found from the UEFI boot entries and Windows' partitions, without a password; **Got it** hides it, *Menu → Remind me about Windows* brings it back
+- Fingerprints enrolled with another driver (e.g. the distro's own egismoc driver before this fix, which saves non-SDCP prints) are recognised: the Fingerprint Manager marks them **Other driver** with a warning and a *Delete them* button, and right-click → *Delete and enrol again* deletes the old template from the sensor (freeing its slot) and starts enrolling. They used to show as *Gone from sensor*
+- Boot check: no longer moves those fingerprints aside as "removed from the sensor" with a message blaming Windows; the login check says once which fingers were enrolled with another driver
 
 ## 1.3.5 — 2026-10-26
 
