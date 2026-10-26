@@ -19,7 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 for _f in lib/sensor-check.c lib/fingerprint-manager.py lib/fingerprint-manager-helper.py \
           lib/galaxybook-fingerprint-manager.svg fingerprint-manager.sh \
           tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh \
-          lib/fixpaths.sh packaging/render.sh packaging/files/monitor.sh.in \
+          lib/fixpaths.sh lib/update_check.py packaging/render.sh packaging/files/monitor.sh.in \
           VERSION DRIVER; do
     [[ -f "$SCRIPT_DIR/$_f" ]] || { echo "Missing $SCRIPT_DIR/$_f — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
 done
@@ -564,6 +564,7 @@ install -m 644 -o root -g root "$SCRIPT_DIR/VERSION" "$MGR_DIR/"
 install -m 755 -o root -g root "$SCRIPT_DIR/lib/fingerprint-manager.py" \
     "$SCRIPT_DIR/lib/fingerprint-manager-helper.py" "$MGR_DIR/lib/"
 install -m 644 -o root -g root "$SCRIPT_DIR/lib/fixpaths.sh" "$MGR_DIR/lib/"
+install -m 755 -o root -g root "$SCRIPT_DIR/lib/update_check.py" "$MGR_DIR/lib/"
 install -m 755 -o root -g root "$SCRIPT_DIR"/tools/*.sh "$MGR_DIR/tools/"
 mkdir -p "$(dirname "$MGR_BIN")"
 ln -sfn "$MGR_DIR/fingerprint-manager.sh" "$MGR_BIN"
