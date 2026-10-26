@@ -10,14 +10,18 @@
 #   sudo bash import-fingerprint.sh FILE.tgz
 #   sudo bash import-fingerprint.sh --user NAME [FILE.tgz]   (default: NAME's home)
 #   sudo bash import-fingerprint.sh --no-check [FILE.tgz]    (skip the sensor check)
+#   sudo bash import-fingerprint.sh --fingers 7,1 [FILE.tgz] (only these fingers:
+#                       fprintd's numbers, 1-9 and a)
 #   sudo bash import-fingerprint.sh --replace [FILE.tgz]     (replace this install's
 #                       records; old ones are moved aside, the sensor is not touched)
 #
 # The fingerprints are imported for the user running it (or --user NAME). That
 # user does not need the same name as on the install they were exported from.
 #
-# Checks first that the records are for this laptop's sensor and that the user
-# has nothing enrolled here (existing records are only replaced with --replace).
+# Fingers the user already has here are kept, and only the missing ones are
+# imported (all of them are replaced with --replace). Checks first that the
+# records are for this laptop's sensor and still stored on it: fingers whose
+# template is gone are left out.
 # =============================================================================
 
 set -e
@@ -64,6 +68,9 @@ while [[ $# -gt 0 ]]; do
         --user) TARGET_USER="${2:-}"; shift 2 || error "--user needs a name" ;;
         --no-check) NO_CHECK=1; shift ;;
         --replace)  REPLACE=1; shift ;;
+        --fingers)  ONLY="${2:-}"; shift 2 || error "--fingers needs a list, e.g. --fingers 7,1"
+                    [[ "$ONLY" =~ ^[1-9a](,[1-9a])*$ ]] \
+                        || error "--fingers takes fprintd's finger numbers 1-9 and a, comma-separated" ;;
         -*)     error "Unknown option: $1" ;;
         *)      ARCHIVE="$1"; shift ;;
     esac
@@ -123,17 +130,19 @@ if [[ "$SRC_USER" != "$TARGET_USER" && ! -x "$SENSOR_CHECK" ]]; then
     error "These fingerprints were exported by '$SRC_USER'. Importing them for '$TARGET_USER'\n  needs $SENSOR_CHECK, which is missing.\n  Reinstall the fix (sudo bash install.sh) and try again."
 fi
 
-# ── Existing records: never overwritten, only replaced with --replace ─────────
-# --replace moves this install's records aside (it does NOT delete anything on
-# the sensor: other installs may share those templates). fprintd-delete would
-# delete the templates too, breaking every install that shares them.
+# ── Existing records: kept, unless --replace ──────────────────────────────────
+# Without --replace, fingers the user already has here are left alone and only
+# the missing ones are imported. --replace moves this install's records aside
+# (it does NOT delete anything on the sensor: other installs may share those
+# templates). fprintd-delete would delete the templates too, breaking every
+# install that shares them.
 DEST="/var/lib/fprint/${TARGET_USER}"
 HAS_RECORDS=false
 if [[ -d "$DEST" ]] && [[ -n "$(find "$DEST" -type f 2>/dev/null | head -1)" ]]; then
     HAS_RECORDS=true
-    [[ "${REPLACE:-0}" == "1" ]] \
-        || error "${TARGET_USER} already has fingerprints on this install — nothing imported.\n  To replace them with these, run again with --replace:\n    sudo bash $0 --replace [FILE.tgz]\n  (Don't use fprintd-delete for this: it also deletes the fingerprints from the\n  sensor, which breaks every other install sharing them.)"
 fi
+name_of() { echo "${FINGERS[$((16#$1))]}"; }          # hex: a = right little finger
+list_of() { local n out=""; for n in "$@"; do out+="${out:+, }$(name_of "$n")"; done; echo "$out"; }
 
 # ── Extract to a temporary folder, then install with fprintd's permissions ────
 TMP=$(mktemp -d)
@@ -141,9 +150,26 @@ trap 'rm -rf "$TMP"' EXIT
 tar -C "$TMP" --no-same-owner --no-same-permissions -xzf "$ARCHIVE"
 SRC="$TMP/${SRC_USER}/egismoc/${SERIAL}"
 shopt -s nullglob
-FILES=("$SRC"/*)
+ALL=("$SRC"/*)
 shopt -u nullglob
-[[ ${#FILES[@]} -gt 0 ]] || error "Archive contains no fingerprint records."
+[[ ${#ALL[@]} -gt 0 ]] || error "Archive contains no fingerprint records."
+
+# Which to import: --fingers narrows it down; fingers already here are kept.
+FILES=(); KEPT=()
+for f in "${ALL[@]}"; do
+    n=$(basename "$f")
+    [[ -z "${ONLY:-}" || ",$ONLY," == *",$n,"* ]] || continue
+    if [[ "${REPLACE:-0}" != "1" && -e "$DEST/egismoc/$SERIAL/$n" ]]; then
+        KEPT+=("$n"); continue
+    fi
+    FILES+=("$f")
+done
+[[ ${#KEPT[@]} -gt 0 ]] && info "Already on this install — kept as they are: $(list_of "${KEPT[@]}")"
+if [[ ${#FILES[@]} -eq 0 ]]; then
+    [[ -n "${ONLY:-}" && ${#KEPT[@]} -eq 0 ]] && error "The export has none of the fingers asked for ($ONLY)."
+    info "Nothing to import — ${TARGET_USER} already has every fingerprint in this file."
+    exit 0
+fi
 
 # Prepare every record first, so a failure leaves nothing half-imported.
 mkdir -p "$TMP/ready"
@@ -172,8 +198,18 @@ if [[ "${NO_CHECK:-0}" != "1" ]]; then
         set -e
         case $CHECK_RC in
             0) info "✓ These fingerprints are still stored on the sensor" ;;
-            1) systemctl start fprintd 2>/dev/null || true
-               error "This export is out of date — its fingerprints are no longer stored on the sensor\n  (re-enrolled since, or removed by Windows). Nothing was imported.\n  Enrol instead (fprintd-enroll), or export again on the install where they work." ;;
+            1) # Leave out the fingers whose template is gone; import the rest.
+               GONE=()
+               while read -r _tag _user n _path; do
+                   [[ "$_tag" == MISSING && "$n" =~ ^[1-9a]$ ]] || continue
+                   GONE+=("$n"); rm -f "$TMP/ready/$n"
+               done <<< "$CHECK_OUT"
+               if [[ -z "$(ls -A "$TMP/ready")" ]]; then
+                   systemctl start fprintd 2>/dev/null || true
+                   [[ ${#KEPT[@]} -gt 0 ]] && error "The other fingerprints in this export are no longer stored on the sensor\n  (re-enrolled since, or removed by Windows): $(list_of "${GONE[@]}"). Nothing was imported.\n  Enrol them instead, or export again on the install where they work."
+                   error "This export is out of date — its fingerprints are no longer stored on the sensor\n  (re-enrolled since, or removed by Windows). Nothing was imported.\n  Enrol instead (fprintd-enroll), or export again on the install where they work."
+               fi
+               warn "Not imported — no longer stored on the sensor (re-enrolled since, or removed by\n       Windows): $(list_of "${GONE[@]}")" ;;
             *) warn "Could not check the sensor (${CHECK_OUT##*$'\n'}) — importing anyway." ;;
         esac
     else
@@ -182,7 +218,7 @@ if [[ "${NO_CHECK:-0}" != "1" ]]; then
 fi
 
 mkdir -p /var/lib/fprint
-if $HAS_RECORDS; then
+if $HAS_RECORDS && [[ "${REPLACE:-0}" == "1" ]]; then
     # Every check has passed: move the old records aside (records only — the
     # sensor is not touched), so they could be put back if ever needed.
     # The last 5 folders are kept.
@@ -199,15 +235,15 @@ NAMES=()
 for f in "$TMP/ready"/*; do
     n=$(basename "$f")
     install -m 600 -o root -g root "$f" "$DEST/egismoc/$SERIAL/$n"
-    NAMES+=("${FINGERS[$((16#$n))]}")      # hex: a = right little finger
+    NAMES+=("$n")
 done
 command -v restorecon >/dev/null 2>&1 && restorecon -R "$DEST" 2>/dev/null || true
 
 systemctl restart fprintd 2>/dev/null || true
 if [[ "$SRC_USER" == "$TARGET_USER" ]]; then
-    info "Imported ${NAMES[*]} for ${TARGET_USER}"
+    info "Imported $(list_of "${NAMES[@]}") for ${TARGET_USER}"
 else
-    info "Imported ${NAMES[*]} for ${TARGET_USER} (exported by ${SRC_USER})"
+    info "Imported $(list_of "${NAMES[@]}") for ${TARGET_USER} (exported by ${SRC_USER})"
 fi
 echo
 echo "  Check it works (touch the sensor when asked):"
