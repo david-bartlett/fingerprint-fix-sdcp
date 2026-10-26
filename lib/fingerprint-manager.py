@@ -2054,7 +2054,11 @@ class Manager(Gtk.Window):
         page = f"{update_check.REPO_URL}/releases/tag/v{new}"
 
         tt = lambda t: f"<tt>{GLib.markup_escape_text(t)}</tt>"     # file names, commands
-        if asset:
+        if asset and "files" in asset:
+            how = (f"Download the release's {tt('PKGBUILD')} to {tt('~/Downloads/' + asset['folder'])}, "
+                   f"then build and install it with {tt('makepkg -si')} "
+                   f"(needs {tt('base-devel')} and {tt('git')}; it takes a minute or two).")
+        elif asset:
             how = f"Download {tt(asset['name'])} to your {tt('~/Downloads')} folder."
         elif installed_fmt:
             how = ("No package for this system was found in this release.\n"
@@ -2102,7 +2106,7 @@ class Manager(Gtk.Window):
 
         def work():
             try:
-                path = update_check.download(asset, folder, progress)
+                path = update_check.download_item(asset, folder, progress)
                 GLib.idle_add(self._downloaded, path, fmt, None, replace_local)
             except Exception as e:                   # network, disk, checksum
                 GLib.idle_add(self._downloaded, None, fmt, str(e), replace_local)
@@ -2125,10 +2129,19 @@ class Manager(Gtk.Window):
         d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE, text="Downloaded")
         tt = lambda t: f"<tt>{GLib.markup_escape_text(t)}</tt>"
-        text = ("- <b>Open folder</b> — opens your " + tt("~/Downloads") + " folder and copies "
-                "the install command to the clipboard.\n\n"
-                "- <b>To install</b> — open a terminal and paste the install command, or run:\n"
-                + tt(cmd))
+        if fmt == "pacman":
+            text = ("- <b>Open folder</b> — opens the folder with the " + tt("PKGBUILD") + " and "
+                    "copies the build command to the clipboard.\n\n"
+                    "- <b>To build and install</b> — open a terminal and paste the command, or run:\n"
+                    + tt(cmd) + "\n"
+                    "It builds the driver (a minute or two), then asks for your password to install.")
+            opened = path
+        else:
+            text = ("- <b>Open folder</b> — opens your " + tt("~/Downloads") + " folder and copies "
+                    "the install command to the clipboard.\n\n"
+                    "- <b>To install</b> — open a terminal and paste the install command, or run:\n"
+                    + tt(cmd))
+            opened = os.path.dirname(path)
         d.format_secondary_markup(text)
         d.add_button("Open folder", 1)
         d.add_button("Copy command", 2)
@@ -2138,7 +2151,7 @@ class Manager(Gtk.Window):
         while True:
             resp = d.run()
             if resp == 1:                            # open the folder, then quit like Quit Manager
-                self._open_folder_detached(os.path.dirname(path))
+                self._open_folder_detached(opened)
             if resp in (1, 2, 3):
                 clipboard.set_text(cmd, -1)
                 # Hand it to the clipboard manager, so it is still there to paste

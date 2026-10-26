@@ -1,5 +1,7 @@
-# Builds the .rpm, .deb and Arch package for a release and attaches them, with
-# a PKGBUILD that builds the release from source, to the GitHub release.
+# Builds the .rpm and .deb for a release and attaches them, with a PKGBUILD
+# that builds the release from source on Arch-based systems, to the GitHub
+# release. The Arch package is built too, as a check that it still builds, but
+# not attached: Arch is rolling, so users build it against their own libraries.
 #
 # Runs when a tag v<VERSION> is pushed (fingerprint-repo-gui's Release does
 # this) — the release is then created here, with the CHANGELOG.md section as its
@@ -10,7 +12,7 @@
 # distros rename library packages between releases (Ubuntu 26.04: libgusb2 →
 # libgusb2a). The file names say which release each is for (.fc45,
 # ~ubuntu26.04, ~debian13). Mint uses its Ubuntu base's .deb, MX its Debian
-# base's. Arch is rolling: one package.
+# base's. Arch is rolling: one PKGBUILD, built by makepkg on the user's system.
 
 name: Release packages
 
@@ -103,7 +105,7 @@ jobs:
           if-no-files-found: error
 
   arch:
-    name: Arch package and PKGBUILD
+    name: Arch build check and PKGBUILD
     needs: check
     runs-on: ubuntu-latest
     container: archlinux:base-devel
@@ -117,13 +119,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.TAG }}
-      - name: Build the package
+      # Only to check that it builds: the release attaches the PKGBUILD, not
+      # the package, so it is built on each user's system against its current
+      # libraries (and its prepare() can check the hardware first).
+      - name: Check the package builds
         run: |
           useradd -m builder
           chown -R builder "$GITHUB_WORKSPACE"
           su builder -c "cd '$GITHUB_WORKSPACE/packaging/arch' && makepkg --nodeps --noconfirm"
+          ls packaging/arch/*.pkg.tar.zst
           mkdir -p dist
-          mv packaging/arch/*.pkg.tar.zst dist/
       - name: Write the release PKGBUILD
         run: |
           version=$(tr -d '[:space:]' < VERSION)
