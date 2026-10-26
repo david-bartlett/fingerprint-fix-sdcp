@@ -260,6 +260,7 @@ menu.fpm-menu separator.fpm-menu-sep { margin: 2px 6px; min-height: 0; padding: 
 .fpm-ok { background-color: alpha(#26a269, 0.18); color: #26a269; }
 .fpm-dead { background-color: alpha(#e01b24, 0.16); color: #e01b24; }
 .fpm-unknown { background-color: alpha(@theme_fg_color, 0.10); }
+.fpm-other { background-color: alpha(#e5a50a, 0.20); color: #9c6d00; }
 .fpm-removed { background-color: alpha(#e5a50a, 0.20); color: #9c6e00; }
 flowbox.fpm-cards, list.fpm-list { background-color: transparent; }
 flowbox.fpm-cards flowboxchild { padding: 3px; background-color: transparent; }
@@ -330,7 +331,7 @@ FP_PATHS = [
     ((30, 36), [(30.5, 42, 29.5, 47, 27, 52)]),
 ]
 FP_COLOURS = {"ok": (0.149, 0.635, 0.412), "dead": (0.878, 0.106, 0.141),
-              "unknown": (0.60, 0.60, 0.59), "empty": (0.74, 0.74, 0.73), "add": (0.208, 0.518, 0.894)}
+              "unknown": (0.60, 0.60, 0.59), "other": (0.898, 0.647, 0.039), "empty": (0.74, 0.74, 0.73), "add": (0.208, 0.518, 0.894)}
 
 
 try:                                  # drawing needs PyGObject's cairo support
@@ -450,9 +451,15 @@ def nice_date(d, year=False):
         return d or ""
 
 
+OTHER_DRIVER_TIP = ("enrolled with a different fingerprint driver (e.g. your distro's own, before "
+                    "this fix), so it can't be used here. Right-click → Delete and enrol again.")
+
+
 def rec_kind(r):
     if r.get("error"):
         return "unknown", "Unreadable"
+    if r.get("print_kind", "sdcp") not in ("sdcp", "unknown"):
+        return "other", "Other driver"
     return ("ok", "On the sensor") if r["on_sensor"] else ("dead", "Gone from sensor")
 
 
@@ -996,6 +1003,10 @@ class Manager(Gtk.Window):
             self._set_selection({key})        # the two clicks toggled it; keep it selected
             if rec["user"] != self.status["user"]:
                 self.message("You can only test your own fingers.", Gtk.MessageType.WARNING)
+            elif rec_kind(rec)[0] == "other":
+                self.message(f"{short_finger(rec['name'])} was enrolled with a different fingerprint "
+                             "driver, so it can't be tested — right-click → Delete and enrol again.",
+                             Gtk.MessageType.WARNING)
             elif not rec["on_sensor"]:
                 self.message(f"{short_finger(rec['name'])} is no longer on the sensor, so it "
                              "can't be tested — remove it, then import or enrol it again.",
@@ -1051,7 +1062,14 @@ class Manager(Gtk.Window):
         elif rec is not None:
             self._set_selection({key})
             mine = rec["user"] == self.status["user"]
-            if rec["on_sensor"]:
+            if rec_kind(rec)[0] == "other":
+                if mine:
+                    item("Delete and enrol again…", lambda: self.delete_other(rec, enrol=True),
+                         tip="Delete this old fingerprint (and its template on the sensor), "
+                             "then enrol the finger again with this driver")
+                item("Delete…", lambda: self.delete_other(rec),
+                     tip="Delete this old fingerprint and its template on the sensor")
+            elif rec["on_sensor"]:
                 item("Test", lambda: self.on_test(None, rec=rec), mine,
                      None if mine else "You can only test your own fingers")
                 if mine:
@@ -1154,6 +1172,38 @@ class Manager(Gtk.Window):
             return True
         return False
 
+    def delete_other(self, rec, enrol=False):
+        """A finger enrolled with another driver: delete it (template and
+        record), then optionally enrol that finger again."""
+        if not self.confirm(f"Delete {long_finger(rec['name']).lower()} ({rec['user']})?",
+                            "It was enrolled with a different fingerprint driver, so it can't be "
+                            "used here. Its template is deleted from the sensor (freeing the slot) "
+                            "and the record is moved to "
+                            "/var/lib/samsung-galaxybook/removed-fingerprints/.",
+                            "Delete"):
+            return
+        if not enrol:
+            return self.run_job("delete_other_driver", self.after_job("Deleted"),
+                                records=[{"user": rec["user"], "finger": rec["finger"]}])
+
+        def done(_res, err):
+            if err:
+                return self.refresh(lambda: self.error(err))
+            self.refresh(lambda: self.status and self.on_enrol(None, finger=rec["name"]))
+        self.run_job("delete_other_driver", done,
+                     records=[{"user": rec["user"], "finger": rec["finger"]}])
+
+    def delete_others(self, recs):
+        """Delete every finger enrolled with another driver (the message's button)."""
+        names = "\n".join(f"  • {long_finger(r['name'])} ({r['user']})" for r in recs)
+        if self.confirm("Delete fingerprints from another driver?",
+                        f"{names}\n\nThey can't be used with this driver. Their templates are "
+                        "deleted from the sensor (freeing the slots) and the records are moved to "
+                        "/var/lib/samsung-galaxybook/removed-fingerprints/. Enrol the fingers again "
+                        "afterwards.", "Delete"):
+            self.run_job("delete_other_driver", self.after_job("Deleted"),
+                         records=[{"user": r["user"], "finger": r["finger"]} for r in recs])
+
     def reenrol(self, rec):
         """A dead finger: move its record aside, then enrol that finger again."""
         def done(_res, err):
@@ -1200,7 +1250,7 @@ class Manager(Gtk.Window):
         box.get_style_context().add_class("fpm-fcard")
         over = Gtk.Overlay()
         over.add(FingerprintIcon(kind, 40))
-        if kind == "dead":
+        if kind in ("dead", "other"):
             over.add_overlay(Gtk.Label(label="⚠", halign=Gtk.Align.END, valign=Gtk.Align.START))
         box.pack_start(over, False, False, 2)
         box.pack_start(self._label(short_finger(r["name"]), "fpm-name",
@@ -1212,7 +1262,7 @@ class Manager(Gtk.Window):
         child.key = (r["user"], r["finger"])
         child.set_tooltip_text(long_finger(r["name"])
                                + (f", enrolled {nice_date(r['enrolled'], True)}" if r["enrolled"] else "")
-                               + " — double-click to test")
+                               + (" — " + OTHER_DRIVER_TIP if kind == "other" else " — double-click to test"))
         child.add(box)
         return child
 
@@ -1257,6 +1307,9 @@ class Manager(Gtk.Window):
             detail = r["user"] + (f" · enrolled {nice_date(r['enrolled'], True)}" if r["enrolled"] else "")
             if kind == "dead":
                 detail += " · template gone"
+            elif kind == "other":
+                detail += " · enrolled with another driver — enrol again"
+                hb.set_tooltip_text(OTHER_DRIVER_TIP)
             texts.pack_start(self._label(detail, "dim-label", "fpm-small", xalign=0,
                                          ellipsize=Pango.EllipsizeMode.END), False, False, 0)
             hb.pack_start(texts, True, True, 0)
@@ -1453,8 +1506,19 @@ class Manager(Gtk.Window):
                            + (f" · v{version}" if version else ""))
         self.info.set_tooltip_text(f"{st.get('device_name', '')}\nfingerprint-fix-sdcp: {marker}")
         self.show_pam(st.get("pam") or {})
-        dead = [r for r in st["records"] if r["on_sensor"] is False]
-        if dead:
+        other = [r for r in st["records"] if rec_kind(r)[0] == "other"]
+        dead = [r for r in st["records"] if r["on_sensor"] is False and r not in other]
+        if other:
+            names = ", ".join(f"{long_finger(r['name'])} ({r['user']})" for r in other)
+            mine = [r for r in other if r["user"] == st["user"]]
+            self.message(f"Enrolled with another driver: {names}.", Gtk.MessageType.WARNING,
+                         details="These fingerprints were enrolled with a different fingerprint "
+                                 "driver (for example your distro's own, before this fix), so they "
+                                 "can never match with this one. Delete them — this also frees "
+                                 "their slots on the sensor — and enrol the fingers again "
+                                 "(right-click a finger → Delete and enrol again).",
+                         action=("Delete them", lambda: self.delete_others(other)) if mine else None)
+        elif dead:
             names = ", ".join(f"{long_finger(r['name'])} ({r['user']})" for r in dead)
             self.message(f"No longer on the sensor: {names}.", Gtk.MessageType.WARNING,
                          details="These records point at templates the sensor no longer has "
@@ -1871,7 +1935,8 @@ class Manager(Gtk.Window):
 
     def on_remove_dead(self, _btn, dead=None):
         if dead is None:
-            dead = [r for r in self.status["records"] if r["on_sensor"] is False]
+            dead = [r for r in self.status["records"]
+                    if r["on_sensor"] is False and rec_kind(r)[0] != "other"]
         names = "\n".join(f"  • {long_finger(r['name'])} ({r['user']})" for r in dead)
         if self.confirm("Remove dead record?" if len(dead) == 1 else "Remove dead records?",
                         f"Their templates are no longer on the sensor, so they can never match:\n"

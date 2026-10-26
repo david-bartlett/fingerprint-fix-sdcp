@@ -9,7 +9,9 @@
  * Built by install.sh against the egismoc SDCP libfprint it installs, and run
  * at boot BEFORE fprintd starts, so it has the sensor to itself.
  *
- * Output:  one line per lost fingerprint:
+ * Output:  OTHERDRIVER <kind> <user> <finger> <path> for each record enrolled
+ *          with another driver (not SDCP: never matches, not compared), then
+ *          one line per lost fingerprint:
  *            MISSING <user> <finger-number> <record-path>
  * Exit:    0 = all records found on the sensor (or nothing enrolled)
  *          1 = at least one record has no template on the sensor
@@ -117,6 +119,23 @@ set_owner (const char *user, const char *in, const char *out)
   return 0;
 }
 
+/* The kind of print a record holds: "sdcp" for this driver's enrolments,
+ * "raw" for the distro's (pre-SDCP) egismoc driver and other non-SDCP builds.
+ * From the print's private fpi-type property, by its enum nick. */
+static const char *
+print_kind (FpPrint *print)
+{
+  GParamSpec *spec = g_object_class_find_property (G_OBJECT_GET_CLASS (print), "fpi-type");
+  GEnumValue *value;
+  gint type = 0;
+
+  if (!spec || !G_IS_PARAM_SPEC_ENUM (spec))
+    return "unknown";
+  g_object_get (print, "fpi-type", &type, NULL);
+  value = g_enum_get_value (G_PARAM_SPEC_ENUM (spec)->enum_class, type);
+  return value ? value->value_nick : "unknown";
+}
+
 /* Default mode: compare fprintd's records with the templates on the sensor */
 static int
 check_sensor (void)
@@ -139,6 +158,25 @@ check_sensor (void)
     }
 
   records = load_records (store, driver, fp_device_get_device_id (dev));
+
+  /* Records enrolled with another driver (e.g. the distro's non-SDCP egismoc)
+   * can't be identified over SDCP and never match: report them, and leave
+   * them out of the comparison — they are not "gone from the sensor". */
+  for (guint i = records->len; i > 0; i--)
+    {
+      FpPrint *record = g_ptr_array_index (records, i - 1);
+      const char *kind = print_kind (record);
+
+      if (g_strcmp0 (kind, "sdcp") != 0)
+        {
+          g_print ("OTHERDRIVER %s %s %s %s\n", kind,
+                   (const char *) g_object_get_data (G_OBJECT (record), "user"),
+                   (const char *) g_object_get_data (G_OBJECT (record), "finger"),
+                   (const char *) g_object_get_data (G_OBJECT (record), "path"));
+          g_ptr_array_remove_index (records, i - 1);
+        }
+    }
+
   if (records->len == 0)
     {
       g_print ("OK 0 records\n");

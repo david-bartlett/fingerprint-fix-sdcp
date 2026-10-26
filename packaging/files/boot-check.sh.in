@@ -3,9 +3,11 @@
 # (runs at boot as root, before fprintd). Never fails the boot.
 SENSOR_CHECK="@FPRINT_SENSOR_CHECK@"
 STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
+# Fingers enrolled with another driver (shown once per user by the login check)
+OTHER_STATUS="/run/samsung-galaxybook/fprint-sdcp-other-driver"
 [[ -f "@FPRINT_MARKER@" && -x "$SENSOR_CHECK" ]] || exit 0
 mkdir -p "$(dirname "$STATUS")"; chmod 755 "$(dirname "$STATUS")"
-rm -f "$STATUS"
+rm -f "$STATUS" "$OTHER_STATUS"
 
 # Nothing enrolled at all: nothing to check.
 [[ -n "$(find /var/lib/fprint -type f 2>/dev/null | head -1)" ]] || exit 0
@@ -23,11 +25,32 @@ $found || { echo "Fingerprint sensor not found — skipping check"; exit 0; }
 
 OUT=$(timeout 8 "$SENSOR_CHECK" 2>&1); RC=$?
 echo "$OUT"
-[[ $RC -eq 1 ]] || exit 0
 
 FINGERS=(unknown left-thumb left-index-finger left-middle-finger left-ring-finger
          left-little-finger right-thumb right-index-finger right-middle-finger
          right-ring-finger right-little-finger)
+
+# Records enrolled with another driver — the distro's own egismoc (before this
+# fix), or a different build — can never match with this driver. They are left
+# as they are (deleting them in the Fingerprint Manager also frees their slot
+# on the sensor); the login check tells each user once.
+OTHER=()
+while read -r _tag _kind _user _finger _path; do
+    [[ "$_tag" == "OTHERDRIVER" ]] || continue
+    _name="$_finger"
+    [[ "$_finger" =~ ^[1-9a]$ ]] && _name="${FINGERS[$((16#$_finger))]}"
+    OTHER+=("${_name} (${_user})")
+done <<< "$OUT"
+if [[ ${#OTHER[@]} -gt 0 ]]; then
+    _list=$(printf '%s, ' "${OTHER[@]}"); _list="${_list%, }"
+    printf '%s\n%s\n%s\n' "dialog-warning" \
+        "Samsung Galaxy Book — Fingerprints From Another Driver" \
+        "These fingerprints were enrolled with a different fingerprint driver and can't be used with this fix: ${_list}. Open Galaxy Book Fingerprint Manager to delete them and enrol them again." \
+        > "$OTHER_STATUS"
+    chmod 644 "$OTHER_STATUS"
+fi
+
+[[ $RC -eq 1 ]] || exit 0
 LOST=()
 # Dead records are MOVED (not deleted) to a dated safety folder, so a false
 # alarm could be undone by moving them back. The last 5 folders are kept.

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Fingerprints enrolled with another driver (e.g. the distro's own egismoc driver before this fix, which saves non-SDCP prints) are recognised: the Fingerprint Manager marks them **Other driver** with a warning and a *Delete them* button, and right-click → *Delete and enrol again* deletes the old template from the sensor (freeing its slot) and starts enrolling. They used to show as *Gone from sensor*
+- Boot check: no longer moves those fingerprints aside as "removed from the sensor" with a message blaming Windows; the login check says once which fingers were enrolled with another driver
+
 ## 1.3.5 — 2026-10-26
 
 - Packages are only for a Samsung with the Galaxy Book's Egis reader (`1c7a:05a5` / `1c7a:05a1`): on other hardware the `.rpm` and `.deb` stop before installing anything, saying why (`FPRINT_SDCP_FORCE=1` installs anyway, e.g. for a system image), and pacman warns
