@@ -19,12 +19,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 for _f in lib/sensor-check.c lib/fingerprint-manager.py lib/fingerprint-manager-helper.py \
           lib/galaxybook-fingerprint-manager.svg fingerprint-manager.sh \
           tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh \
+          lib/fixpaths.sh packaging/render.sh packaging/files/monitor.sh.in \
           VERSION DRIVER; do
     [[ -f "$SCRIPT_DIR/$_f" ]] || { echo "Missing $SCRIPT_DIR/$_f — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
 done
 
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
     echo "Please run as root: sudo bash install.sh"
+    exit 1
+fi
+
+# Installed from a package (rpm, deb or pacman)? Then the package manager
+# updates and removes it; installing over it here would leave two copies.
+if [[ -f /usr/lib/fingerprint-fix-sdcp/installed ]]; then
+    echo "fingerprint-fix-sdcp is installed as a package — update it with your package"
+    echo "manager instead. To use install.sh, remove the package first (enrolled"
+    echo "fingerprints are kept): sudo pacman -R / dnf remove / apt remove fingerprint-fix-sdcp"
     exit 1
 fi
 
@@ -78,41 +88,15 @@ fi
     || { echo "ERROR: SDCP_COMMIT must be 'latest' or a full 40-character commit id."; exit 1; }
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-FPRINT_LIB_DIR="/usr/local/lib/libfprint-egismoc-sdcp"
-FPRINT_LIB="${FPRINT_LIB_DIR}/libfprint-2.so.2"
-# Galaxy Book Fingerprint Manager (Step 14) — its files live in MGR_DIR
-MGR_ID="galaxybook-fingerprint-manager"
-MGR_DIR="${FPRINT_LIB_DIR}/manager"
-MGR_BIN="/usr/local/bin/${MGR_ID}"
-# The menu entry's file name must equal the app's ID (its Wayland app ID), or
-# the taskbar can't match the window to it and shows a generic icon.
-MGR_APP_ID="io.github.david_bartlett.GalaxyBookFingerprintManager"
-# In /usr/share/applications: Cinnamon's menu doesn't notice a new entry in
-# /usr/local/share/applications until you log in again (often not even then).
-MGR_DESKTOP="/usr/share/applications/${MGR_APP_ID}.desktop"
-MGR_ICON="/usr/local/share/icons/hicolor/scalable/apps/${MGR_ID}.svg"
-MGR_POLICY="/usr/share/polkit-1/actions/io.github.david-bartlett.${MGR_ID}.policy"
-FPRINT_DROPIN_DIR="/etc/systemd/system/fprintd.service.d"
-FPRINT_DROPIN="${FPRINT_DROPIN_DIR}/samsung-galaxybook-egismoc-sdcp.conf"
-FPRINT_MARKER="/etc/samsung-galaxybook-egismoc-sdcp.installed"
-FPRINT_STATE_DIR="/var/lib/samsung-galaxybook"
-FPRINT_SYSLIB_HASH="${FPRINT_STATE_DIR}/libfprint-system.sha256"
+# All of them are in lib/fixpaths.sh, shared with the packages (which use
+# /usr instead of /usr/local and /etc).
+# shellcheck source=lib/fixpaths.sh
+. "$SCRIPT_DIR/lib/fixpaths.sh"
+fix_layout local
 FPRINT_BUILD_DIR="/tmp/libfprint-egismoc-sdcp"
 
-FPRINT_MONITOR_SVC="samsung-galaxybook-fprint-sdcp-monitor.service"
-FPRINT_USER_CHECK_SVC="samsung-galaxybook-fprint-sdcp-user-check.service"
-FPRINT_USER_CHECK_TIMER="samsung-galaxybook-fprint-sdcp-user-check.timer"
-FPRINT_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-monitor.sh"
-FPRINT_USER_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-user-check.sh"
-FPRINT_CLEANUP="/usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh"
-FPRINT_POLKIT_RULE="/etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
-
-# Boot-time check that enrolled fingerprints are still stored on the sensor
-FPRINT_SENSOR_CHECK="${FPRINT_LIB_DIR}/sensor-check"
-FPRINT_BOOT_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh"
-FPRINT_BOOT_CHECK_SVC="samsung-galaxybook-fprint-sdcp-boot-check.service"
-FPRINT_BOOT_STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
-FPRINT_REMOVED_DIR="${FPRINT_STATE_DIR}/removed-fingerprints"
+# Scripts and units come from packaging/files/, filled in with these paths.
+render() { bash "$SCRIPT_DIR/packaging/render.sh" local "$1"; }
 
 # Old fingerprint-fix (feature/sdcp-v2 installed over the system libfprint)
 OLD_MARKER="/etc/samsung-galaxybook-libfprint-sdcp-v2.installed"
@@ -184,7 +168,6 @@ detect_distro
 check_hardware || exit 1
 
 SENSOR_ON_BUS=$(lsusb 2>/dev/null | grep -iE "1c7a:05a5|1c7a:05a1" || true)
-HARDWARE_USB_ID="1c7a:05a5|1c7a:05a1"
 
 echo
 echo "╔════════════════════════════════════════════════════════════╗"
@@ -364,13 +347,7 @@ command -v restorecon >/dev/null 2>&1 && restorecon -R "$FPRINT_LIB_DIR" 2>/dev/
 cd /
 rm -rf "$FPRINT_BUILD_DIR"
 mkdir -p "$FPRINT_DROPIN_DIR"
-cat > "$FPRINT_DROPIN" << DROPINEOF
-# Samsung Galaxy Book fingerprint fix — load the egismoc SDCP driver build.
-# Remove this file (then: systemctl daemon-reload && systemctl restart fprintd)
-# to go back to the distro libfprint.
-[Service]
-Environment=LD_LIBRARY_PATH=${FPRINT_LIB_DIR}
-DROPINEOF
+render dropin.conf.in > "$FPRINT_DROPIN"
 chmod 644 "$FPRINT_DROPIN"
 systemctl daemon-reload
 systemctl restart fprintd 2>/dev/null || true
@@ -401,297 +378,31 @@ step "Fingerprint Step 10: Installing the fingerprint monitor"
 
 # Cleanup helper — removes the whole fix (used by the monitor once the distro
 # libfprint supports the sensor). PAM fingerprint auth is left enabled.
-cat > "$FPRINT_CLEANUP" << CLEANEOF
-#!/bin/bash
-# Samsung Galaxy Book — remove egismoc SDCP fingerprint fix and its monitor (runs as root)
-rm -f "${FPRINT_DROPIN}"
-rmdir "${FPRINT_DROPIN_DIR}" 2>/dev/null || true
-rm -rf "${FPRINT_LIB_DIR}"
-rm -f "${MGR_BIN}" "${MGR_DESKTOP}" "${MGR_ICON}" "${MGR_POLICY}"
-rm -f "${FPRINT_SYSLIB_HASH}" "${FPRINT_MARKER}"
-rm -rf "${FPRINT_REMOVED_DIR}"
-rmdir "${FPRINT_STATE_DIR}" 2>/dev/null || true
-systemctl disable "${FPRINT_BOOT_CHECK_SVC}" 2>/dev/null || true
-rm -f "/etc/systemd/system/${FPRINT_MONITOR_SVC}" "/etc/systemd/system/${FPRINT_BOOT_CHECK_SVC}" \\
-      "${FPRINT_POLKIT_RULE}" "${FPRINT_BOOT_STATUS}"
-systemctl daemon-reload 2>/dev/null || true
-for _home in /home/*/; do
-    _udir="\${_home}.config/systemd/user"
-    rm -f "\${_udir}/${FPRINT_USER_CHECK_TIMER}" "\${_udir}/${FPRINT_USER_CHECK_SVC}" \\
-          "\${_udir}/graphical-session.target.wants/${FPRINT_USER_CHECK_TIMER}" \\
-          "\${_home}.cache/samsung-galaxybook/fprint-sdcp-boot-shown"
-done
-rm -f /etc/samsung-galaxybook/session-helper.d/fingerprint-fix-sdcp
-# /run/samsung-galaxybook/fprint-sdcp-status is left for the user check script.
-rm -f "${FPRINT_CHECK_SCRIPT}" "${FPRINT_USER_CHECK_SCRIPT}" "${FPRINT_BOOT_CHECK_SCRIPT}" "${FPRINT_CLEANUP}"
-CLEANEOF
+render cleanup.sh.in > "$FPRINT_CLEANUP"
 chown root:root "$FPRINT_CLEANUP"
 chmod 750 "$FPRINT_CLEANUP"
 
 # System monitor — runs as root when the user check script starts it.
-cat > "$FPRINT_CHECK_SCRIPT" << 'MONITOREOF'
-#!/bin/bash
-# Samsung Galaxy Book — egismoc SDCP fingerprint fix monitor (system service, root)
-# Writes any notification to FPRINT_STATUS_FILE; the user check script shows it.
-FPRINT_LIB="__FPRINT_LIB__"
-FPRINT_DROPIN="__FPRINT_DROPIN__"
-FPRINT_MARKER="__FPRINT_MARKER__"
-FPRINT_SYSLIB_HASH="__FPRINT_SYSLIB_HASH__"
-FPRINT_CLEANUP="__FPRINT_CLEANUP__"
-HARDWARE_USB_ID="__HARDWARE_USB_ID__"
-FPRINT_STATUS_DIR="/run/samsung-galaxybook"
-FPRINT_STATUS_FILE="${FPRINT_STATUS_DIR}/fprint-sdcp-status"
-TAG="samsung-galaxybook-fprint-sdcp-monitor"
-
-mkdir -p "$FPRINT_STATUS_DIR"; chmod 755 "$FPRINT_STATUS_DIR"
-rm -f "$FPRINT_STATUS_FILE"
-
-# File format: line 1 = icon, line 2 = title, line 3 = message.
-notify_user() {
-    local title="$1" msg="$2" icon="${3:-dialog-information}" tmp
-    logger -t "$TAG" "$title: $msg"
-    tmp=$(mktemp "${FPRINT_STATUS_DIR}/.fprint-sdcp-status.XXXXXX") || return 0
-    printf '%s\n%s\n%s\n' "$icon" "$title" "$msg" > "$tmp"
-    chmod 644 "$tmp"; mv -f "$tmp" "$FPRINT_STATUS_FILE"
-}
-
-fprintd_device_path() {
-    gdbus call --system --dest net.reactivated.Fprint \
-        --object-path /net/reactivated/Fprint/Manager \
-        --method net.reactivated.Fprint.Manager.GetDevices 2>/dev/null \
-        | grep -o '/net/reactivated/Fprint/Device/[0-9]*' | head -1
-}
-
-check_fprintd_functional() {
-    systemctl start fprintd 2>/dev/null || return 1
-    local i
-    for i in 1 2 3 4 5 6 7 8 9 10; do
-        [[ -n "$(fprintd_device_path)" ]] && return 0
-        sleep 1
-    done
-    return 1
-}
-
-# Device listed AND reporting a real enrolment process.
-check_sensor_usable() {
-    check_fprintd_functional || return 1
-    local dev stages
-    dev=$(fprintd_device_path); [[ -n "$dev" ]] || return 1
-    stages=$(gdbus call --system --dest net.reactivated.Fprint --object-path "$dev" \
-        --method org.freedesktop.DBus.Properties.Get \
-        net.reactivated.Fprint.Device num-enroll-stages 2>/dev/null \
-        | grep -o '[0-9]\+' | tail -1)
-    [[ "${stages:-0}" -gt 0 ]]
-}
-
-[[ -f "$FPRINT_MARKER" ]] || exit 0
-SENSOR_ON_BUS=$(lsusb 2>/dev/null | grep -Ei "$HARDWARE_USB_ID" || true)
-
-# 1. Our files must still be there.
-if [[ ! -f "$FPRINT_LIB" || ! -f "$FPRINT_DROPIN" ]]; then
-    notify_user "Samsung Galaxy Book — Fingerprint Fix Incomplete" \
-        "Files of the fingerprint fix are missing, so fprintd is using the distro libfprint. Please reinstall the fingerprint fix." \
-        "dialog-error"
-    exit 0
-fi
-
-# 2. Distro libfprint changed? Test it on its own, with our drop-in disabled.
-SYSLIB=$(ldconfig -p | grep 'libfprint-2\.so\.2 ' | awk '{print $NF}' | head -1)
-if [[ -n "$SYSLIB" ]]; then
-    CURRENT_HASH=$(sha256sum "$SYSLIB" | awk '{print $1}')
-    STORED_HASH=$(cat "$FPRINT_SYSLIB_HASH" 2>/dev/null || true)
-    if [[ "$CURRENT_HASH" != "$STORED_HASH" ]]; then
-        logger -t "$TAG" "Distro libfprint changed — testing it without the fix"
-        restore_dropin() {
-            [[ -f "${FPRINT_DROPIN}.testing" ]] && mv -f "${FPRINT_DROPIN}.testing" "$FPRINT_DROPIN"
-            systemctl daemon-reload; systemctl restart fprintd 2>/dev/null || true
-        }
-        trap restore_dropin EXIT
-        mv -f "$FPRINT_DROPIN" "${FPRINT_DROPIN}.testing"
-        systemctl daemon-reload; systemctl stop fprintd 2>/dev/null || true
-        if [[ -n "$SENSOR_ON_BUS" ]] && check_sensor_usable; then
-            trap - EXIT
-            rm -f "${FPRINT_DROPIN}.testing"
-            "$FPRINT_CLEANUP"
-            systemctl restart fprintd 2>/dev/null || true
-            notify_user "Samsung Galaxy Book — Fingerprint Fix No Longer Needed" \
-                "Your distro's libfprint now supports the fingerprint sensor, so the fix has been removed. If fingerprint login stops working, re-enrol your fingerprints." \
-                "dialog-information"
-            exit 0
-        fi
-        restore_dropin; trap - EXIT
-        echo "$CURRENT_HASH" > "$FPRINT_SYSLIB_HASH"
-        logger -t "$TAG" "Distro libfprint still lacks support — fix kept"
-    fi
-fi
-
-# 3. The fix should be working.
-if [[ -n "$SENSOR_ON_BUS" ]] && ! check_fprintd_functional; then
-    notify_user "Samsung Galaxy Book — Fingerprint Sensor Not Working" \
-        "fprintd cannot see your fingerprint sensor. Please reinstall the fingerprint fix." \
-        "dialog-error"
-fi
-MONITOREOF
-# '#' as the sed separator: paths contain '/' and HARDWARE_USB_ID contains '|'.
-sed -i -e "s#__FPRINT_LIB__#${FPRINT_LIB}#" \
-       -e "s#__FPRINT_DROPIN__#${FPRINT_DROPIN}#" \
-       -e "s#__FPRINT_MARKER__#${FPRINT_MARKER}#" \
-       -e "s#__FPRINT_SYSLIB_HASH__#${FPRINT_SYSLIB_HASH}#" \
-       -e "s#__FPRINT_CLEANUP__#${FPRINT_CLEANUP}#" \
-       -e "s#__HARDWARE_USB_ID__#${HARDWARE_USB_ID}#" "$FPRINT_CHECK_SCRIPT"
+render monitor.sh.in > "$FPRINT_CHECK_SCRIPT"
 chown root:root "$FPRINT_CHECK_SCRIPT"; chmod 755 "$FPRINT_CHECK_SCRIPT"
 
 # User check script — run by a user timer 10s after login.
-cat > "$FPRINT_USER_CHECK_SCRIPT" << USERCHECKEOF
-#!/bin/bash
-# Samsung Galaxy Book — egismoc SDCP fingerprint fix user check (runs as user)
-# 1. Starts the root monitor (allowed by polkit) and shows any notification it left.
-# 2. Shows the result of the boot-time sensor check, once per boot.
-# Status files: line 1 = icon, line 2 = title, line 3 = message.
-FPRINT_STATUS_FILE="/run/samsung-galaxybook/fprint-sdcp-status"
-FPRINT_BOOT_STATUS="${FPRINT_BOOT_STATUS}"
-[[ -f "${FPRINT_MARKER}" ]] || exit 0
-
-show() {
-    local ICON TITLE MSG
-    { IFS= read -r ICON; IFS= read -r TITLE; IFS= read -r MSG; } < "\$1"
-    [[ -n "\$TITLE" ]] || return 0
-    notify-send -t 0 -a "Samsung Galaxy Book Fixes" -i "\${ICON:-dialog-information}" "\$TITLE" "\$MSG" \\
-        || logger -t samsung-galaxybook-fprint-sdcp-user-check "notify-send failed: \$TITLE: \$MSG"
-}
-
-if systemctl start ${FPRINT_MONITOR_SVC}; then
-    [[ -s "\$FPRINT_STATUS_FILE" ]] && show "\$FPRINT_STATUS_FILE"
-fi
-
-# The boot check result lives until the next reboot; show it once per boot,
-# not at every login.
-if [[ -s "\$FPRINT_BOOT_STATUS" ]]; then
-    SHOWN="\${XDG_CACHE_HOME:-\$HOME/.cache}/samsung-galaxybook/fprint-sdcp-boot-shown"
-    BOOT_ID=\$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
-    if [[ "\$(cat "\$SHOWN" 2>/dev/null)" != "\$BOOT_ID" ]]; then
-        show "\$FPRINT_BOOT_STATUS"
-        mkdir -p "\$(dirname "\$SHOWN")" && echo "\$BOOT_ID" > "\$SHOWN"
-    fi
-fi
-USERCHECKEOF
+render user-check.sh.in > "$FPRINT_USER_CHECK_SCRIPT"
 chown root:root "$FPRINT_USER_CHECK_SCRIPT"; chmod 755 "$FPRINT_USER_CHECK_SCRIPT"
 
-cat > "$FPRINT_POLKIT_RULE" << POLKITEOF
-polkit.addRule(function(action, subject) {
-    if (action.id == "org.freedesktop.systemd1.manage-units" &&
-        action.lookup("unit") == "${FPRINT_MONITOR_SVC}" &&
-        action.lookup("verb") == "start" &&
-        (subject.isInGroup("wheel") || subject.isInGroup("sudo"))) {
-        return polkit.Result.YES;
-    }
-});
-POLKITEOF
+render polkit-monitor.rules.in > "$FPRINT_POLKIT_RULE"
 chmod 644 "$FPRINT_POLKIT_RULE"
 
-cat > "/etc/systemd/system/${FPRINT_MONITOR_SVC}" << SVCEOF
-[Unit]
-Description=Samsung Galaxy Book — egismoc SDCP fingerprint fix monitor
-
-[Service]
-Type=oneshot
-ExecStart=${FPRINT_CHECK_SCRIPT}
-StandardOutput=journal
-StandardError=journal
-SVCEOF
+render monitor.service.in > "${FPRINT_UNIT_DIR}/${FPRINT_MONITOR_SVC}"
 systemctl daemon-reload
 info "✓ Monitor service and polkit rule installed"
 
 # Boot-time sensor check — runs before fprintd, so it has the sensor to itself.
 # Its result is written to FPRINT_BOOT_STATUS and shown by the login check.
-cat > "$FPRINT_BOOT_CHECK_SCRIPT" << BOOTCHECKEOF
-#!/bin/bash
-# Samsung Galaxy Book — check enrolled fingerprints are still on the sensor
-# (runs at boot as root, before fprintd). Never fails the boot.
-SENSOR_CHECK="${FPRINT_SENSOR_CHECK}"
-STATUS="${FPRINT_BOOT_STATUS}"
-[[ -f "${FPRINT_MARKER}" && -x "\$SENSOR_CHECK" ]] || exit 0
-mkdir -p "\$(dirname "\$STATUS")"; chmod 755 "\$(dirname "\$STATUS")"
-rm -f "\$STATUS"
-
-# Nothing enrolled at all: nothing to check.
-[[ -n "\$(find /var/lib/fprint -type f 2>/dev/null | head -1)" ]] || exit 0
-
-# Wait up to 8 seconds for the sensor to appear on USB.
-found=false
-for _ in \$(seq 1 40); do
-    for d in /sys/bus/usb/devices/*; do
-        [[ "\$(cat "\$d/idVendor" 2>/dev/null)" == "1c7a" ]] || continue
-        [[ "\$(cat "\$d/idProduct" 2>/dev/null)" =~ ^05a[15]\$ ]] && found=true && break 2
-    done
-    sleep 0.2
-done
-\$found || { echo "Fingerprint sensor not found — skipping check"; exit 0; }
-
-OUT=\$(timeout 8 "\$SENSOR_CHECK" 2>&1); RC=\$?
-echo "\$OUT"
-[[ \$RC -eq 1 ]] || exit 0
-
-FINGERS=(unknown left-thumb left-index-finger left-middle-finger left-ring-finger
-         left-little-finger right-thumb right-index-finger right-middle-finger
-         right-ring-finger right-little-finger)
-LOST=()
-# Dead records are MOVED (not deleted) to a dated safety folder, so a false
-# alarm could be undone by moving them back. The last 5 folders are kept.
-REMOVED="${FPRINT_REMOVED_DIR}/\$(date +%Y-%m-%d_%H%M%S)"
-ALL_CLEARED=true
-while read -r _tag _user _finger _path; do
-    [[ "\$_tag" == "MISSING" ]] || continue
-    _name="\$_finger"
-    # fprintd names records by finger number in hex: 1-9, a = right little finger
-    [[ "\$_finger" =~ ^[1-9a]\$ ]] && _name="\${FINGERS[\$((16#\$_finger))]}"
-    LOST+=("\${_name} (\${_user})")
-    # Only ever touch records inside fprintd's own folder.
-    _done=false
-    if [[ "\$_path" == /var/lib/fprint/* && "\$_path" != *..* && -f "\$_path" ]]; then
-        _dest="\$REMOVED/\${_path#/var/lib/fprint/}"
-        mkdir -p "\$(dirname "\$_dest")" && mv -f "\$_path" "\$_dest" \\
-            && echo "Moved dead record \$_path to \$_dest" && _done=true
-    fi
-    \$_done || { ALL_CLEARED=false; echo "Did not clear record: \$_path"; }
-done <<< "\$OUT"
-[[ \${#LOST[@]} -gt 0 ]] || exit 0
-chmod -R go-rwx "${FPRINT_REMOVED_DIR}" 2>/dev/null
-ls -1dt "${FPRINT_REMOVED_DIR}"/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf
-_list=\$(printf '%s, ' "\${LOST[@]}"); _list="\${_list%, }"
-if \$ALL_CLEARED; then
-    _next="They have been cleared from this system — please enrol them again."
-else
-    _next="Please remove them in your fingerprint settings (or run: fprintd-delete USER) and enrol them again."
-fi
-printf '%s\n%s\n%s\n' "dialog-warning" \\
-    "Samsung Galaxy Book — Fingerprint Removed From Sensor" \\
-    "These fingerprints are no longer stored on the sensor: \${_list}. This usually happens after booting Windows with its fingerprint device enabled. \${_next}" \\
-    > "\$STATUS"
-chmod 644 "\$STATUS"
-exit 0
-BOOTCHECKEOF
+render boot-check.sh.in > "$FPRINT_BOOT_CHECK_SCRIPT"
 chown root:root "$FPRINT_BOOT_CHECK_SCRIPT"; chmod 755 "$FPRINT_BOOT_CHECK_SCRIPT"
 
-cat > "/etc/systemd/system/${FPRINT_BOOT_CHECK_SVC}" << BOOTSVCEOF
-[Unit]
-Description=Samsung Galaxy Book — check enrolled fingerprints are still on the sensor
-# Runs in parallel with the rest of the boot; only fprintd waits for it, so
-# nothing else can use the sensor while it is being checked.
-Before=fprintd.service
-After=systemd-udevd.service local-fs.target
-ConditionPathExists=${FPRINT_MARKER}
-
-[Service]
-Type=oneshot
-ExecStart=${FPRINT_BOOT_CHECK_SCRIPT}
-TimeoutStartSec=15
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-BOOTSVCEOF
+render boot-check.service.in > "${FPRINT_UNIT_DIR}/${FPRINT_BOOT_CHECK_SVC}"
 systemctl daemon-reload
 if $SENSOR_CHECK_BUILT; then
     systemctl enable "$FPRINT_BOOT_CHECK_SVC" >/dev/null 2>&1 \
@@ -714,30 +425,8 @@ if [[ -z "$FPRINT_USER" || -z "$FPRINT_USER_ID" ]]; then
     warn "Could not detect logged-in user — skipping user monitor timer install"
 else
     mkdir -p "$FPRINT_USER_SYSTEMD_DIR"
-    cat > "${FPRINT_USER_SYSTEMD_DIR}/${FPRINT_USER_CHECK_SVC}" << USERSVCEOF
-[Unit]
-Description=Samsung Galaxy Book — egismoc SDCP fingerprint fix login check
-# Started by ${FPRINT_USER_CHECK_TIMER}; no [Install] section on purpose.
-
-[Service]
-Type=oneshot
-ExecStart=${FPRINT_USER_CHECK_SCRIPT}
-USERSVCEOF
-    cat > "${FPRINT_USER_SYSTEMD_DIR}/${FPRINT_USER_CHECK_TIMER}" << USERTIMEREOF
-[Unit]
-Description=Samsung Galaxy Book — egismoc SDCP fingerprint fix login check (10s after login)
-PartOf=graphical-session.target
-After=graphical-session.target
-DefaultDependencies=no
-
-[Timer]
-OnActiveSec=10
-AccuracySec=1s
-Unit=${FPRINT_USER_CHECK_SVC}
-
-[Install]
-WantedBy=graphical-session.target
-USERTIMEREOF
+    render user-check.service.in > "${FPRINT_USER_SYSTEMD_DIR}/${FPRINT_USER_CHECK_SVC}"
+    render user-check.timer.in > "${FPRINT_USER_SYSTEMD_DIR}/${FPRINT_USER_CHECK_TIMER}"
     chown -R "${FPRINT_USER}:${FPRINT_USER}" "$FPRINT_USER_SYSTEMD_DIR"
     _fp_user_systemctl daemon-reload 2>/dev/null || true
     _fp_user_systemctl enable "${FPRINT_USER_CHECK_TIMER}" \
@@ -749,45 +438,17 @@ fi
 step "Fingerprint Step 11: Checking the desktop starts graphical-session.target"
 # Shared with other Galaxy Book fixes; each registers a marker and the last one
 # uninstalled removes it (same helper as fingerprint-fix and webcam-toggle).
-SESSION_HELPER_TARGET="/etc/systemd/user/samsung-galaxybook-session.target"
-SESSION_HELPER_SCRIPT="/usr/local/bin/samsung-galaxybook-session-start.sh"
-SESSION_HELPER_AUTOSTART="/etc/xdg/autostart/samsung-galaxybook-session.desktop"
 SESSION_HELPER_USERS="/etc/samsung-galaxybook/session-helper.d"
 
 install_session_helper() {
-    cat > "$SESSION_HELPER_TARGET" << 'SESSTARGETEOF'
-[Unit]
-Description=Samsung Galaxy Book — graphical session (desktops without systemd session support)
-BindsTo=graphical-session.target
-Wants=graphical-session-pre.target
-After=graphical-session-pre.target
-SESSTARGETEOF
+    render session.target.in > "$SESSION_HELPER_TARGET"
     chmod 644 "$SESSION_HELPER_TARGET"
 
-    cat > "$SESSION_HELPER_SCRIPT" << 'SESSSCRIPTEOF'
-#!/bin/bash
-# Samsung Galaxy Book — start graphical-session.target on desktops that don't.
-systemctl --user is-active --quiet graphical-session.target && exit 0
-if command -v dbus-update-activation-environment >/dev/null 2>&1; then
-    dbus-update-activation-environment --systemd --all
-else
-    systemctl --user import-environment DISPLAY XAUTHORITY WAYLAND_DISPLAY \
-        XDG_CURRENT_DESKTOP XDG_SESSION_TYPE 2>/dev/null
-fi
-systemctl --user start samsung-galaxybook-session.target
-SESSSCRIPTEOF
+    render session-start.sh.in > "$SESSION_HELPER_SCRIPT"
     chmod 755 "$SESSION_HELPER_SCRIPT"
 
     mkdir -p "$(dirname "$SESSION_HELPER_AUTOSTART")"
-    cat > "$SESSION_HELPER_AUTOSTART" << SESSDESKTOPEOF
-[Desktop Entry]
-Type=Application
-Name=Samsung Galaxy Book session helper
-Comment=Starts systemd graphical-session.target on desktops that do not
-Exec=${SESSION_HELPER_SCRIPT}
-NoDisplay=true
-X-GNOME-Autostart-enabled=true
-SESSDESKTOPEOF
+    render session-autostart.desktop.in > "$SESSION_HELPER_AUTOSTART"
     chmod 644 "$SESSION_HELPER_AUTOSTART"
 
     mkdir -p "$SESSION_HELPER_USERS"
@@ -902,50 +563,20 @@ install -m 755 -o root -g root "$SCRIPT_DIR/fingerprint-manager.sh" "$MGR_DIR/"
 install -m 644 -o root -g root "$SCRIPT_DIR/VERSION" "$MGR_DIR/"
 install -m 755 -o root -g root "$SCRIPT_DIR/lib/fingerprint-manager.py" \
     "$SCRIPT_DIR/lib/fingerprint-manager-helper.py" "$MGR_DIR/lib/"
+install -m 644 -o root -g root "$SCRIPT_DIR/lib/fixpaths.sh" "$MGR_DIR/lib/"
 install -m 755 -o root -g root "$SCRIPT_DIR"/tools/*.sh "$MGR_DIR/tools/"
 mkdir -p "$(dirname "$MGR_BIN")"
 ln -sfn "$MGR_DIR/fingerprint-manager.sh" "$MGR_BIN"
 install -Dm 644 "$SCRIPT_DIR/lib/${MGR_ID}.svg" "$MGR_ICON"
 
 mkdir -p "$(dirname "$MGR_DESKTOP")"
-cat > "$MGR_DESKTOP" << MGRDESKTOPEOF
-[Desktop Entry]
-Type=Application
-Name=Galaxy Book Fingerprint Manager
-GenericName=Fingerprint Manager
-Comment=From Samsung Galaxy Book Fixes (fingerprint-fix-sdcp): test, enrol, share and tidy fingerprints
-Exec=${MGR_BIN}
-Icon=${MGR_ID}
-Terminal=false
-Categories=Settings;HardwareSettings;
-Keywords=fingerprint;fprint;sensor;login;galaxy;book;
-StartupWMClass=${MGR_APP_ID}
-MGRDESKTOPEOF
+render manager.desktop.in > "$MGR_DESKTOP"
 chmod 644 "$MGR_DESKTOP"
 
 # polkit: the password prompt names this app instead of "run /usr/bin/python3".
 # It only applies to the installed helper's exact path.
 mkdir -p "$(dirname "$MGR_POLICY")"
-cat > "$MGR_POLICY" << MGRPOLICYEOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
- "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
-<!-- Installed by Samsung Galaxy Book Fixes (fingerprint-fix-sdcp) -->
-<policyconfig>
-  <vendor>Samsung Galaxy Book Fixes (unofficial)</vendor>
-  <action id="io.github.david-bartlett.${MGR_ID}">
-    <description>Run the Galaxy Book Fingerprint Manager</description>
-    <message>Galaxy Book Fingerprint Manager needs administrator access to read and manage the fingerprint sensor</message>
-    <icon_name>${MGR_ID}</icon_name>
-    <defaults>
-      <allow_any>auth_admin</allow_any>
-      <allow_inactive>auth_admin</allow_inactive>
-      <allow_active>auth_admin_keep</allow_active>
-    </defaults>
-    <annotate key="org.freedesktop.policykit.exec.path">${MGR_DIR}/lib/fingerprint-manager-helper.py</annotate>
-  </action>
-</policyconfig>
-MGRPOLICYEOF
+render manager.policy.in > "$MGR_POLICY"
 chmod 644 "$MGR_POLICY"
 
 command -v restorecon >/dev/null 2>&1 \
