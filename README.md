@@ -242,6 +242,9 @@ It asks for your password once per session; the prompt says "Galaxy Book Fingerp
 - **Fingerprints** — your enrolled fingers on this install, and whether the sensor still has each one, as **cards** (all ten of your fingers, right hand then left, like Linux Mint's fingerprint settings; grey dashed = not enrolled, click one to enrol that finger) or as a **list** (a row per enrolled finger, for every user, with its own Test button; other users' fingers are only in the list). The buttons at the top right switch between them (on both tabs), and the choice is remembered. Click a card or row to select it (one at a time, on both tabs) and click it again to deselect it. Double-click one of your fingers to test it. Right-click a finger for a menu: **Test**, **Enrol again…** (replace it with a fresh enrolment, if it doesn't match reliably), **Show on sensor** (when the Sensor tab is on) and **Remove from <distro>** (e.g. "Remove from Fedora", the name from /etc/os-release); for a red (dead) finger **Remove dead record…** and **Enrol this finger again…** (removes the dead record, then enrols that finger); for a grey finger **Enrol…** and **Restore removed record…** (puts back a record removed earlier, if its template is still on the sensor). On the Sensor tab, right-click a template for **Show finger** and **Delete from sensor…**. Green = on the sensor; red = a dead record (its template was re-enrolled elsewhere or removed by Windows), which also shows a warning with a **Remove dead records** button.
 - **Sensor** (hidden by default — turn it on with ☰ → **Show the Sensor tab (advanced)**; the choice is remembered) — how many of the sensor's 10 slots are used, and every template on it: green = used by this install (with the user and finger), grey = not used here, labelled "Another distro?" (usually another distro on the same laptop; it can also be Windows Hello's own templates — Windows wipes Linux's templates but keeps its own — or ones left over from a reinstall. One install can't tell which, so they are never deleted without a warning), dashed = free. Shown as cards or a list, like the Fingerprints tab; the Cards / List choice applies to both tabs.
 
+<details>
+<summary>Show every button and what it does</summary>
+
 | Where | Control | What it does |
 |---|---|---|
 | Top | Use fingerprint for login and sudo | Turns PAM fingerprint on or off with `fingerprint-pam.sh` (see below). Turning it off keeps your enrolled fingerprints |
@@ -252,6 +255,8 @@ It asks for your password once per session; the prompt says "Galaxy Book Fingerp
 | Sensor | Wipe sensor… | Deletes every template on the sensor (every Linux install and Windows Hello) after you type WIPE; moves every record here aside |
 | ☰ menu | Export / Import fingerprints… | Runs `export-fingerprint.sh` / `import-fingerprint.sh` with all their checks; importing over your existing fingerprints uses `--replace` |
 | ☰ menu | Restore removed records… | Lists records moved to `removed-fingerprints/` or `replaced-fingerprints/` and puts the chosen ones back — only if their template is still on the sensor and that finger hasn't been enrolled again here |
+
+</details>
 
 Results appear as a one-line message (the full script output is behind **Details…**); information messages disappear after 10 seconds.
 
