@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fingerprint Manager: the fingerprint switch says what it covers on this system — *login, the lock screen and sudo* (GNOME, Mint), *the lock screen and sudo* (KDE, whose login screen can't take fingerprints), or *sudo and admin prompts* (Arch-based); the tooltip has the details
 - Fingerprint Manager: shorter Update and Downloaded dialogs — the file to download, then what *Open folder* does and the install command (shown in a fixed-width font); *Open folder* is the default
 ## 1.3.2 — 2026-10-26
 
