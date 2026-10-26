@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 1.3.2 — 2026-10-26
 
 - Fingerprint Manager on Arch: when the fix was installed with `install.sh`, the install command after **Download** removes that copy first (pacman refused to install over its files), keeping fingerprints and fingerprint login
