@@ -3,9 +3,16 @@
 # Samsung Galaxy Book — fingerprint-fix-sdcp: can the distro's own libfprint
 # drive the Galaxy Book's Egis reader over SDCP?
 # =============================================================================
-#   python3 distro-driver-check.py        → prints one word, exit code:
-#     sdcp     0  the distro's egismoc driver is an SDCP driver (the fix may no
+#   python3 distro-driver-check.py   → a word on the first line, then a detail
+#                                      line (where the library came from):
+#     sdcp     0  the distro's egismoc driver is an SDCP driver, from the
+#                 distro's own unmodified libfprint package (the fix may no
 #                 longer be needed: confirm with the Manager's test)
+#     modified 2  an SDCP driver, but the library file doesn't match its
+#                 package: another fix copied its build over the distro's
+#     foreign  2  an SDCP driver from outside the distro: an unowned file
+#                 (e.g. /usr/local), or a package from a COPR, a PPA, the AUR
+#                 or a local file — the next distro update may replace it
 #     plain    1  it handles the reader, but without SDCP (the distro's
 #                 egismoc before SDCP: 1c7a:05a1 only, and it can't keep prints)
 #     none     1  no driver for the reader in the distro's libfprint, or the
@@ -21,6 +28,8 @@
 # another driver (e.g. virtual_sdcp, with FP_VIRTUAL_SDCP=1).
 # =============================================================================
 import os
+import shutil
+import subprocess
 import sys
 
 if os.environ.get("LD_LIBRARY_PATH"):
@@ -34,7 +43,7 @@ SDCP_CLASS = "FpSdcpDevice"     # the shared SDCP device class SDCP drivers deri
 def answer(word, code, detail=""):
     print(word)
     if detail:
-        print(detail, file=sys.stderr)
+        print(detail)
     sys.exit(code)
 
 
@@ -55,6 +64,92 @@ def class_names(obj):
     return names
 
 
+# ── where the library came from ──────────────────────────────────────────────
+def run(*cmd):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        return r.returncode, r.stdout
+    except (OSError, subprocess.SubprocessError):
+        return None, ""
+
+
+def loaded_library():
+    """The libfprint file this process loaded (the one fprintd would use
+    without the fix)."""
+    try:
+        with open("/proc/self/maps") as f:
+            for line in f:
+                path = line.split()[-1] if len(line.split()) >= 6 else ""
+                if "/libfprint-2.so" in path:
+                    return os.path.realpath(path)
+    except OSError:
+        pass
+    return None
+
+
+def provenance(path):
+    """('distro' | 'modified' | 'foreign', detail) for a library file, from the
+    package manager that owns it (rpm, dpkg or pacman)."""
+    if not path:
+        return "foreign", "couldn't tell which libfprint was loaded"
+    if shutil.which("rpm") and not shutil.which("dpkg"):
+        rc, owner = run("rpm", "-qf", "--qf", "%{NAME}\n", path)
+        owner = owner.split("\n")[0].strip()
+        if rc != 0 or not owner:
+            return "foreign", f"{path} isn't part of any package"
+        _, changed = run("rpm", "-V", owner)
+        if any(l.split()[-1] == path and l[2:3] == "5" for l in changed.splitlines() if l.strip()):
+            return "modified", f"{path} was changed after the {owner} package installed it"
+        _, vendor = run("rpm", "-q", "--qf", "%{VENDOR}", owner)
+        if vendor.strip() != "Fedora Project":
+            return "foreign", f"{owner} is from {vendor.strip() or 'an unknown source'}, not Fedora"
+        return "distro", f"{owner} from Fedora"
+    if shutil.which("dpkg"):
+        rc, out = run("dpkg", "-S", path)
+        if rc != 0:
+            # usrmerge: dpkg may know the file under /lib
+            alt = path.replace("/usr/lib/", "/lib/", 1)
+            rc, out = run("dpkg", "-S", alt)
+        owner = out.split(":")[0].strip() if rc == 0 else ""
+        if not owner:
+            return "foreign", f"{path} isn't part of any package"
+        _, changed = run("dpkg", "--verify", owner)
+        name = os.path.basename(path)
+        if any(l[2:3] == "5" and os.path.basename(l.split()[-1]) == name
+               for l in changed.splitlines() if l.strip()):
+            return "modified", f"{path} was changed after the {owner} package installed it"
+        _, policy = run("apt-cache", "policy", owner)
+        sources, mine = [], False
+        for line in policy.splitlines():
+            if line.lstrip().startswith("***"):
+                mine = True
+                continue
+            if mine:
+                if not line.startswith("        "):      # the next version's line
+                    break
+                sources.append(line.split()[1] if len(line.split()) > 1 else "")
+        repos = [x for x in sources if x != "/var/lib/dpkg/status"]
+        if not repos:
+            return "foreign", f"{owner} was installed from a local file, not a repository"
+        third = [x for x in repos if "ppa.launchpad" in x]
+        if third and len(third) == len(repos):
+            return "foreign", f"{owner} is from a PPA ({third[0]})"
+        return "distro", f"{owner} from {repos[0]}"
+    if shutil.which("pacman"):
+        rc, owner = run("pacman", "-Qqo", path)
+        owner = owner.strip()
+        if rc != 0 or not owner:
+            return "foreign", f"{path} isn't part of any package"
+        _, changed = run("pacman", "-Qkk", owner)
+        if any(path in l and "checksum mismatch" in l.lower() for l in changed.splitlines()):
+            return "modified", f"{path} was changed after the {owner} package installed it"
+        _, foreign = run("pacman", "-Qqm")
+        if owner in foreign.split():
+            return "foreign", f"{owner} is from the AUR or a local package, not a repository"
+        return "distro", f"{owner} from the distro's repositories"
+    return "foreign", "couldn't check where libfprint came from (no rpm, dpkg or pacman)"
+
+
 ctx = FPrint.Context()
 ctx.enumerate()
 for dev in ctx.get_devices():
@@ -62,6 +157,9 @@ for dev in ctx.get_devices():
         continue
     names = class_names(dev)
     if SDCP_CLASS in names:
-        answer("sdcp", 0, " → ".join(names))
+        where, detail = provenance(loaded_library())
+        if where == "distro":
+            answer("sdcp", 0, detail)
+        answer(where, 2, detail)
     answer("plain", 1, " → ".join(names))
 answer("none", 1)

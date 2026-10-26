@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The distro-driver check now also asks the package manager where the library came from (`rpm`, `dpkg` / `apt-cache`, `pacman`). Only the distro's own, unmodified libfprint package counts as "your distro now supports the reader". An SDCP build from another fix — copied over the distro's file, not owned by any package, or from a COPR, PPA, the AUR or a local package — gets "Another fingerprint fix is installed — keep this fix" from the monitor, the Fingerprint Manager and `install.sh`, and the Manager doesn't offer to remove the fix
+
 ## 1.4.0 — 2026-10-26
 
 - When a distro libfprint update brings an SDCP driver for the reader, the monitor says so once and points to the Fingerprint Manager's new **Test your distro's driver** (menu), which checks one of your enrolled fingers with the distro's driver through fprintd — the way login would work without the fix — and gives the remove command if it matches. The Manager also shows this when it opens. The fix no longer removes itself (an `install.sh` copy did, without checking your fingerprints still worked)

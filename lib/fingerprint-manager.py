@@ -130,16 +130,26 @@ def reader_present():
 
 
 def distro_driver():
-    """What the distro's own libfprint can do with the reader: 'sdcp' (the fix
-    may no longer be needed), 'plain', 'none' or 'error'. Only lists USB
+    """(word, detail): what the distro's own libfprint can do with the reader —
+    'sdcp' (the distro's own package: the fix may no longer be needed),
+    'modified' / 'foreign' (an SDCP build from another fix), 'plain', 'none'
+    or 'error'; detail says where the library came from. Only lists USB
     devices with the distro's library: no password, fprintd keeps running."""
     try:
         out = subprocess.run([sys.executable or "python3",
                               os.path.join(HERE, "distro-driver-check.py")],
-                             capture_output=True, text=True, timeout=30).stdout.strip()
+                             capture_output=True, text=True, timeout=60).stdout.splitlines()
     except (OSError, subprocess.SubprocessError):
-        return "error"
-    return out if out in ("sdcp", "plain", "none") else "error"
+        return "error", ""
+    word = out[0].strip() if out else ""
+    detail = out[1].strip() if len(out) > 1 else ""
+    return (word, detail) if word in ("sdcp", "modified", "foreign", "plain", "none") \
+        else ("error", detail)
+
+
+OTHER_FIX_TEXT = ("A libfprint with an SDCP driver from outside your distro is installed ({}). "
+                  "fprintd keeps using fingerprint-fix-sdcp's driver. The next distro update may "
+                  "replace the other copy, so keep this fix.")
 
 
 def remove_command():
@@ -2227,10 +2237,17 @@ class Manager(Gtk.Window):
         """At start: if the distro's libfprint now has an SDCP driver for the
         reader, say so and offer the test (once per run)."""
         def work():
-            kind = distro_driver()
+            kind, detail = distro_driver()
             if kind == "sdcp":
                 GLib.idle_add(self._distro_supports)
+            elif kind in ("modified", "foreign"):
+                GLib.idle_add(self._other_fix, detail)
         threading.Thread(target=work, daemon=True).start()
+        return False
+
+    def _other_fix(self, detail):
+        self.message("Another fingerprint fix's libfprint is installed — keep this fix.",
+                     Gtk.MessageType.WARNING, details=OTHER_FIX_TEXT.format(detail))
         return False
 
     def _distro_supports(self):
@@ -2247,7 +2264,11 @@ class Manager(Gtk.Window):
         fingers with it through fprintd, as login would without the fix."""
         if self.busy or self.status is None:
             return
-        kind = distro_driver()
+        kind, detail = distro_driver()
+        if kind in ("modified", "foreign"):
+            self.show_output("Keep fingerprint-fix-sdcp", OTHER_FIX_TEXT.format(detail),
+                             Gtk.MessageType.WARNING)
+            return
         if kind != "sdcp":
             what = {"plain": "has a driver for this reader, but without SDCP, so it can't keep "
                              "your fingerprints",
@@ -2283,6 +2304,10 @@ class Manager(Gtk.Window):
                                  "It works with the reader, but not with your current enrolments. "
                                  "Keep the fix — or remove it and enrol your fingers again with "
                                  "your desktop's settings.", Gtk.MessageType.WARNING)
+            elif r == "unsupported" and res.get("driver") in ("modified", "foreign"):
+                self.show_output("Keep fingerprint-fix-sdcp",
+                                 OTHER_FIX_TEXT.format(res.get("detail", "")),
+                                 Gtk.MessageType.WARNING)
             elif r == "unsupported":
                 self.show_output("Keep fingerprint-fix-sdcp",
                                  "Your distro's libfprint can't use this reader yet.")
