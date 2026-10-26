@@ -56,7 +56,7 @@ Got it working on a model or distro not listed here? Please tell us with the [**
 
 1. Checks the sensor is present
 2. Installs build dependencies, fprintd and fprintd's PAM module
-3. Exits without changes if the distro libfprint already handles the sensor (override with `FORCE=1`)
+3. Exits without changes if the distro libfprint already has an **SDCP** driver for the sensor (override with `FORCE=1`). The distro's older egismoc driver also claims `1c7a:05a1`, but without SDCP it can't keep prints on these readers, so it doesn't count
 4. Fetches the driver commit named in `DRIVER` (the one this release was tested with) from the fork and builds the egismoc driver only (`-Ddrivers=egismoc -Dtod=false`)
 5. Installs the library to `/usr/local/lib/libfprint-egismoc-sdcp/` and adds a systemd drop-in so **only fprintd** loads it (`LD_LIBRARY_PATH`), and only while the Galaxy Book's reader is present: each time fprintd starts, the drop-in checks for `1c7a:05a5` / `1c7a:05a1` on USB, so on other hardware fprintd keeps the distro libfprint and its drivers
 6. Turns on fingerprint for login and sudo with `fingerprint-pam.sh` (Fedora: authselect; Ubuntu/Debian/MX: pam-auth-update; Mint: its own `fingwit` profile; Arch-based: asks whether to add fingerprint to sudo and polkit — see below)
@@ -187,7 +187,7 @@ sudo systemctl daemon-reload && sudo systemctl restart fprintd
 A user timer fires 10 seconds after login and starts a root service (allowed by a polkit rule). The service:
 
 - notifies you if the fix's library or drop-in has gone missing;
-- when the **distro libfprint changes**, briefly disables the drop-in and tests the distro library on its own. If it can use the sensor, the fix removes itself and tells you; otherwise the drop-in is restored and nothing is shown. fprintd is unavailable for up to ~10 seconds during this test;
+- when the **distro libfprint changes**, checks whether it now has an SDCP driver for the sensor (`lib/distro-driver-check.py`: it only lists USB devices with the distro library — fprintd keeps running and the sensor isn't touched). If it does, you are told once that the fix may no longer be needed, and to try **Test your distro's driver** in the Fingerprint Manager's menu first. That test switches fprintd to the distro library for a moment and checks one of your enrolled fingers with it, the way login would work without the fix; if it matches, the Manager gives the command to remove the fix. The fix never removes itself;
 - notifies you if fprintd cannot see the sensor at all.
 
 Notifications are written to `/run/samsung-galaxybook/fprint-sdcp-status` and shown by the user check script in your own session.

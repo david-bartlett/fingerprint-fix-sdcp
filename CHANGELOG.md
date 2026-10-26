@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- When a distro libfprint update brings an SDCP driver for the reader, the monitor says so once and points to the Fingerprint Manager's new **Test your distro's driver** (menu), which checks one of your enrolled fingers with the distro's driver through fprintd — the way login would work without the fix — and gives the remove command if it matches. The Manager also shows this when it opens. The fix no longer removes itself (an `install.sh` copy did, without checking your fingerprints still worked)
+- The check for that is new (`lib/distro-driver-check.py`): it asks the distro's libfprint whether its driver for the reader is an SDCP driver, without stopping fprintd or touching the sensor. The monitor used to stop fprintd for up to 10 seconds and test only whether the sensor was listed — which the distro's older, non-SDCP egismoc driver passes on `1c7a:05a1`
+- `install.sh` Step 3 uses the same check, so it no longer stops with "probably not needed" on `1c7a:05a1` laptops, where the distro's egismoc driver lists the reader but can't keep prints
+
 - Fingerprint Manager: when Windows is installed on the laptop, a reminder under the sensor line to disable the fingerprint reader in Windows (Windows Hello deletes Linux fingerprints when it starts with the reader enabled), with the steps in its tooltip. Found from the UEFI boot entries and Windows' partitions, without a password; **Got it** hides it, *Menu → Remind me about Windows* brings it back
 - Fingerprints enrolled with another driver (e.g. the distro's own egismoc driver before this fix, which saves non-SDCP prints) are recognised: the Fingerprint Manager marks them **Other driver** with a warning and a *Delete them* button, and right-click → *Delete and enrol again* deletes the old template from the sensor (freeing its slot) and starts enrolling. They used to show as *Gone from sensor*
 - Boot check: no longer moves those fingerprints aside as "removed from the sensor" with a message blaming Windows; the login check says once which fingers were enrolled with another driver

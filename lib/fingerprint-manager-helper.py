@@ -74,7 +74,7 @@ except (ImportError, ValueError) as e:
     GI_ERROR = str(e)
 
 OUT_LOCK = threading.Lock()
-TEST = {"cancellable": None}          # the fingerprint test that is running, if any
+TEST = {"cancellable": None, "proc": None}   # the fingerprint test that is running, if any
 
 
 class Fail(Exception):
@@ -458,6 +458,100 @@ def run_script(argv, env_extra=None):
 
 
 # ── Fingerprint for login and sudo (PAM) — via fingerprint-pam.sh ─────────────
+# ── Testing the distro's own libfprint ───────────────────────────────────────
+DISTRO_CHECK = os.path.join(HERE, "distro-driver-check.py")
+RUN_DROPIN = "/run/systemd/system/fprintd.service.d/" + os.path.basename(DROPIN)
+
+
+def distro_driver():
+    """'sdcp', 'plain', 'none' or 'error': what the distro's libfprint can do
+    with the reader (distro-driver-check.py, which drops our LD_LIBRARY_PATH)."""
+    try:
+        out = subprocess.run([sys.executable, DISTRO_CHECK], capture_output=True, text=True,
+                             timeout=30).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return "error"
+    return out if out in ("sdcp", "plain", "none") else "error"
+
+
+def _dropin_off():
+    """Switch our drop-in off: a package's (under /usr/lib) is masked from /run,
+    so a crash or reboot can't leave it off; install.sh's (in /etc, which /run
+    can't override) is moved aside, and put back at the helper's next start."""
+    if DROPIN.startswith("/usr/lib/"):
+        os.makedirs(os.path.dirname(RUN_DROPIN), exist_ok=True)
+        if os.path.lexists(RUN_DROPIN):
+            os.remove(RUN_DROPIN)
+        os.symlink("/dev/null", RUN_DROPIN)
+    elif os.path.isfile(DROPIN):
+        os.replace(DROPIN, DROPIN + ".testing")
+
+
+def _dropin_on():
+    if os.path.islink(RUN_DROPIN):
+        os.remove(RUN_DROPIN)
+    if os.path.isfile(DROPIN + ".testing") and not os.path.exists(DROPIN):
+        os.replace(DROPIN + ".testing", DROPIN)
+
+
+def restore_dropin_left_off():
+    """A distro test interrupted (helper killed): turn the fix back on."""
+    if os.path.isfile(DROPIN + ".testing") or os.path.islink(RUN_DROPIN):
+        _dropin_on()
+        subprocess.run(["systemctl", "daemon-reload"], capture_output=True)
+        subprocess.run(["systemctl", "try-restart", "fprintd"], capture_output=True)
+
+
+def fprintd_uses_fix():
+    """True / False: whether the running fprintd has the fix's library loaded."""
+    pid = subprocess.run(["pidof", "fprintd"], capture_output=True, text=True).stdout.split()
+    try:
+        with open(f"/proc/{pid[0]}/maps") as f:
+            return LIBDIR in f.read()
+    except (OSError, IndexError):
+        return None
+
+
+def do_test_distro(req):
+    """Would fingerprints work without the fix? With our drop-in off, fprintd
+    runs on the distro's libfprint; fprintd-verify then checks the user's
+    enrolled fingers exactly as login would after removing the fix. The
+    drop-in always goes back on afterwards. Cancelled like the test."""
+    user = calling_user()
+    kind = distro_driver()
+    if kind != "sdcp":
+        return {"result": "unsupported", "driver": kind}
+    _dropin_off()
+    try:
+        subprocess.run(["systemctl", "daemon-reload"], capture_output=True)
+        subprocess.run(["systemctl", "restart", "fprintd"], capture_output=True)
+        subprocess.run(["fprintd-list", user], capture_output=True, timeout=15)   # fprintd up
+        if fprintd_uses_fix():
+            raise Fail("Could not switch fprintd to the distro's libfprint for the test.")
+        proc = subprocess.Popen(["fprintd-verify", user], stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True)
+        TEST["proc"] = proc
+        try:
+            out, _ = proc.communicate(timeout=60)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            proc.communicate()
+            return {"result": "timeout"}
+        finally:
+            TEST["proc"] = None
+        if proc.returncode < 0:
+            return {"result": "cancelled"}
+        if "verify-match" in out:
+            return {"result": "match", "output": out}
+        if "verify-no-match" in out:
+            return {"result": "no-match", "output": out}
+        return {"result": "error", "output": out}
+    finally:
+        _dropin_on()
+        subprocess.run(["systemctl", "daemon-reload"], capture_output=True)
+        subprocess.run(["systemctl", "restart", "fprintd"], capture_output=True)
+
+
 def pam_state():
     try:
         out = run_script([os.path.join(TOOLS, "fingerprint-pam.sh"), "status", "--short"])
@@ -580,6 +674,7 @@ def do_import(req):
 
 
 ACTIONS = {"status": do_status, "remove_records": do_remove_records,
+           "test_distro": do_test_distro,
            "delete_other_driver": do_delete_other_driver,
            "delete_templates": do_delete_templates, "wipe": do_wipe,
            "export": do_export, "import": do_import, "test": do_test,
@@ -603,6 +698,7 @@ def handle(req):
 def main():
     if os.geteuid() != 0:
         sys.exit("This is started by fingerprint-manager.py (via pkexec), not by hand.")
+    restore_dropin_left_off()
     print(json.dumps({"ready": True}), flush=True)
     worker = None
     for line in sys.stdin:
@@ -617,8 +713,11 @@ def main():
             c = TEST["cancellable"]
             if c:
                 c.cancel()
+            p = TEST["proc"]
+            if p and p.poll() is None:
+                p.terminate()
             continue
-        if req.get("action") == "test":
+        if req.get("action") in ("test", "test_distro"):
             # Runs alongside this loop, so a "cancel" can still be read.
             worker = threading.Thread(target=handle, args=(req,), daemon=True)
             worker.start()

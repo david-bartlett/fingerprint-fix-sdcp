@@ -129,6 +129,19 @@ def reader_present():
     return False
 
 
+def distro_driver():
+    """What the distro's own libfprint can do with the reader: 'sdcp' (the fix
+    may no longer be needed), 'plain', 'none' or 'error'. Only lists USB
+    devices with the distro's library: no password, fprintd keeps running."""
+    try:
+        out = subprocess.run([sys.executable or "python3",
+                              os.path.join(HERE, "distro-driver-check.py")],
+                             capture_output=True, text=True, timeout=30).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return "error"
+    return out if out in ("sdcp", "plain", "none") else "error"
+
+
 def remove_command():
     """How to remove the fix the way it was installed."""
     if os.path.isfile("/usr/lib/fingerprint-fix-sdcp/installed"):
@@ -624,6 +637,8 @@ class Manager(Gtk.Window):
         self.windows_item.set_no_show_all(True)     # only shown once Windows is found
         menu.append(self.windows_item)
         menu.append(Gtk.SeparatorMenuItem())
+        self._menu_item(menu, "Test your distro's driver…", self.on_test_distro)
+        menu.append(Gtk.SeparatorMenuItem())
         self._menu_item(menu, "About", self.on_about)
         menu.show_all()
         self.menu_btn = Gtk.MenuButton(popup=menu)
@@ -860,6 +875,7 @@ class Manager(Gtk.Window):
         self._update_buttons()
         GLib.idle_add(self.refresh)
         GLib.idle_add(self._check_windows)
+        GLib.idle_add(self._check_distro)
         if self.update_item.get_active():
             self.check_for_update(max_age=0)        # once, at start-up
         self._watch_install()
@@ -2204,6 +2220,77 @@ class Manager(Gtk.Window):
                                              f"(this is {app_version()})")
         self.update_btn.set_visible(bool(new))
         return False
+
+    # ── the distro's own libfprint ──
+    def _check_distro(self):
+        """At start: if the distro's libfprint now has an SDCP driver for the
+        reader, say so and offer the test (once per run)."""
+        def work():
+            kind = distro_driver()
+            if kind == "sdcp":
+                GLib.idle_add(self._distro_supports)
+        threading.Thread(target=work, daemon=True).start()
+        return False
+
+    def _distro_supports(self):
+        self.message("Your distro's libfprint now has a driver for this reader — the fix may "
+                     "no longer be needed.", Gtk.MessageType.INFO,
+                     details="Test it first: your fingerprints are checked with the distro's "
+                             "driver instead of this fix's, the way login would work after "
+                             "removing fingerprint-fix-sdcp.",
+                     action=("Test your distro's driver", lambda: self.on_test_distro(None)))
+        return False
+
+    def on_test_distro(self, _item):
+        """Check the distro's driver, then (if it has SDCP) test the user's
+        fingers with it through fprintd, as login would without the fix."""
+        if self.busy or self.status is None:
+            return
+        kind = distro_driver()
+        if kind != "sdcp":
+            what = {"plain": "has a driver for this reader, but without SDCP, so it can't keep "
+                             "your fingerprints",
+                    "none": "has no driver for this reader",
+                    "error": "couldn't be checked (its Python bindings didn't load)"}[kind]
+            self.show_output("Keep fingerprint-fix-sdcp",
+                             f"Your distro's libfprint {what}. The fix is still needed.")
+            return
+        if not self.confirm("Test your distro's driver?",
+                            "For this test fprintd uses your distro's libfprint instead of the "
+                            "fix's driver. When asked, touch the sensor with one of your enrolled "
+                            "fingers (within a minute). The fix is switched back on straight "
+                            "afterwards.", "Test", destructive=False):
+            return
+        self.message("Touch the sensor with one of your enrolled fingers…", Gtk.MessageType.OTHER)
+
+        def done(res, err):
+            self._hide_message()
+            if err:
+                return self.refresh(lambda: self.error(err))
+            r = (res or {}).get("result")
+            if r == "match":
+                arch = shutil.which("pacman") and os.path.isfile("/usr/lib/fingerprint-fix-sdcp/installed")
+                self.show_output(
+                    "Your fingerprints work with your distro's driver",
+                    "You can remove fingerprint-fix-sdcp; enrolled fingerprints are kept:\n\n"
+                    f"    {remove_command()}"
+                    + ("\n\nOn Arch-based distros, removing it also turns off fingerprint for sudo "
+                       "and admin prompts: add pam_fprintd to /etc/pam.d/sudo again if you want it."
+                       if arch else ""))
+            elif r == "no-match":
+                self.show_output("Your distro's driver didn't recognise that finger",
+                                 "It works with the reader, but not with your current enrolments. "
+                                 "Keep the fix — or remove it and enrol your fingers again with "
+                                 "your desktop's settings.", Gtk.MessageType.WARNING)
+            elif r == "unsupported":
+                self.show_output("Keep fingerprint-fix-sdcp",
+                                 "Your distro's libfprint can't use this reader yet.")
+            elif r in ("timeout", "cancelled"):
+                self.message("The test ended without a touch — nothing changed.")
+            else:
+                self.error((res or {}).get("output") or "The test didn't finish.")
+            self.refresh()
+        self.run_job("test_distro", done)
 
     def _check_windows(self):
         """Look for Windows in the background (lsblk), then show the reminder."""
