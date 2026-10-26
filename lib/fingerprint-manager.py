@@ -1949,26 +1949,19 @@ class Manager(Gtk.Window):
         asset = update_check.pick_asset(self._new_assets, new, fmt, dist) if fmt else None
         page = f"{update_check.REPO_URL}/releases/tag/v{new}"
 
+        tt = lambda t: f"<tt>{GLib.markup_escape_text(t)}</tt>"     # file names, commands
         if asset:
-            how = f"Download saves {asset['name']}, the package for {OS_NAME}, in your Downloads folder."
-            if not installed_fmt and fmt in ("deb", "rpm"):
-                how += ("\n\nIt replaces the copy installed with install.sh — "
-                        "the package removes that copy first.")
-            elif not installed_fmt:
-                how += ("\n\npacman won't install over the copy installed with install.sh, so the "
-                        "install command removes that copy first — fingerprints and fingerprint "
-                        "login are kept.")
+            how = f"Download {tt(asset['name'])} to your {tt('~/Downloads')} folder."
         elif installed_fmt:
-            how = ("No package for this system was found in the release — "
-                   "download the right one from the release page.")
+            how = ("No package for this system was found in this release.\n"
+                   "- View on GitHub — download the right one from the release page.")
         else:
-            how = ("No package fits this system. In your fingerprint-fix-sdcp folder run:\n"
-                   "    git pull\n    sudo bash install.sh")
+            how = ("No package fits this system. In your fingerprint-fix-sdcp folder, run:\n"
+                   f"    {tt('git pull')}\n    {tt('sudo bash install.sh')}")
         d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE,
                               text=f"fingerprint-fix-sdcp {new} is available")
-        d.format_secondary_text(f"This is {app_version()}. {how}\n\n"
-                                "Enrolled fingerprints are kept.")
+        d.format_secondary_markup(how)
         d.add_button("Close", Gtk.ResponseType.CLOSE)
         d.add_button("View on GitHub", 1)
         if asset:
@@ -2027,18 +2020,16 @@ class Manager(Gtk.Window):
             cmd = f"sudo {LOCAL_CLEANUP} && {cmd}"
         d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE, text="Downloaded")
-        d.format_secondary_text(
-            f"Saved as {path.replace(os.path.expanduser('~'), '~', 1)} "
-            "(checked against the release's SHA256SUMS).\n\n"
-            "Install it by opening the file (your software centre installs it), or in a "
-            f"terminal:\n    {cmd}\n\n"
-            "Open folder and Quit Manager copy the command and close the Manager. If it is "
-            "still open when the new version is installed, it offers to restart. "
-            "Enrolled fingerprints are kept.")
+        tt = lambda t: f"<tt>{GLib.markup_escape_text(t)}</tt>"
+        text = ("- <b>Open folder</b> — opens your " + tt("~/Downloads") + " folder and copies "
+                "the install command to the clipboard.\n\n"
+                "- <b>To install</b> — open a terminal and paste the install command, or run:\n"
+                + tt(cmd))
+        d.format_secondary_markup(text)
         d.add_button("Open folder", 1)
         d.add_button("Copy command", 2)
         d.add_button("Quit Manager", 3)
-        d.set_default_response(3)
+        d.set_default_response(1)
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         while True:
             resp = d.run()
@@ -2050,8 +2041,7 @@ class Manager(Gtk.Window):
                 # after the Manager has quit.
                 clipboard.store()
             if resp == 2:
-                d.format_secondary_text(d.get_property("secondary-text").split("\n\n✓")[0]
-                                        + "\n\n✓ Command copied — paste it into a terminal.")
+                d.format_secondary_markup(text + "\n\n✓ Command copied — paste it into a terminal.")
                 continue
             break
         d.destroy()
