@@ -11,7 +11,8 @@ case "$1" in
 esac
 if [ "$1" = purge ]; then
     # This fix's own state; never fprintd's records.
-    rm -f /var/lib/samsung-galaxybook/libfprint-system.sha256
+    rm -f /var/lib/samsung-galaxybook/libfprint-system.sha256 \
+          /var/lib/samsung-galaxybook/fingerprint-fix-sdcp.removed
     rm -rf /var/lib/samsung-galaxybook/removed-fingerprints \
            /var/lib/samsung-galaxybook/replaced-fingerprints
     rmdir /var/lib/samsung-galaxybook 2>/dev/null || true

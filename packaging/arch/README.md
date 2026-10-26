@@ -25,7 +25,7 @@ Install enables the boot check and the per-user login check (they start at the n
 ## Testing on CachyOS
 
 1. **Remove an `install.sh` install first**, keeping fingerprints (pacman refuses to install over its menu entry and polkit policy):
-   `sudo DELETE_PRINTS=0 bash uninstall.sh`
+   `sudo bash uninstall.sh`
    This also removes the fingerprint lines it added to sudo and polkit-1 — turn them back on in the Manager afterwards.
 2. `cd packaging/arch && makepkg -si`
 3. fprintd uses the driver: `fprintd-list "$USER"`, then `sudo grep fingerprint-fix-sdcp /proc/$(pidof fprintd)/maps`

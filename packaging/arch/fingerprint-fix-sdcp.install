@@ -37,7 +37,7 @@ post_install() {
         echo "==> WARNING: a copy of fingerprint-fix-sdcp installed with install.sh is still here,"
         echo "    and its fprintd drop-in in /etc takes priority over this package."
         echo "    Remove it, keeping your fingerprints, from the fingerprint-fix-sdcp folder:"
-        echo "      sudo DELETE_PRINTS=0 bash uninstall.sh"
+        echo "      sudo bash uninstall.sh"
     fi
     if [[ -f /etc/samsung-galaxybook-libfprint-sdcp-v2.installed ]]; then
         echo "==> WARNING: the old fingerprint-fix (built over the system libfprint) is installed."

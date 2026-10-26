@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- `uninstall.sh` always keeps enrolled fingerprints; it no longer offers to delete them (an accidental *y* also wiped the templates on the sensor). Delete fingers in the Fingerprint Manager instead
+- `.deb`: removing the package and installing it again turns the boot check and login check back on
+- README: installing and removing the packages comes first; `install.sh` for other distros and testing
+
 ## 1.1.2 — 2026-10-26
 
 **Driver:** unchanged, libfprint-egismoc-sdcp `3b0ee1f`.

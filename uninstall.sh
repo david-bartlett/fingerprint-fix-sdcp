@@ -3,8 +3,8 @@
 # Samsung Galaxy Book — Fingerprint Fix (egismoc SDCP driver) — Uninstall
 # =============================================================================
 # Self-contained. Run as root: sudo bash uninstall.sh
-#   DELETE_PRINTS=1  delete enrolled fingerprints without asking
-#   DELETE_PRINTS=0  keep them without asking
+# Enrolled fingerprints are always kept (fprintd's records and the templates
+# on the sensor). To delete fingers, use the Fingerprint Manager first.
 # =============================================================================
 
 set -e
@@ -38,10 +38,12 @@ echo "╔═══════════════════════�
 echo "║     Uninstalling: Fingerprint Fix (egismoc SDCP driver)    ║"
 echo "╚════════════════════════════════════════════════════════════╝"
 
-# ── Step 1: Optionally delete enrolled fingerprints ───────────────────────────
-# Done FIRST, while fprintd still uses the SDCP driver, so fprintd-delete
-# removes both the record in /var/lib/fprint and the template on the sensor.
-# (Deleting /var/lib/fprint by hand would leave orphaned templates behind.)
+# ── Step 1: Enrolled fingerprints are kept ────────────────────────────────────
+# Never deleted here: a mistyped answer would also wipe the templates on the
+# sensor, which other installs and Windows Hello may share. Deleting is done
+# in the Fingerprint Manager (or with fprintd-delete before uninstalling,
+# while fprintd still uses this driver — deleting /var/lib/fprint by hand would
+# leave orphaned templates on the sensor).
 step "Fingerprint Step 1: Enrolled fingerprints"
 ENROLLED_USERS=()
 if [[ -d /var/lib/fprint ]]; then
@@ -53,29 +55,9 @@ fi
 if [[ ${#ENROLLED_USERS[@]} -eq 0 ]]; then
     info "No enrolled fingerprints"
 else
-    info "Fingerprints enrolled for: ${ENROLLED_USERS[*]}"
-    info "After uninstalling, the distro libfprint cannot use SDCP enrolments."
-    info "Keep them only if you will reinstall this fix (or the old fingerprint-fix)."
-    _delete="${DELETE_PRINTS:-}"
-    if [[ -z "$_delete" ]]; then
-        if [[ -t 0 ]]; then
-            if ! read -r -t 30 -p "Delete enrolled fingerprints now (also frees them on the sensor)? [y/N] (No in 30s) " _ans; then
-                echo; info "No answer — keeping enrolled fingerprints"; _ans=n
-            fi
-            [[ "${_ans,,}" == y* ]] && _delete=1 || _delete=0
-        else
-            _delete=0
-        fi
-    fi
-    if [[ "$_delete" == "1" ]]; then
-        for _u in "${ENROLLED_USERS[@]}"; do
-            fprintd-delete "$_u" >/dev/null 2>&1 \
-                && info "Deleted fingerprints for $_u" \
-                || warn "fprintd-delete failed for $_u — run it manually before reinstalling"
-        done
-    else
-        info "Keeping enrolled fingerprints"
-    fi
+    info "Fingerprints enrolled for: ${ENROLLED_USERS[*]} — kept"
+    info "Reinstalling this fix (install.sh or a package) uses them again."
+    info "To delete fingers, use the Fingerprint Manager before uninstalling."
 fi
 
 # ── Step 2: Remove the fprintd drop-in and the library ────────────────────────

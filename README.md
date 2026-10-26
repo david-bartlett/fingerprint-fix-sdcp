@@ -72,6 +72,27 @@ It does **not** delete `/var/lib/fprint`. Deleting fprintd's records by hand lea
 
 ## Install
 
+### From a package (recommended)
+
+Download the file for your distro from the [**latest release**](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest), then install it from the folder you saved it in:
+
+| Distro | File ends in | Install |
+| --- | --- | --- |
+| Fedora 45 | `.fc45.x86_64.rpm` | `sudo dnf install ./fingerprint-fix-sdcp-*.fc45.x86_64.rpm` |
+| Fedora 44 | `.fc44.x86_64.rpm` | `sudo dnf install ./fingerprint-fix-sdcp-*.fc44.x86_64.rpm` |
+| Ubuntu 26.04, Linux Mint 27 | `ubuntu26.04_amd64.deb` | `sudo apt install ./fingerprint-fix-sdcp_*ubuntu26.04_amd64.deb` |
+| Ubuntu 24.04, Linux Mint 22, Zorin OS 18 | `ubuntu24.04_amd64.deb` | `sudo apt install ./fingerprint-fix-sdcp_*ubuntu24.04_amd64.deb` |
+| Debian 13, MX Linux 25 | `debian13_amd64.deb` | `sudo apt install ./fingerprint-fix-sdcp_*debian13_amd64.deb` |
+| Arch, CachyOS, EndeavourOS | `x86_64.pkg.tar.zst` | `sudo pacman -U ./fingerprint-fix-sdcp-*.pkg.tar.zst` |
+
+`dnf` and `apt` install what the fix needs from your distro (fprintd, the Manager's GTK libraries…); nothing is compiled on your laptop. Fingerprints work straight away: open **Galaxy Book Fingerprint Manager** from the app menu to enrol a finger and turn on fingerprint login.
+
+- **Already installed with `install.sh`?** The `.rpm` and `.deb` replace it themselves, keeping your fingerprints. On Arch, run `sudo bash uninstall.sh` in the old folder first (pacman won't install over its files).
+- **Updating:** the Manager tells you when a new version is out; download the new file and install it the same way. Enrolled fingerprints are kept.
+- **Arch, building from source:** the release also has a `PKGBUILD` and `fingerprint-fix-sdcp.install` — put both in one folder and run `makepkg -si`.
+
+### With install.sh (other distros, or for testing)
+
 Needs `git` and an internet connection (the installer downloads and builds the driver):
 
 ```bash
@@ -122,13 +143,23 @@ fprintd-delete "$USER" && fprintd-enroll
 
 ## Uninstall
 
+Installed from a package — remove it with your package manager:
+
+```bash
+sudo dnf remove fingerprint-fix-sdcp      # Fedora
+sudo apt remove fingerprint-fix-sdcp      # Ubuntu, Mint, Debian, MX
+sudo pacman -R fingerprint-fix-sdcp       # Arch, CachyOS
+```
+
+Installed with `install.sh` — from its folder:
+
 ```bash
 sudo bash uninstall.sh
 ```
 
-It asks whether to delete enrolled fingerprints first (default: keep; no answer within 30 seconds also keeps them), while the SDCP driver is still loaded so the templates are removed from the sensor too. Set `DELETE_PRINTS=1` or `DELETE_PRINTS=0` to answer non-interactively. Then it removes the drop-in, the library and the monitor. Nothing needs reinstalling because the distro libfprint was never replaced. PAM fingerprint authentication is left enabled.
+Either way, enrolled fingerprints are always kept — fprintd's records and the templates on the sensor — so reinstalling uses them again. To delete fingers, use the Fingerprint Manager before uninstalling (while the driver is still loaded, so the templates leave the sensor too). Both remove the drop-in, the library and the monitor; nothing needs reinstalling because the distro libfprint was never replaced. On Arch the fingerprint lines added to sudo and polkit-1 are removed too; on other distros fingerprint login is left as you set it.
 
-To switch it off temporarily instead:
+To switch an `install.sh` copy off temporarily instead:
 
 ```bash
 sudo mv /etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf /root/
