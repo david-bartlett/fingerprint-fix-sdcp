@@ -464,14 +464,19 @@ RUN_DROPIN = "/run/systemd/system/fprintd.service.d/" + os.path.basename(DROPIN)
 
 
 def distro_driver():
-    """'sdcp', 'plain', 'none' or 'error': what the distro's libfprint can do
-    with the reader (distro-driver-check.py, which drops our LD_LIBRARY_PATH)."""
+    """(word, detail): what the distro's libfprint can do with the reader —
+    'sdcp' (from the distro), 'modified' / 'foreign' (an SDCP build from
+    another fix), 'plain', 'none' or 'error' — from distro-driver-check.py,
+    which drops our LD_LIBRARY_PATH."""
     try:
         out = subprocess.run([sys.executable, DISTRO_CHECK], capture_output=True, text=True,
-                             timeout=30).stdout.strip()
+                             timeout=60).stdout.splitlines()
     except (OSError, subprocess.SubprocessError):
-        return "error"
-    return out if out in ("sdcp", "plain", "none") else "error"
+        return "error", ""
+    word = out[0].strip() if out else ""
+    detail = out[1].strip() if len(out) > 1 else ""
+    return (word, detail) if word in ("sdcp", "modified", "foreign", "plain", "none") \
+        else ("error", detail)
 
 
 def _dropin_off():
@@ -518,9 +523,9 @@ def do_test_distro(req):
     enrolled fingers exactly as login would after removing the fix. The
     drop-in always goes back on afterwards. Cancelled like the test."""
     user = calling_user()
-    kind = distro_driver()
+    kind, detail = distro_driver()
     if kind != "sdcp":
-        return {"result": "unsupported", "driver": kind}
+        return {"result": "unsupported", "driver": kind, "detail": detail}
     _dropin_off()
     try:
         subprocess.run(["systemctl", "daemon-reload"], capture_output=True)
