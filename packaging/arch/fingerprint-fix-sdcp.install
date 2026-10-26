@@ -53,6 +53,9 @@ post_install() {
 
 post_upgrade() {
     _reload_fprintd
+    # Bring the sudo / polkit-1 lines the Manager added up to date (e.g. the
+    # polkit-1 fingerprint timeout); changes nothing if fingerprint login is off.
+    bash /usr/lib/fingerprint-fix-sdcp/manager/tools/arch-pam.sh update >/dev/null 2>&1 || true
 }
 
 pre_remove() {
