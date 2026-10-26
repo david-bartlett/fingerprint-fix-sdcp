@@ -13,6 +13,12 @@
 #
 # The Manager's Download button: this_system() and pick_asset() choose this
 # system's package from the release's files, download() saves and checks it.
+#
+# No GitHub API: it allows only 60 requests an hour per internet connection
+# without a login, shared by everything on that connection, and a used-up
+# limit would hide new releases. The newest release comes from where
+# github.com/…/releases/latest redirects to (…/releases/tag/v1.2.0), and its
+# files from the SHA256SUMS file attached to each release.
 # =============================================================================
 import hashlib
 import json
@@ -23,12 +29,13 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 APP = "galaxybook-fingerprint-manager"      # the icon, and the settings / cache folder name
 REPO_URL = "https://github.com/david-bartlett/fingerprint-fix-sdcp"
-RELEASES_API = "https://api.github.com/repos/david-bartlett/fingerprint-fix-sdcp/releases/latest"
-RELEASE_BY_TAG_API = "https://api.github.com/repos/david-bartlett/fingerprint-fix-sdcp/releases/tags/{tag}"
+LATEST_URL = REPO_URL + "/releases/latest"             # redirects to …/releases/tag/<tag>
+DOWNLOAD_URL = REPO_URL + "/releases/download/{tag}/{name}"
 CACHE_DIR = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), APP)
 RELEASE_CACHE = os.path.join(CACHE_DIR, "latest-release")       # "<checked epoch> <tag or ->"
 NOTIFIED = os.path.join(CACHE_DIR, "notified-release")          # tag last announced at login
@@ -61,11 +68,34 @@ def enabled():
         return True
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):
+        return None                 # report the redirect instead of following it
+
+
+def _latest_tag():
+    """The newest release's tag from where releases/latest redirects to; None
+    when there is no release (no redirect to a tag, or 404). Raises on network
+    trouble."""
+    opener = urllib.request.build_opener(_NoRedirect)
+    req = urllib.request.Request(LATEST_URL, method="HEAD", headers={"User-Agent": APP})
+    try:
+        with opener.open(req, timeout=10):
+            return None             # 200: a releases page without a tag — no release yet
+    except urllib.error.HTTPError as e:
+        if e.code in (301, 302, 303, 307, 308):
+            m = re.search(r"/releases/tag/([^/?#]+)$", e.headers.get("Location") or "")
+            return urllib.parse.unquote(m.group(1)) if m else None
+        if e.code == 404:
+            return None             # no such repository (or not public)
+        raise
+
+
 def latest_release(max_age=24 * 3600):
     """The newest release's tag (e.g. 'v1.0.2'), or None when unknown.
-    Asks GitHub at most once per max_age seconds. 'No release' (404 — none yet,
-    or the repository not public) is remembered for a day too; a failed
-    connection is not, so the next try asks again."""
+    Asks GitHub at most once per max_age seconds. 'No release' (none yet, or
+    the repository not public) is remembered too; a failed connection is not,
+    so the next try asks again."""
     now = time.time()
     try:
         with open(RELEASE_CACHE) as f:
@@ -75,15 +105,8 @@ def latest_release(max_age=24 * 3600):
     except (OSError, ValueError):
         pass
     try:
-        req = urllib.request.Request(RELEASES_API, headers={
-            "Accept": "application/vnd.github+json", "User-Agent": APP})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            tag = json.load(r).get("tag_name") or None
-    except urllib.error.HTTPError as e:
-        if e.code != 404:
-            return None             # rate limit, server trouble: ask again next time
-        tag = None
-    except Exception:               # no network yet, DNS, timeout
+        tag = _latest_tag()
+    except Exception:               # no network yet, DNS, timeout, server trouble
         return None
     try:
         os.makedirs(CACHE_DIR, exist_ok=True)
@@ -148,21 +171,23 @@ def this_system(fmt="", dist="", fields=None):
 
 
 def release_assets(version):
-    """The files of release v<version>: [{name, url, sha256, size}]; [] when
-    GitHub can't be asked."""
+    """The files of release v<version> from its SHA256SUMS file:
+    [{name, url, sha256}]; [] when it can't be fetched (or the release has
+    none — releases before 1.2.1)."""
+    tag = "v" + version
     try:
-        req = urllib.request.Request(RELEASE_BY_TAG_API.format(tag="v" + version), headers={
-            "Accept": "application/vnd.github+json", "User-Agent": APP})
+        req = urllib.request.Request(DOWNLOAD_URL.format(tag=tag, name="SHA256SUMS"),
+                                     headers={"User-Agent": APP})
         with urllib.request.urlopen(req, timeout=15) as r:
-            data = json.load(r)
+            text = r.read(256 * 1024).decode("utf-8", "replace")
     except Exception:
         return []
     out = []
-    for a in data.get("assets") or []:
-        digest = a.get("digest") or ""
-        out.append({"name": a.get("name", ""), "url": a.get("browser_download_url", ""),
-                    "sha256": digest[7:] if digest.startswith("sha256:") else None,
-                    "size": a.get("size") or 0})
+    for line in text.splitlines():
+        m = re.fullmatch(r"([0-9a-f]{64}) [ *]?(\S+)", line.strip())
+        if m and "/" not in m.group(2):
+            out.append({"name": m.group(2), "sha256": m.group(1),
+                        "url": DOWNLOAD_URL.format(tag=tag, name=urllib.parse.quote(m.group(2)))})
     return out
 
 
@@ -199,7 +224,7 @@ def download(asset, folder, progress=None):
     try:
         req = urllib.request.Request(asset["url"], headers={"User-Agent": APP})
         with urllib.request.urlopen(req, timeout=30) as r, open(part, "wb") as out:
-            total = int(r.headers.get("Content-Length") or asset.get("size") or 0)
+            total = int(r.headers.get("Content-Length") or 0)
             done = 0
             while True:
                 chunk = r.read(64 * 1024)
@@ -210,8 +235,8 @@ def download(asset, folder, progress=None):
                 done += len(chunk)
                 if progress:
                     progress(done, total)
-        if asset.get("sha256") and digest.hexdigest() != asset["sha256"]:
-            raise ValueError("the downloaded file doesn't match GitHub's checksum — try again")
+        if not asset.get("sha256") or digest.hexdigest() != asset["sha256"]:
+            raise ValueError("the downloaded file doesn't match the release's SHA256SUMS — try again")
         os.replace(part, path)
     except BaseException:
         try:

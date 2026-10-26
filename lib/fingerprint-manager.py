@@ -1986,7 +1986,7 @@ class Manager(Gtk.Window):
                               buttons=Gtk.ButtonsType.NONE, text="Downloaded")
         d.format_secondary_text(
             f"Saved as {path.replace(os.path.expanduser('~'), '~', 1)} "
-            "(checked against GitHub's checksum).\n\n"
+            "(checked against the release's SHA256SUMS).\n\n"
             f"Close the Fingerprint Manager, then install it in a terminal:\n    {cmd}\n\n"
             "Enrolled fingerprints are kept.")
         d.add_button("Open folder", 1)

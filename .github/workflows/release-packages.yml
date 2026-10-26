@@ -172,6 +172,15 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ github.token }}
+      # GitHub turns the '~' in a .deb's name into '.' on upload: do it here, so
+      # SHA256SUMS lists the names the release really has. The Fingerprint
+      # Manager reads SHA256SUMS to find and check this system's package.
+      - name: Name the files as GitHub will, and list their checksums
+        run: |
+          cd dist
+          for f in *~*; do [ -e "$f" ] && mv -- "$f" "${f//\~/.}"; done
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
       - run: |
           ls -l dist
           gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
