@@ -19,9 +19,17 @@
 import os
 import sys
 
-LIBDIR = "/usr/local/lib/libfprint-egismoc-sdcp"
-MARKER = "/etc/samsung-galaxybook-egismoc-sdcp.installed"
-DROPIN = "/etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf"
+# (marker, library folder, fprintd drop-in) of each way the fix is installed:
+# a package first, then install.sh. Keep in step with lib/fixpaths.sh.
+LAYOUTS = [
+    ("/usr/lib/fingerprint-fix-sdcp/installed",
+     "/usr/lib/fingerprint-fix-sdcp",
+     "/usr/lib/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf"),
+    ("/etc/samsung-galaxybook-egismoc-sdcp.installed",
+     "/usr/local/lib/libfprint-egismoc-sdcp",
+     "/etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf"),
+]
+MARKER, LIBDIR, DROPIN = next((l for l in LAYOUTS if os.path.isfile(l[0])), LAYOUTS[-1])
 
 # pkexec clears the environment. Re-run with the fix's library first in the
 # search path, before anything loads libfprint.

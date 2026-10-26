@@ -1,0 +1,140 @@
+# Maintainer: David Bartlett <22402006+david-bartlett@users.noreply.github.com>
+#
+# fingerprint-fix-sdcp for Arch and Arch-based distros (CachyOS, EndeavourOS, …)
+#
+#   cd packaging/arch && makepkg -si
+#
+# Packages the repository this file is in (its working tree, so local changes
+# are included) and builds the driver commit named in DRIVER. VERSION and
+# DRIVER are read from the repository; for the AUR these become fixed values
+# and the source a release tarball.
+
+_repo="$(cd "$startdir/../.." && pwd)"
+pkgname=fingerprint-fix-sdcp
+pkgver=$(tr -d '[:space:]' < "$_repo/VERSION")
+pkgrel=1
+_driver=$(grep -v '^#' "$_repo/DRIVER" | tr -d '[:space:]')
+pkgdesc="Egis match-on-chip fingerprint reader fix for Samsung Galaxy Book (egismoc SDCP driver for fprintd), with the Galaxy Book Fingerprint Manager"
+arch=('x86_64')
+url="https://github.com/david-bartlett/fingerprint-fix-sdcp"
+license=('GPL-2.0-or-later')
+depends=(
+    # the driver library and the fprintd it is loaded into
+    'fprintd' 'libfprint' 'glib2' 'libgusb' 'openssl'
+    # monitor, boot check and login notifications
+    'bash' 'systemd' 'usbutils' 'libnotify' 'polkit'
+    # Galaxy Book Fingerprint Manager
+    'python' 'python-gobject' 'python-cairo' 'gtk3'
+)
+makedepends=('git' 'meson' 'ninja' 'pkgconf' 'glib2-devel')
+install=fingerprint-fix-sdcp.install
+source=("libfprint-egismoc-sdcp::git+https://github.com/david-bartlett/libfprint-egismoc-sdcp.git#commit=${_driver}")
+sha256sums=('SKIP')            # a git source is pinned by its commit id
+
+_libdir=/usr/lib/fingerprint-fix-sdcp     # FPRINT_LIB_DIR of the package layout (lib/fixpaths.sh)
+
+prepare() {
+    cd libfprint-egismoc-sdcp
+    # Driver fixes kept in lib/patches/ until they are in the fork — the same
+    # rule as install.sh: apply if needed, skip if already in, stop if it no longer fits.
+    : > "$srcdir/fixes"
+    local p name
+    for p in "$_repo"/lib/patches/*.patch; do
+        [[ -f "$p" ]] || continue
+        name=$(basename "$p" .patch)
+        if git apply --check "$p" 2>/dev/null; then
+            git apply "$p"
+            echo "$name" >> "$srcdir/fixes"
+        elif git apply --reverse --check "$p" 2>/dev/null; then
+            echo "Fix already in the source: $name"
+        else
+            echo "Fix $name no longer fits driver commit ${_driver:0:12}" >&2
+            return 1
+        fi
+    done
+    git log -1 --format=%cs > "$srcdir/driver-date"
+}
+
+build() {
+    cd libfprint-egismoc-sdcp
+    # Only the egismoc driver; makepkg's CFLAGS/LDFLAGS apply (buildtype plain).
+    meson setup build --prefix=/usr --buildtype=plain --wrap-mode=nodownload -Db_pie=true \
+        -Ddrivers=egismoc -Dtod=false -Ddoc=false -Dgtk-examples=false \
+        -Dintrospection=false -Dinstalled-tests=false
+    meson compile -C build
+
+    # Boot-time sensor check, linked to this build; its runpath makes it load
+    # the library from the package folder, never the distro libfprint.
+    # shellcheck disable=SC2046,SC2086  # flags and pkg-config output must be word-split
+    ${CC:-gcc} $CPPFLAGS $CFLAGS -Wall -o build/sensor-check "$_repo/lib/sensor-check.c" \
+        -Ilibfprint -Ibuild/libfprint \
+        $(pkg-config --cflags glib-2.0 gio-2.0 gobject-2.0 gusb) \
+        $LDFLAGS -Lbuild/libfprint -lfprint-2 \
+        $(pkg-config --libs glib-2.0 gio-2.0 gobject-2.0) \
+        -Wl,-rpath,"$_libdir"
+}
+
+package() {
+    local render="$_repo/packaging/render.sh" p="$pkgdir"
+
+    # ── The driver library, for fprintd only ──────────────────────────────────
+    install -Dm755 libfprint-egismoc-sdcp/build/libfprint/libfprint-2.so.2.0.0 "$p$_libdir/libfprint-2.so.2"
+    install -Dm755 libfprint-egismoc-sdcp/build/sensor-check "$p$_libdir/sensor-check"
+    install -d "$p/usr/lib/systemd/system/fprintd.service.d"
+    bash "$render" package dropin.conf.in \
+        > "$p/usr/lib/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf"
+
+    # Install marker, in install.sh's format (the Manager shows it):
+    # '<driver commit> <driver date> <source> … fingerprint-fix-sdcp <version>'
+    local fixes; fixes=$(paste -sd' ' "$srcdir/fixes")
+    printf '%s %s fork%s (package %s-%s) fingerprint-fix-sdcp %s\n' \
+        "${_driver:0:12}" "$(<"$srcdir/driver-date")" "${fixes:+ +$fixes}" \
+        "$pkgver" "$pkgrel" "$pkgver" > "$p$_libdir/installed"
+
+    # ── Monitor, boot-time sensor check, login check ─────────────────────────
+    local f
+    for f in monitor.sh user-check.sh boot-check.sh session-start.sh; do
+        bash "$render" package "$f.in" > "$p$_libdir/$f"
+        chmod 755 "$p$_libdir/$f"
+    done
+    install -d "$p/usr/lib/systemd/system" "$p/usr/lib/systemd/user"
+    bash "$render" package monitor.service.in \
+        > "$p/usr/lib/systemd/system/samsung-galaxybook-fprint-sdcp-monitor.service"
+    bash "$render" package boot-check.service.in \
+        > "$p/usr/lib/systemd/system/samsung-galaxybook-fprint-sdcp-boot-check.service"
+    bash "$render" package user-check.service.in \
+        > "$p/usr/lib/systemd/user/samsung-galaxybook-fprint-sdcp-user-check.service"
+    bash "$render" package user-check.timer.in \
+        > "$p/usr/lib/systemd/user/samsung-galaxybook-fprint-sdcp-user-check.timer"
+    # Starts graphical-session.target on desktops that don't (Xfce and others),
+    # so the login check runs there too.
+    bash "$render" package session.target.in \
+        > "$p/usr/lib/systemd/user/samsung-galaxybook-session.target"
+    install -d "$p/etc/xdg/autostart"
+    bash "$render" package session-autostart.desktop.in \
+        > "$p/etc/xdg/autostart/fingerprint-fix-sdcp-session.desktop"
+    # polkit's rules folder is root:polkitd 750 on Arch
+    install -d -m750 -o root -g 102 "$p/usr/share/polkit-1/rules.d"
+    bash "$render" package polkit-monitor.rules.in \
+        > "$p/usr/share/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
+
+    # ── Galaxy Book Fingerprint Manager ───────────────────────────────────────
+    local m="$p$_libdir/manager"
+    install -Dm755 "$_repo/fingerprint-manager.sh" "$m/fingerprint-manager.sh"
+    install -Dm644 "$_repo/VERSION" "$m/VERSION"
+    install -Dm755 -t "$m/lib" "$_repo/lib/fingerprint-manager.py" "$_repo/lib/fingerprint-manager-helper.py"
+    install -Dm644 -t "$m/lib" "$_repo/lib/fixpaths.sh"
+    install -Dm755 -t "$m/tools" "$_repo"/tools/*.sh
+    rm -f "$m/tools/test-latest-libfprint.sh"          # maintainer script, needs install.sh
+    install -d "$p/usr/bin"
+    ln -s "$_libdir/manager/fingerprint-manager.sh" "$p/usr/bin/galaxybook-fingerprint-manager"
+    install -Dm644 "$_repo/lib/galaxybook-fingerprint-manager.svg" \
+        "$p/usr/share/icons/hicolor/scalable/apps/galaxybook-fingerprint-manager.svg"
+    install -d "$p/usr/share/applications" "$p/usr/share/polkit-1/actions"
+    bash "$render" package manager.desktop.in \
+        > "$p/usr/share/applications/io.github.david_bartlett.GalaxyBookFingerprintManager.desktop"
+    bash "$render" package manager.policy.in \
+        > "$p/usr/share/polkit-1/actions/io.github.david-bartlett.galaxybook-fingerprint-manager.policy"
+
+    install -Dm644 -t "$p/usr/share/doc/$pkgname" "$_repo/README.md" "$_repo/CHANGELOG.md"
+}
