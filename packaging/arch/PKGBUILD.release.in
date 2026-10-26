@@ -37,8 +37,5 @@ package() {
     local repo="$srcdir/$pkgname-$pkgver"
     bash "$repo/packaging/install-files.sh" "$pkgdir" "$srcdir/libfprint-egismoc-sdcp" \
         "$pkgver-$pkgrel" pacman
-    # polkit's rules folder is root:polkitd 750 on Arch
-    chmod 750 "$pkgdir/usr/share/polkit-1/rules.d"
-    chgrp 102 "$pkgdir/usr/share/polkit-1/rules.d"
     install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" "$repo/README.md" "$repo/CHANGELOG.md"
 }
