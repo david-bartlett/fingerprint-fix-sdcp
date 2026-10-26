@@ -3,6 +3,7 @@
 ## Unreleased
 
 - README: Credits link to Abdallah Alkanani's libfprint-egismoc-sdcp; "Version built" describes the pinned `DRIVER` commit (it still described building the fork's newest commit)
+- Fingerprint Manager and the login notification no longer use GitHub's API, which allows only 60 requests an hour per internet connection without a login (a used-up limit hid new releases). The newest version comes from the releases page, and Download finds and checks the package with the `SHA256SUMS` file now attached to each release
 
 ## 1.2.0 — 2026-10-26
 
