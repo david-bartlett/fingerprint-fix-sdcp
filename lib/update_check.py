@@ -109,13 +109,21 @@ def notify_once():
                 return
     except OSError:
         pass
+    title = f"Samsung Galaxy Book — fingerprint-fix-sdcp {new} is available"
+    msg = "Open Galaxy Book Fingerprint Manager and click Update to see how to install it."
+    # Stays until closed, with an "Open Fingerprint Manager" button
+    # (notify-open-manager.sh, started on its own so this doesn't wait for it);
+    # a plain notification if that can't be started.
+    helper = os.path.join(HERE, "notify-open-manager.sh")
     try:
-        subprocess.run(["notify-send", "-a", "Samsung Galaxy Book Fixes", "-i", APP,
-                        f"Samsung Galaxy Book — fingerprint-fix-sdcp {new} is available",
-                        "Open Galaxy Book Fingerprint Manager and click Update to see how to install it."],
-                       check=True, timeout=15)
+        subprocess.run(["systemd-run", "--user", "--quiet", "--collect", helper, title, msg],
+                       check=True, timeout=15, capture_output=True)
     except (OSError, subprocess.SubprocessError):
-        return                      # try again next login
+        try:
+            subprocess.run(["notify-send", "-t", "0", "-a", "Samsung Galaxy Book Fixes", "-i", APP,
+                            title, msg], check=True, timeout=15)
+        except (OSError, subprocess.SubprocessError):
+            return                  # try again next login
     try:
         os.makedirs(CACHE_DIR, exist_ok=True)
         with open(NOTIFIED, "w") as f:
