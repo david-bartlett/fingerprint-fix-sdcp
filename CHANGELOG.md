@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.0 — 2026-10-26
 
 - `install.sh` no longer looks for or migrates the old `fingerprint-fix` (nobody has it installed); its steps are renumbered
 - Fingerprint Manager: notices when a new version is installed while it is open — from a software centre, `dnf` / `apt` / `pacman` or `install.sh` — and offers **Restart**; the download dialog says the file can also be installed by opening it
