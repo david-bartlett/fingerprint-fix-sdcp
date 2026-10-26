@@ -568,7 +568,11 @@ class Manager(Gtk.Window):
         self.view_switches = []           # (cards button, list button) per tab
         switch, self.view_icons, self.view_list = self._view_switch()
         top.pack_end(switch, False, False, 0)
-        page.pack_start(top, False, False, 0)
+        # In a card like the one above, so the hint lines up with its text.
+        hint_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        hint_card.get_style_context().add_class("fpm-card")
+        hint_card.pack_start(top, False, False, 0)
+        page.pack_start(hint_card, False, False, 0)
         self.others_note = Gtk.Label(xalign=0, wrap=True)   # other users: list view only
         self.others_note.get_style_context().add_class("dim-label")
         self.others_note.get_style_context().add_class("fpm-hint")
@@ -624,14 +628,18 @@ class Manager(Gtk.Window):
         top.pack_start(self.slots_label, True, True, 0)
         switch, self.tview_icons, self.tview_list = self._view_switch()
         top.pack_end(switch, False, False, 0)
-        page.pack_start(top, False, False, 0)
+        # Slots, bar and key together in a card like the one above.
+        slots_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        slots_card.get_style_context().add_class("fpm-card")
+        slots_card.pack_start(top, False, False, 0)
         self.slots_bar = Gtk.ProgressBar()
-        page.pack_start(self.slots_bar, False, False, 0)
+        slots_card.pack_start(self.slots_bar, False, False, 0)
         hint = Gtk.Label(label=f"Green: used by {OS_NAME} · Grey: another distro, Windows Hello "
                                "or a reinstall · Removed here: can be restored · Dashed: free · "
                                "More: right-click", xalign=0, wrap=True)
         hint.get_style_context().add_class("fpm-hint")
-        page.pack_start(hint, False, False, 0)
+        slots_card.pack_start(hint, False, False, 0)
+        page.pack_start(slots_card, False, False, 0)
         self.tcards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=True,
                                   min_children_per_line=5, max_children_per_line=5,
                                   column_spacing=4, row_spacing=4, valign=Gtk.Align.START,
