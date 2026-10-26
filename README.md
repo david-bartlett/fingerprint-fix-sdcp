@@ -148,7 +148,7 @@ fprintd-enroll
 
 KDE: System Settings → Users → Fingerprint Authentication · GNOME: Settings → System → Users → Fingerprint Login · Mint: Menu → Fingerprints · Xfce (e.g. MX Linux) has no fingerprint settings page — use `fprintd-enroll`, `fprintd-list $USER` and `fprintd-delete $USER` in a terminal
 
-If `fprintd-verify` never matches, those prints were enrolled with a non-SDCP driver. Delete them — this also frees their slots on the sensor — and enrol again:
+If `fprintd-verify` never matches, those prints were enrolled with a non-SDCP driver (e.g. your distro's own, before this fix). The Fingerprint Manager marks them **Other driver** and can delete them and enrol the finger again (right-click → *Delete and enrol again*), and the boot check notifies you about them once. Or delete them — this also frees their slots on the sensor — and enrol again:
 
 ```bash
 fprintd-delete "$USER" && fprintd-enroll
@@ -208,6 +208,7 @@ At every boot, a small service compares fprintd's records with the templates act
 - It **clears only the dead fingers' records**, so your desktop's fingerprint settings show them as not enrolled and you can simply add them again. Fingerprints still on the sensor are not touched. (Windows normally removes every Linux fingerprint, so in practice that is usually all of them.)
 - Cleared records are **moved, not deleted**, to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the last 5 are kept). They are useless once the template is gone, but if the check were ever wrong they could be moved back.
 - Each Linux install that shared the fingerprint clears its own dead record at its own next boot.
+- Fingerprints **enrolled with another driver** (the distro's own egismoc driver, or another non-SDCP build) are not treated as removed: they can never match here, so the login check says so once (**Fingerprints From Another Driver**) and they are left for you to delete and enrol again in the Manager.
 - A removed fingerprint cannot be restored from an export — the export only points at the template on the sensor, and the template is what was deleted.
 
 The check is a small C program (`lib/sensor-check.c`) that the installer builds against the egismoc SDCP library. It gives up after a few seconds if the sensor does not appear, and never fails the boot. Its output is in `journalctl -u samsung-galaxybook-fprint-sdcp-boot-check`.
