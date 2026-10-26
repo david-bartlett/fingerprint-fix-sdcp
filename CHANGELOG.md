@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- README: the Fingerprint Manager section covers the **Other driver** fingers, the Windows reminder, *Test your distro's driver* and the no-reader message; *Files Installed* lists the new status files and says what the cleanup script is for now
+
 ## 1.4.1 — 2026-10-26
 
 - Fingerprint Manager: no lines between the options of the right-click menus
