@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 1.3.5 — 2026-10-26
 
 - Packages are only for a Samsung with the Galaxy Book's Egis reader (`1c7a:05a5` / `1c7a:05a1`): on other hardware the `.rpm` and `.deb` stop before installing anything, saying why (`FPRINT_SDCP_FORCE=1` installs anyway, e.g. for a system image), and pacman warns
