@@ -41,7 +41,7 @@ A package is for the release it was built on: its library dependencies come from
 | `…~ubuntu26.04_amd64.deb` | Ubuntu 26.04, Linux Mint 27 |
 | `…~debian13_amd64.deb` | Debian 13, MX Linux 25 |
 | `…fc44.x86_64.rpm` / `…fc45.x86_64.rpm` | Fedora 44 / 45 |
-| `…pkg.tar.zst`, `PKGBUILD` | Arch, CachyOS, EndeavourOS, … |
+| `PKGBUILD`, `fingerprint-fix-sdcp.install` | Arch, CachyOS, EndeavourOS, … (built with `makepkg -si`; CI builds the package only as a check) |
 
 ## What install and removal do
 

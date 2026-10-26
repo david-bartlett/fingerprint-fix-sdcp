@@ -191,26 +191,55 @@ def release_assets(version):
     return out
 
 
+# Arch-based systems build the release from its PKGBUILD (makepkg), so it is
+# built against the system's current libraries; these two files are downloaded
+# together into a folder of their own.
+ARCH_FILES = ("PKGBUILD", "fingerprint-fix-sdcp.install")
+
+
 def pick_asset(assets, version, fmt, dist):
-    """This system's package among a release's files, or None. GitHub shows the
-    '~' of a .deb's version as '.' in file names, so both are accepted."""
+    """This system's download among a release's files, or None. GitHub shows
+    the '~' of a .deb's version as '.' in file names, so both are accepted.
+    For pacman it is the release's PKGBUILD and .install, as one item:
+    {name, folder, files: [asset, asset]}."""
     if platform.machine() not in ("x86_64", "amd64"):
         return None
+    if fmt == "pacman":
+        files = [next((a for a in assets if a["name"] == n), None) for n in ARCH_FILES]
+        if not all(files):
+            return None
+        folder = f"fingerprint-fix-sdcp-{version}"
+        return {"name": folder, "folder": folder, "files": files}
     v, d = re.escape(version), re.escape(dist)
     pattern = {"deb": rf"fingerprint-fix-sdcp_{v}-\d+[.~]{d}_amd64\.deb",
-               "rpm": rf"fingerprint-fix-sdcp-{v}-\d+\.{d}\.x86_64\.rpm",
-               "pacman": rf"fingerprint-fix-sdcp-{v}-\d+-x86_64\.pkg\.tar\.zst"}.get(fmt)
-    if not pattern or (fmt != "pacman" and not dist):
+               "rpm": rf"fingerprint-fix-sdcp-{v}-\d+\.{d}\.x86_64\.rpm"}.get(fmt)
+    if not pattern or not dist:
         return None
     return next((a for a in assets if re.fullmatch(pattern, a["name"])), None)
 
 
 def install_command(fmt, path):
-    """The command that installs a downloaded package over the installed fix."""
+    """The command that installs a download over the installed fix: the package
+    file, or for pacman the folder holding the PKGBUILD (makepkg builds as the
+    user and asks for the password to install)."""
     quoted = "'" + path.replace("'", "'\\''") + "'"
     return {"deb": f"sudo apt install {quoted}",
             "rpm": f"sudo dnf install {quoted}",
-            "pacman": f"sudo pacman -U {quoted}"}[fmt]
+            "pacman": f"cd {quoted} && makepkg -si"}[fmt]
+
+
+def download_item(item, folder, progress=None):
+    """Download what pick_asset chose into folder: one package file, or the
+    PKGBUILD's files into folder/<item folder>. Returns the file's or the
+    PKGBUILD folder's path."""
+    if "files" not in item:
+        return download(item, folder, progress)
+    sub = os.path.join(folder, item["folder"])
+    for i, f in enumerate(item["files"]):
+        download(f, sub, (lambda d, t, i=i: progress(i * 100 + (d * 100 // t if t else 0),
+                                                     100 * len(item["files"])))
+                 if progress else None)
+    return sub
 
 
 def download(asset, folder, progress=None):

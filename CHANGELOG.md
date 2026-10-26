@@ -6,6 +6,8 @@
 - fprintd uses the fix's driver only while that reader is present: the drop-in checks each time fprintd starts, so on any other hardware (a moved disk, a forced install) fprintd keeps the distro libfprint and its drivers, and other fingerprint readers keep working
 - Fingerprint Manager: without that reader, explains that the app is for the Galaxy Book's reader and how to remove the fix, instead of asking for a password and failing
 - `install.sh`: the Samsung check also accepts `board_vendor`, like the packages
+- Arch-based distros: releases have a `PKGBUILD` (with `fingerprint-fix-sdcp.install`) to build with `makepkg -si`, and no longer a ready-made `.pkg.tar.zst` — built on your laptop against Arch's current libraries, so an Arch library update can't break it between releases. It stops before building on hardware without the Galaxy Book's reader (`FPRINT_SDCP_FORCE=1` builds anyway)
+- Fingerprint Manager on Arch-based distros: **Download** fetches the new release's `PKGBUILD` into `~/Downloads/fingerprint-fix-sdcp-<version>/` and gives the `makepkg -si` command. Managers from 1.3.4 and earlier don't find a package in the new release and point to the release page instead
 
 ## 1.3.4 — 2026-10-26
 

@@ -79,15 +79,30 @@ Download the file for your distro from the [**latest release**](https://github.c
 | Ubuntu 26.04, Linux Mint 27 | `ubuntu26.04_amd64.deb` | `sudo apt install ./fingerprint-fix-sdcp_*ubuntu26.04_amd64.deb` |
 | Ubuntu 24.04, Linux Mint 22, Zorin OS 18 | `ubuntu24.04_amd64.deb` | `sudo apt install ./fingerprint-fix-sdcp_*ubuntu24.04_amd64.deb` |
 | Debian 13, MX Linux 25 | `debian13_amd64.deb` | `sudo apt install ./fingerprint-fix-sdcp_*debian13_amd64.deb` |
-| Arch, CachyOS, EndeavourOS | `x86_64.pkg.tar.zst` | `sudo pacman -U ./fingerprint-fix-sdcp-*.pkg.tar.zst` |
+| Arch, CachyOS, EndeavourOS | `PKGBUILD` and `fingerprint-fix-sdcp.install` | see [Arch-based distros](#arch-based-distros) below |
 
-The packages are only for a Samsung with the Egis reader (`1c7a:05a5` / `1c7a:05a1`, see `lsusb | grep 1c7a`): on other hardware the `.rpm` and `.deb` stop before installing anything (`sudo FPRINT_SDCP_FORCE=1 dnf install …` / `apt install …` installs anyway, e.g. for a system image), and pacman installs but warns. Either way, fprintd only uses the fix's driver while the reader is present, so another laptop's fingerprint reader keeps working.
+The packages are only for a Samsung with the Egis reader (`1c7a:05a5` / `1c7a:05a1`, see `lsusb | grep 1c7a`): on other hardware the `.rpm`, the `.deb` and the Arch `PKGBUILD` stop before installing anything (`sudo FPRINT_SDCP_FORCE=1 dnf install …` / `apt install …`, or `FPRINT_SDCP_FORCE=1 makepkg -si`, installs anyway, e.g. for a system image). Either way, fprintd only uses the fix's driver while the reader is present, so another laptop's fingerprint reader keeps working.
 
 `dnf` and `apt` install what the fix needs from your distro (fprintd, the Manager's GTK libraries…); nothing is compiled on your laptop. Fingerprints work straight away: open **Galaxy Book Fingerprint Manager** from the app menu to enrol a finger and turn on fingerprint login.
 
 - **Already installed with `install.sh`?** The `.rpm` and `.deb` replace it themselves, keeping your fingerprints. On Arch, run `sudo bash uninstall.sh` in the old folder first (pacman won't install over its files).
 - **Updating:** the Manager tells you when a new version is out; download the new file and install it the same way. Enrolled fingerprints are kept.
-- **Arch, building from source:** the release also has a `PKGBUILD` and `fingerprint-fix-sdcp.install` — put both in one folder and run `makepkg -si`.
+
+#### Arch-based distros
+
+Arch is rolling, so the fix is built on your laptop against your current libraries rather than downloaded ready-made (the usual way on Arch, as with the AUR). Only the one driver is built, so it takes seconds:
+
+```bash
+sudo pacman -S --needed base-devel git
+```
+
+Download `PKGBUILD` and `fingerprint-fix-sdcp.install` from the release into an empty folder, then in that folder:
+
+```bash
+makepkg -si
+```
+
+`makepkg` installs the build tools it needs, builds the driver commit the release was tested with, and asks for your password to install the package. **Updating:** the Manager's **Download** fetches the new release's `PKGBUILD` into `~/Downloads/fingerprint-fix-sdcp-<version>/` and gives you the `makepkg -si` command.
 
 ### With install.sh (other distros, or for testing)
 
