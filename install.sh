@@ -200,12 +200,18 @@ step "Fingerprint Step 3: Checking if the distro libfprint already supports the 
 if [[ -f "$FPRINT_DROPIN" || "${FORCE:-0}" == "1" ]]; then
     info "Skipped (reinstall or FORCE=1)"
 else
-    case "$(env -u LD_LIBRARY_PATH python3 "$SCRIPT_DIR/lib/distro-driver-check.py" 2>/dev/null)" in
+    _check=$(env -u LD_LIBRARY_PATH python3 "$SCRIPT_DIR/lib/distro-driver-check.py" 2>/dev/null)
+    _detail=$(sed -n 2p <<< "$_check")
+    case "$(head -n1 <<< "$_check")" in
         sdcp)
             info "✓ The distro libfprint already has an SDCP driver for this sensor."
             info "  This fix is probably not needed. If fingerprint login still does not"
             info "  work, install it anyway with:  sudo FORCE=1 bash install.sh"
             exit 0 ;;
+        modified|foreign)
+            info "An SDCP libfprint from outside your distro is installed (${_detail})."
+            info "  Installing this fix anyway: fprintd will use its driver, which distro"
+            info "  updates can't replace — proceeding with the fix" ;;
         plain) info "Distro libfprint handles the sensor without SDCP — proceeding with the fix" ;;
         none)  info "Distro libfprint has no driver for the sensor — proceeding with the fix" ;;
         *)     warn "Could not check the distro libfprint — proceeding with the fix" ;;
