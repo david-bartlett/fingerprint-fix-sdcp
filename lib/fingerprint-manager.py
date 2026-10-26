@@ -1352,8 +1352,8 @@ class Manager(Gtk.Window):
         marker = st.get("marker") or "unknown"
         version, driver, _date = parse_marker(marker)
         self.info.set_text(f"Sensor: {st['usb_id']} · Serial: {st['serial']} · "
-                           + (f"Version: {version} · " if version else "")
-                           + f"Driver commit: {(driver or 'unknown')[:7]}")
+                           + f"Driver commit: {(driver or 'unknown')[:7]}"
+                           + (f" · v{version}" if version else ""))
         self.info.set_tooltip_text(f"{st.get('device_name', '')}\nfingerprint-fix-sdcp: {marker}")
         self.show_pam(st.get("pam") or {})
         dead = [r for r in st["records"] if r["on_sensor"] is False]

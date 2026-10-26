@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Fingerprint Manager: the sensor line is labelled — *Sensor · Serial · Version · Driver commit*
+- Fingerprint Manager: the sensor line is labelled — *Sensor · Serial · Driver commit*, with the version at the end
 - Fingerprint Manager: shorter Update and Downloaded dialogs — the file to download, then what *Open folder* does and the install command (shown in a fixed-width font); *Open folder* is the default
 ## 1.3.2 — 2026-10-26
 
