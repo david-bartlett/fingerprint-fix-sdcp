@@ -1,0 +1,8 @@
+[Unit]
+Description=Samsung Galaxy Book — egismoc SDCP fingerprint fix monitor
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/fingerprint-fix-sdcp/monitor.sh
+StandardOutput=journal
+StandardError=journal

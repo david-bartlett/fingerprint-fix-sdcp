@@ -1,0 +1,18 @@
+#!/bin/bash
+# Samsung Galaxy Book — run the login check now for everyone logged into a
+# desktop (run as root by the packages right after a first install), so the
+# "enrol a finger" / "turn on fingerprint login" hint appears without logging
+# out and in. Never fails the install.
+users=()
+for s in $(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}'); do
+    [[ "$(loginctl show-session "$s" -p Class --value 2>/dev/null)" == user ]] || continue
+    case "$(loginctl show-session "$s" -p Type --value 2>/dev/null)" in
+        x11|wayland) users+=("$(loginctl show-session "$s" -p Name --value 2>/dev/null)") ;;
+    esac
+done
+for u in $(printf '%s\n' "${users[@]}" | sort -u); do
+    [[ -n "$u" ]] || continue
+    timeout 10 systemctl --user -M "$u@" daemon-reload >/dev/null 2>&1 || true
+    timeout 10 systemctl --user -M "$u@" start --no-block samsung-galaxybook-fprint-sdcp-user-check.service >/dev/null 2>&1 || true
+done
+exit 0

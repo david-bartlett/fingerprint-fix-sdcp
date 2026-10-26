@@ -1,0 +1,117 @@
+name: Bug report
+description: Something doesn't work — installing, enrolling, login, sudo, the Fingerprint Manager…
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. The details below help work out what's going on without a round of questions.
+        Please paste command output as text, not screenshots.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead? Include any error message exactly as shown.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where does it go wrong?
+      multiple: true
+      options:
+        - Installing (install.sh)
+        - Enrolling a finger
+        - Login screen / lock screen
+        - sudo or admin (polkit) prompts
+        - Galaxy Book Fingerprint Manager
+        - After suspend / resume
+        - After booting Windows (dual boot)
+        - Exporting / importing fingerprints
+        - Uninstalling
+        - Something else
+    validations:
+      required: true
+
+  - type: input
+    id: model
+    attributes:
+      label: Laptop model
+      description: The name and model number, from the sticker underneath or `sudo dmidecode -s system-product-name`.
+      placeholder: e.g. Galaxy Book 5 Pro 14" (940XHA)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sensor
+    attributes:
+      label: Fingerprint sensor
+      description: "Run `lsusb | grep -i 1c7a` — the ID after `ID`."
+      options:
+        - 1c7a:05a5
+        - 1c7a:05a1
+        - Another 1c7a ID (paste the lsusb line below)
+        - Not sure / nothing shown
+    validations:
+      required: true
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distro and version
+      description: "`grep PRETTY_NAME /etc/os-release`, plus your desktop (GNOME, KDE Plasma, Cinnamon, Xfce…)."
+      placeholder: e.g. Fedora Linux 45 (KDE Plasma)
+    validations:
+      required: true
+
+  - type: input
+    id: build
+    attributes:
+      label: fingerprint-fix-sdcp version
+      description: "`cat /etc/samsung-galaxybook-egismoc-sdcp.installed` — or the version shown at the top of the Fingerprint Manager (e.g. v1.0.0 · driver 3b0ee1f). Leave empty if the install didn't finish."
+      placeholder: e.g. 3b0ee1f40fec 2026-10-25 fork (installed 2026-10-25) fingerprint-fix-sdcp 1.0.0
+
+  - type: dropdown
+    id: windows
+    attributes:
+      label: Do you also have Windows on this laptop?
+      options:
+        - "No"
+        - Yes — fingerprint reader enabled in Windows
+        - Yes — fingerprint reader disabled in Windows Device Manager
+        - "Yes — not sure"
+    validations:
+      required: true
+
+  - type: textarea
+    id: install-output
+    attributes:
+      label: Installer output
+      description: If the problem is during install, the full output of `sudo bash install.sh` (or the part with the error).
+      render: shell
+
+  - type: textarea
+    id: fprintd-log
+    attributes:
+      label: fprintd log
+      description: "Right after the problem happens: `sudo journalctl -u fprintd -b --no-pager | tail -n 100`"
+      render: shell
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: What you've already tried, anything unusual about your setup, or the `lsusb` line if the sensor ID isn't listed above.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I've looked through the existing issues for the same problem.
+          required: true
+        - label: I'm using the latest version of this repository and ran `install.sh` again after updating.
+          required: true

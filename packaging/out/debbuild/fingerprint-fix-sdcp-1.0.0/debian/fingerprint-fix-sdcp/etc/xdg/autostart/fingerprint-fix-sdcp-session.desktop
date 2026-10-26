@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Samsung Galaxy Book session helper
+Comment=Starts systemd graphical-session.target on desktops that do not
+Exec=/usr/lib/fingerprint-fix-sdcp/session-start.sh
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

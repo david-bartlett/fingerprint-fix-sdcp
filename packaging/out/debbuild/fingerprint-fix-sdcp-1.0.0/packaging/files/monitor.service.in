@@ -1,0 +1,8 @@
+[Unit]
+Description=Samsung Galaxy Book — egismoc SDCP fingerprint fix monitor
+
+[Service]
+Type=oneshot
+ExecStart=@FPRINT_CHECK_SCRIPT@
+StandardOutput=journal
+StandardError=journal

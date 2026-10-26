@@ -1,0 +1,3 @@
+shlibs:Depends=libc6 (>= 2.38), libglib2.0-0t64 (>= 2.79.0), libgusb2 (>= 0.2.4), libssl3t64 (>= 3.0.0)
+misc:Depends=
+misc:Pre-Depends=
