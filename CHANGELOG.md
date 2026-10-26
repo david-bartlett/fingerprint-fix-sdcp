@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Moving from an `install.sh` copy to a package: the old copy's cleanup refreshes its icon cache, so the Manager's icon isn't shown as a broken image
 ## 1.3.0 — 2026-10-26
 
 - `install.sh` no longer looks for or migrates the old `fingerprint-fix` (nobody has it installed); its steps are renumbered
