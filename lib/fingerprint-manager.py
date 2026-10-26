@@ -395,8 +395,8 @@ class Manager(Gtk.Window):
         self.sensor_item.connect("toggled", lambda i: self._show_sensor_tab(i.get_active()))
         menu.append(self.sensor_item)
         self.update_item = Gtk.CheckMenuItem(label="Check for new versions")
-        self.update_item.set_tooltip_text("Asks GitHub once a day whether a newer "
-                                          "fingerprint-fix-sdcp has been released")
+        self.update_item.set_tooltip_text("Asks GitHub each time the Manager starts whether "
+                                          "a newer fingerprint-fix-sdcp has been released")
         self.update_item.set_active(load_settings().get("update_check", "1") == "1")
         self.update_item.connect("toggled", self._on_update_toggled)
         menu.append(self.update_item)
@@ -416,6 +416,7 @@ class Manager(Gtk.Window):
         self.update_btn.connect("clicked", self.on_update)
         self.update_btn.set_no_show_all(True)
         self._new_version = None
+        self._new_assets = []
         self._export_offered = None
         hb.pack_end(self.update_btn)
 
@@ -609,7 +610,7 @@ class Manager(Gtk.Window):
         self._update_buttons()
         GLib.idle_add(self.refresh)
         if self.update_item.get_active():
-            self.check_for_update()
+            self.check_for_update(max_age=0)        # once, at start-up
 
     # ── building blocks ──
     def _table(self, store, titles):
@@ -1875,11 +1876,12 @@ class Manager(Gtk.Window):
     def check_for_update(self, max_age=24 * 3600):
         def work():
             new = update_check.newer_release(max_age)
-            GLib.idle_add(self._show_update, new)
+            assets = update_check.release_assets(new) if new else []
+            GLib.idle_add(self._show_update, new, assets)
         threading.Thread(target=work, daemon=True).start()
 
-    def _show_update(self, new):
-        self._new_version = new
+    def _show_update(self, new, assets=()):
+        self._new_version, self._new_assets = new, list(assets)
         if new:
             self.update_btn.set_tooltip_text(f"fingerprint-fix-sdcp {new} is available "
                                              f"(this is {app_version()})")
@@ -1893,47 +1895,116 @@ class Manager(Gtk.Window):
         else:
             self.update_btn.hide()
 
+    def _installed_as(self):
+        """How this copy was installed: ('deb', 'ubuntu26.04'), ('rpm', 'fc45'),
+        ('pacman', ''), or ('', '') for install.sh. The install marker says,
+        e.g. "(deb package 1.0.0-1~ubuntu26.04)"."""
+        marker = (self.status or {}).get("marker") or ""
+        m = re.search(r"\((rpm|deb|pacman) package (\S+)\)", marker)
+        if not m:
+            return "", ""
+        dist = (re.search(r"~([a-z]+[0-9.]+)$", m.group(2))
+                or re.search(r"\.(fc[0-9]+)$", m.group(2)))
+        return m.group(1), dist.group(1) if dist else ""
+
     def on_update(self, *_):
         new = self._new_version
-        marker = (self.status or {}).get("marker") or ""
-        # The install marker says how it was installed, e.g. "(deb package
-        # 1.0.0-1~ubuntu26.04)": each release has one package per distro
-        # release, so name the one for this system.
-        m = re.search(r"\((rpm|deb|pacman) package (\S+)\)", marker)
-        fmt, pkgver = (m.group(1), m.group(2)) if m else ("", "")
-        dist = (re.search(r"~([a-z]+[0-9.]+)$", pkgver) or re.search(r"\.(fc[0-9]+)$", pkgver))
-        dist = dist.group(1) if dist else ""
-        if fmt == "deb":
-            f = f"fingerprint-fix-sdcp_{new}-*{'~' + dist if dist else ''}_amd64.deb"
-            how = (f"Download {f} from the release page, then install it over this one:\n"
-                   f"    sudo apt install ./{f}")
-        elif fmt == "rpm":
-            f = f"fingerprint-fix-sdcp-{new}-*{'.' + dist if dist else ''}.x86_64.rpm"
-            how = (f"Download {f} from the release page, then install it over this one:\n"
-                   f"    sudo dnf install ./{f}")
-        elif fmt == "pacman":
-            how = ("Download the .pkg.tar.zst from the release page and install it:\n"
-                   "    sudo pacman -U ./fingerprint-fix-sdcp-*.pkg.tar.zst\n"
-                   "or build its PKGBUILD (with fingerprint-fix-sdcp.install) with makepkg -si.")
+        installed_fmt, installed_dist = self._installed_as()
+        fmt, dist = update_check.this_system(installed_fmt, installed_dist)
+        asset = update_check.pick_asset(self._new_assets, new, fmt, dist) if fmt else None
+        page = f"{update_check.REPO_URL}/releases/tag/v{new}"
+
+        if asset:
+            how = f"Download saves {asset['name']}, the package for {OS_NAME}, in your Downloads folder."
+            if not installed_fmt and fmt in ("deb", "rpm"):
+                how += ("\n\nIt replaces the copy installed with install.sh — "
+                        "the package removes that copy first.")
+            elif not installed_fmt:
+                how += ("\n\nBefore installing it, remove the copy installed with install.sh: "
+                        "sudo bash uninstall.sh in its folder.")
+        elif installed_fmt:
+            how = ("No package for this system was found in the release — "
+                   "download the right one from the release page.")
         else:
-            how = ("In your fingerprint-fix-sdcp folder:\n"
-                   "    git pull\n    sudo bash install.sh\n"
-                   "or download the release's source and run install.sh from it.")
+            how = ("No package fits this system. In your fingerprint-fix-sdcp folder run:\n"
+                   "    git pull\n    sudo bash install.sh")
         d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE,
                               text=f"fingerprint-fix-sdcp {new} is available")
         d.format_secondary_text(f"This is {app_version()}. {how}\n\n"
-                                "Enrolled fingerprints are kept. Close the Fingerprint Manager before installing.")
+                                "Enrolled fingerprints are kept.")
         d.add_button("Close", Gtk.ResponseType.CLOSE)
-        d.add_button("Open the release page", Gtk.ResponseType.OK)
-        d.set_default_response(Gtk.ResponseType.OK)
-        if d.run() == Gtk.ResponseType.OK:
-            try:
-                Gtk.show_uri_on_window(self, f"{update_check.REPO_URL}/releases/tag/v{new}",
-                                       Gdk.CURRENT_TIME)
-            except GLib.Error as e:
-                self.error(f"Could not open the release page: {e.message}")
+        d.add_button("View on GitHub", 1)
+        if asset:
+            d.add_button("Download", 2)
+            d.set_default_response(2)
+        else:
+            d.set_default_response(1)
+        resp = d.run()
         d.destroy()
+        if resp == 1:
+            self._open_uri(page, "the release page")
+        elif resp == 2:
+            self._download_update(asset, fmt)
+
+    def _open_uri(self, uri, what):
+        try:
+            Gtk.show_uri_on_window(self, uri, Gdk.CURRENT_TIME)
+        except GLib.Error as e:
+            self.error(f"Could not open {what}: {e.message}")
+
+    def _download_update(self, asset, fmt):
+        folder = (GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD)
+                  or os.path.expanduser("~/Downloads"))
+        self.update_btn.set_sensitive(False)
+        # OTHER: stays up until the download ends (INFO fades after 10 s)
+        self.message(f"Downloading {asset['name']}…", Gtk.MessageType.OTHER)
+        shown = [0]
+
+        def progress(done, total):
+            pct = int(done * 100 / total) if total else 0
+            if pct >= shown[0] + 10:                 # every 10 %
+                shown[0] = pct
+                GLib.idle_add(self.msg_label.set_text, f"Downloading {asset['name']}… {pct} %")
+
+        def work():
+            try:
+                path = update_check.download(asset, folder, progress)
+                GLib.idle_add(self._downloaded, path, fmt, None)
+            except Exception as e:                   # network, disk, checksum
+                GLib.idle_add(self._downloaded, None, fmt, str(e))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _downloaded(self, path, fmt, err):
+        self.update_btn.set_sensitive(True)
+        self._hide_message()
+        if err:
+            self.error(f"Download failed: {err}")
+            return False
+        cmd = update_check.install_command(fmt, path)
+        d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
+                              buttons=Gtk.ButtonsType.NONE, text="Downloaded")
+        d.format_secondary_text(
+            f"Saved as {path.replace(os.path.expanduser('~'), '~', 1)} "
+            "(checked against GitHub's checksum).\n\n"
+            f"Close the Fingerprint Manager, then install it in a terminal:\n    {cmd}\n\n"
+            "Enrolled fingerprints are kept.")
+        d.add_button("Open folder", 1)
+        d.add_button("Copy command", 2)
+        d.add_button("Close", Gtk.ResponseType.CLOSE)
+        d.set_default_response(2)
+        while True:
+            resp = d.run()
+            if resp == 1:
+                self._open_uri(GLib.filename_to_uri(os.path.dirname(path)), "the folder")
+            elif resp == 2:
+                Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(cmd, -1)
+                d.format_secondary_text(d.get_property("secondary-text").split("\n\n✓")[0]
+                                        + "\n\n✓ Command copied — paste it into a terminal.")
+                continue
+            break
+        d.destroy()
+        return False
 
     def on_about(self, *_):
         st = self.status or {}

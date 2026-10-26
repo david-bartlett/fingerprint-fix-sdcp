@@ -5,6 +5,7 @@
 - `uninstall.sh` always keeps enrolled fingerprints; it no longer offers to delete them (an accidental *y* also wiped the templates on the sensor). Delete fingers in the Fingerprint Manager instead
 - `.deb`: removing the package and installing it again turns the boot check and login check back on
 - README: installing and removing the packages comes first; `install.sh` for other distros and testing
+- Fingerprint Manager: checks for a new version each time it starts (instead of at most once a day). *Update* offers **Download**, which saves the package for this distro and release in Downloads, checks it against GitHub's checksum and shows the command to install it, and **View on GitHub**
 
 ## 1.1.2 — 2026-10-26
 
