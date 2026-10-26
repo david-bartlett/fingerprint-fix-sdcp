@@ -1896,19 +1896,29 @@ class Manager(Gtk.Window):
     def on_update(self, *_):
         new = self._new_version
         marker = (self.status or {}).get("marker") or ""
-        fmt = re.search(r"\((rpm|deb|pacman) package ", marker)
-        how = {
-            "rpm": "Download the .rpm from the release page, then install it over this one:\n"
-                   "    sudo dnf install ./fingerprint-fix-sdcp-*.rpm",
-            "deb": "Download the .deb from the release page, then install it over this one:\n"
-                   "    sudo apt install ./fingerprint-fix-sdcp_*.deb",
-            "pacman": "Download the .pkg.tar.zst from the release page and install it:\n"
-                      "    sudo pacman -U ./fingerprint-fix-sdcp-*.pkg.tar.zst\n"
-                      "or build its PKGBUILD (with fingerprint-fix-sdcp.install) with makepkg -si.",
-        }.get(fmt.group(1) if fmt else "",
-              "In your fingerprint-fix-sdcp folder:\n"
-              "    git pull\n    sudo bash install.sh\n"
-              "or download the release's source and run install.sh from it.")
+        # The install marker says how it was installed, e.g. "(deb package
+        # 1.0.0-1~ubuntu26.04)": each release has one package per distro
+        # release, so name the one for this system.
+        m = re.search(r"\((rpm|deb|pacman) package (\S+)\)", marker)
+        fmt, pkgver = (m.group(1), m.group(2)) if m else ("", "")
+        dist = (re.search(r"~([a-z]+[0-9.]+)$", pkgver) or re.search(r"\.(fc[0-9]+)$", pkgver))
+        dist = dist.group(1) if dist else ""
+        if fmt == "deb":
+            f = f"fingerprint-fix-sdcp_{new}-*{'~' + dist if dist else ''}_amd64.deb"
+            how = (f"Download {f} from the release page, then install it over this one:\n"
+                   f"    sudo apt install ./{f}")
+        elif fmt == "rpm":
+            f = f"fingerprint-fix-sdcp-{new}-*{'.' + dist if dist else ''}.x86_64.rpm"
+            how = (f"Download {f} from the release page, then install it over this one:\n"
+                   f"    sudo dnf install ./{f}")
+        elif fmt == "pacman":
+            how = ("Download the .pkg.tar.zst from the release page and install it:\n"
+                   "    sudo pacman -U ./fingerprint-fix-sdcp-*.pkg.tar.zst\n"
+                   "or build its PKGBUILD (with fingerprint-fix-sdcp.install) with makepkg -si.")
+        else:
+            how = ("In your fingerprint-fix-sdcp folder:\n"
+                   "    git pull\n    sudo bash install.sh\n"
+                   "or download the release's source and run install.sh from it.")
         d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE,
                               text=f"fingerprint-fix-sdcp {new} is available")
