@@ -679,7 +679,7 @@ class Manager(Gtk.Window):
         win_label.get_style_context().add_class("fpm-status")
         win_label.set_tooltip_text(WINDOWS_TIP)
         self.win_row.pack_start(win_label, True, True, 0)
-        win_ok = Gtk.Button(label="Got it", relief=Gtk.ReliefStyle.NONE, valign=Gtk.Align.CENTER)
+        win_ok = Gtk.Button(label="Got it", valign=Gtk.Align.CENTER)
         win_ok.set_tooltip_text("Hide this reminder (Menu → Remind me about Windows brings it back)")
         win_ok.connect("clicked", lambda *_: self.windows_item.set_active(False))
         self.win_row.pack_end(win_ok, False, False, 0)
