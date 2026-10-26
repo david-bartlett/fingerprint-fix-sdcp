@@ -78,7 +78,7 @@ debian_status() {
     local prof; prof=$(debian_profile)
     [[ -n "$prof" ]] \
         || { echo "unavailable|pam-auth-update|libpam-fprintd is not installed"; return; }
-    if grep -q pam_fprintd /etc/pam.d/common-auth 2>/dev/null; then
+    if grep -qE '^[[:space:]]*[^#[:space:]].*pam_fprintd' /etc/pam.d/common-auth 2>/dev/null; then
         echo "enabled|pam-auth-update|profile $prof"
     else
         echo "disabled|pam-auth-update|profile $prof"
@@ -107,7 +107,7 @@ arch_status() {
     local on=() off=() s f
     for s in sudo polkit-1; do
         f="/etc/pam.d/$s"
-        if [[ -f "$f" ]] && grep -q pam_fprintd "$f"; then on+=("$s"); else off+=("$s"); fi
+        if [[ -f "$f" ]] && grep -qE '^[[:space:]]*[^#[:space:]].*pam_fprintd' "$f"; then on+=("$s"); else off+=("$s"); fi
     done
     if [[ ${#off[@]} -eq 0 ]]; then echo "enabled|arch-pam.sh|sudo and polkit-1"
     elif [[ ${#on[@]} -eq 0 ]]; then echo "disabled|arch-pam.sh|sudo and polkit-1"

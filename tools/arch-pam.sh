@@ -80,7 +80,7 @@ enable_one() {
             return 0
         fi
     fi
-    if grep -q 'pam_fprintd' "$f"; then
+    if grep -qE '^[[:space:]]*[^#[:space:]].*pam_fprintd' "$f"; then
         info "$svc: fingerprint already enabled — left as it is"
         return 0
     fi
@@ -129,7 +129,7 @@ status_one() {
     local f="/etc/pam.d/$1"
     if [[ ! -f "$f" ]]; then echo "  $1: no /etc/pam.d file"
     elif grep -qxF "$MARK" "$f"; then echo "  $1: fingerprint enabled (by this fix)"
-    elif grep -q 'pam_fprintd' "$f"; then echo "  $1: fingerprint enabled (not by this fix)"
+    elif grep -qE '^[[:space:]]*[^#[:space:]].*pam_fprintd' "$f"; then echo "  $1: fingerprint enabled (not by this fix)"
     else echo "  $1: fingerprint not enabled"
     fi
 }
