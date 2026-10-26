@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Moving from an `install.sh` copy to a package: the old copy's cleanup refreshes its icon cache, so the Manager's icon isn't shown as a broken image
+- Moving from an `install.sh` copy to the `.rpm` or `.deb`: the Manager's icon is no longer shown as a broken image (the old copy's icon cache in `/usr/local` is refreshed — by the package for copies installed before 1.3.1, and by their own cleanup from 1.3.1 on)
 ## 1.3.0 — 2026-10-26
 
 - `install.sh` no longer looks for or migrates the old `fingerprint-fix` (nobody has it installed); its steps are renumbered
