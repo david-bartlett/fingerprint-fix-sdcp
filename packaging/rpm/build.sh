@@ -6,7 +6,7 @@
 #
 # Packages the checkout as it is now (tracked and new files) with the driver
 # commit named in DRIVER. The .rpm is written to packaging/out/.
-# Needs: sudo dnf install rpm-build gcc meson ninja-build patch glib2-devel \
+# Needs: sudo dnf install rpm-build gcc gcc-c++ meson ninja-build patch glib2-devel \
 #            libgusb-devel openssl-devel systemd-rpm-macros
 # =============================================================================
 set -euo pipefail
