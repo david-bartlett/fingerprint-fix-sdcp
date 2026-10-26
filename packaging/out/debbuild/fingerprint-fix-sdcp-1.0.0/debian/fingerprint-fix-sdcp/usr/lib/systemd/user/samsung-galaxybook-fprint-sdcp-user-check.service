@@ -1,7 +1,0 @@
-[Unit]
-Description=Samsung Galaxy Book — egismoc SDCP fingerprint fix login check
-# Started by samsung-galaxybook-fprint-sdcp-user-check.timer; no [Install] section on purpose.
-
-[Service]
-Type=oneshot
-ExecStart=/usr/lib/fingerprint-fix-sdcp/user-check.sh

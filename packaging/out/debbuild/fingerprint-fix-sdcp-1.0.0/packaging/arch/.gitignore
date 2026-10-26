@@ -1,6 +1,0 @@
-# makepkg output (packaging/arch)
-/src/
-/pkg/
-/libfprint-egismoc-sdcp/
-/*.pkg.tar.*
-/*.log
