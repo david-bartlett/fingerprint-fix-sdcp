@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.4.0 — 2026-10-26
 
 - When a distro libfprint update brings an SDCP driver for the reader, the monitor says so once and points to the Fingerprint Manager's new **Test your distro's driver** (menu), which checks one of your enrolled fingers with the distro's driver through fprintd — the way login would work without the fix — and gives the remove command if it matches. The Manager also shows this when it opens. The fix no longer removes itself (an `install.sh` copy did, without checking your fingerprints still worked)
 - The check for that is new (`lib/distro-driver-check.py`): it asks the distro's libfprint whether its driver for the reader is an SDCP driver, without stopping fprintd or touching the sensor. The monitor used to stop fprintd for up to 10 seconds and test only whether the sensor was listed — which the distro's older, non-SDCP egismoc driver passes on `1c7a:05a1`
