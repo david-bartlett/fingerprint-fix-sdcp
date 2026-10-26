@@ -521,7 +521,7 @@ class Manager(Gtk.Window):
         self.enrol_ok = False
         page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         top = Gtk.Box(spacing=6)
-        hint = Gtk.Label(label="Click to select · grey to enrol · double-click to test · right-click for more",
+        hint = Gtk.Label(label="Test: double-click · Enrol: click a grey finger · More: right-click",
                          xalign=0, wrap=True)
         hint.get_style_context().add_class("fpm-hint")
         top.pack_start(hint, True, True, 0)
@@ -587,9 +587,9 @@ class Manager(Gtk.Window):
         page.pack_start(top, False, False, 0)
         self.slots_bar = Gtk.ProgressBar()
         page.pack_start(self.slots_bar, False, False, 0)
-        hint = Gtk.Label(label=f"Grey = not used by {OS_NAME} (another distro, Windows Hello, or "
-                               "left over from a reinstall) · Removed here = can be restored · "
-                               "Dashed = free", xalign=0, wrap=True)
+        hint = Gtk.Label(label=f"Green: used by {OS_NAME} · Grey: another distro, Windows Hello "
+                               "or a reinstall · Removed here: can be restored · Dashed: free · "
+                               "More: right-click", xalign=0, wrap=True)
         hint.get_style_context().add_class("fpm-hint")
         page.pack_start(hint, False, False, 0)
         self.tcards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=True,

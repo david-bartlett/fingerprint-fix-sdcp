@@ -3,7 +3,9 @@
 ## Unreleased
 
 - Fingerprint Manager: the sensor line is labelled — *Sensor · Serial · Driver commit*, with the version at the end
+- Fingerprint Manager: clearer hints under the tabs — *Test: double-click · Enrol: click a grey finger · More: right-click*, and on the Sensor tab what green, grey, *Removed here* and dashed mean
 - Fingerprint Manager: shorter Update and Downloaded dialogs — the file to download, then what *Open folder* does and the install command (shown in a fixed-width font); *Open folder* is the default
+
 ## 1.3.2 — 2026-10-26
 
 - Fingerprint Manager on Arch: when the fix was installed with `install.sh`, the install command after **Download** removes that copy first (pacman refused to install over its files), keeping fingerprints and fingerprint login
