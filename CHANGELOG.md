@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 1.3.0 — 2026-10-26
 
 - `install.sh` no longer looks for or migrates the old `fingerprint-fix` (nobody has it installed); its steps are renumbered
