@@ -1,0 +1,40 @@
+#!/usr/bin/make -f
+# fingerprint-fix-sdcp — built by packaging/debian/build.sh, which puts this
+# folder in the source tree as debian/ and the driver source in driver/.
+
+include /usr/share/dpkg/pkg-info.mk
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+PKGDIR := $(CURDIR)/debian/fingerprint-fix-sdcp
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+
+override_dh_auto_build:
+	bash packaging/build-driver.sh driver
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	bash packaging/install-files.sh $(PKGDIR) driver $(DEB_VERSION) deb
+
+# The maintainer scripts enable the units themselves, only on first install.
+override_dh_installsystemd:
+
+override_dh_installsystemduser:
+
+# The driver is a private library, loaded by fprintd through its drop-in:
+# no shlibs file, no ldconfig trigger, and sensor-check's libfprint-2.so.2 is
+# the one in this package.
+override_dh_makeshlibs:
+
+override_dh_shlibdeps:
+	dh_shlibdeps -l$(PKGDIR)/usr/lib/fingerprint-fix-sdcp
+
+# No separate -dbgsym package: it would only clutter the release downloads.
+override_dh_strip:
+	dh_strip --no-automatic-dbgsym
+
+override_dh_auto_clean:
+	rm -rf driver/build driver/.fix-patches driver/.driver-date

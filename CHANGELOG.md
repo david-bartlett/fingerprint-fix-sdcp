@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Arch: admin dialogs (pkexec, graphical password prompts) take a typed password after at most 10 seconds instead of 30 (`arch-pam.sh`: polkit-1 gets `timeout=10`; package upgrades update existing lines)
-- Arch package: `packaging/arch/PKGBUILD` builds the fix as a pacman package, installed under `/usr`
+- Packages: `.rpm` (Fedora 44 / 45), `.deb` (Ubuntu 24.04 / 26.04 and Mint, Debian 13 and MX) and Arch, installed under `/usr` — one per distro release, built and attached to each GitHub release automatically, with a PKGBUILD for building from source (`packaging/README.md`)
 - Scripts and units that `install.sh` used to write inline are now real files in `packaging/files/`, shared by `install.sh` and the packages; their paths are in `lib/fixpaths.sh`. `install.sh` writes the same files as before
 - The Manager, its helper and the export / import tools find the fix whether it was installed by `install.sh` or as a package
 - First login after installing: a notification points to the Galaxy Book Fingerprint Manager when no finger is enrolled yet
