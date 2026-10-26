@@ -27,6 +27,38 @@ _store_libfprint_hash() {
     sha256sum "$lib" | awk '{print $1}' > "$_state/libfprint-system.sha256"
 }
 
+# Only for a Samsung with the Galaxy Book's Egis reader (USB 1c7a:05a5 / 05a1):
+# elsewhere fprintd needs the distro's drivers, which the fix's library lacks.
+# Same rule as packaging/files/fprintd-env.sh.in, install.sh and the Manager —
+# this script runs before the package's files exist, so it has its own copy.
+# Prints why not, and fails, on other hardware. pacman can't be stopped from
+# here, so pre_install only warns; fprintd-env.sh keeps other hardware on the
+# distro libfprint.
+fix_hardware_problem() {
+    _vendor=$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/board_vendor 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    case "$_vendor" in
+        *samsung*) ;;
+        *) echo "this computer is not a Samsung (vendor: $(head -n1 /sys/class/dmi/id/sys_vendor 2>/dev/null || echo unknown))"
+           return 1 ;;
+    esac
+    for _d in /sys/bus/usb/devices/*; do
+        [ "$(cat "$_d/idVendor" 2>/dev/null)" = 1c7a ] || continue
+        case "$(cat "$_d/idProduct" 2>/dev/null)" in 05a5|05a1) return 0 ;; esac
+    done
+    echo "that reader was not found on this computer"
+    return 1
+}
+
+pre_install() {
+    local why
+    [[ "${FPRINT_SDCP_FORCE:-0}" == 1 ]] && return 0
+    why=$(fix_hardware_problem) && return 0
+    echo "==> WARNING: fingerprint-fix-sdcp is only for Samsung Galaxy Books with the Egis"
+    echo "    fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1), but $why."
+    echo "    fprintd keeps using the distro's libfprint here, so any other fingerprint"
+    echo "    reader still works. Remove the package: sudo pacman -R fingerprint-fix-sdcp"
+}
+
 post_install() {
     _reload_fprintd
     systemctl enable "$_boot_check" >/dev/null 2>&1 || true
@@ -67,7 +99,8 @@ pre_remove() {
 }
 
 post_remove() {
-    rm -f /run/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf
+    rm -f /run/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf \
+          /run/samsung-galaxybook/fprintd-sdcp.env
     _reload_fprintd
     echo "==> fprintd uses the distro libfprint again. Enrolled fingerprints are kept"
     echo "    (/var/lib/fprint and on the sensor); reinstalling the package uses them again."

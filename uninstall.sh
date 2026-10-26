@@ -75,7 +75,7 @@ if grep -qsF "fingerprint-fix-sdcp (arch-pam.sh)" /etc/pam.d/sudo /etc/pam.d/pol
 fi
 
 step "Fingerprint Step 2: Restoring the distro libfprint for fprintd"
-rm -f "$FPRINT_DROPIN" "${FPRINT_DROPIN}.testing"
+rm -f "$FPRINT_DROPIN" "${FPRINT_DROPIN}.testing" "$FPRINT_ENV_SCRIPT" "$FPRINT_ENV_FILE"
 rmdir "$FPRINT_DROPIN_DIR" 2>/dev/null || true
 rm -rf "$FPRINT_LIB_DIR"       # includes the Galaxy Book Fingerprint Manager (manager/)
 # Fingerprint Manager's menu entry, command, icon and polkit policy

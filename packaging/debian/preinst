@@ -1,5 +1,40 @@
 #!/bin/sh
 set -e
+# Only for a Samsung with the Galaxy Book's Egis reader (USB 1c7a:05a5 / 05a1):
+# elsewhere fprintd needs the distro's drivers, which the fix's library lacks.
+# Same rule as packaging/files/fprintd-env.sh.in, install.sh and the Manager —
+# this script runs before the package's files exist, so it has its own copy.
+# Prints why not, and fails, on other hardware.
+fix_hardware_problem() {
+    _vendor=$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/board_vendor 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    case "$_vendor" in
+        *samsung*) ;;
+        *) echo "this computer is not a Samsung (vendor: $(head -n1 /sys/class/dmi/id/sys_vendor 2>/dev/null || echo unknown))"
+           return 1 ;;
+    esac
+    for _d in /sys/bus/usb/devices/*; do
+        [ "$(cat "$_d/idVendor" 2>/dev/null)" = 1c7a ] || continue
+        case "$(cat "$_d/idProduct" 2>/dev/null)" in 05a5|05a1) return 0 ;; esac
+    done
+    echo "that reader was not found on this computer"
+    return 1
+}
+
+if [ "$1" = install ]; then
+    if [ "${FPRINT_SDCP_FORCE:-0}" != 1 ] && ! _why=$(fix_hardware_problem); then
+        cat >&2 <<EOF
+
+fingerprint-fix-sdcp is only for Samsung Galaxy Books with the Egis fingerprint
+reader (USB 1c7a:05a5 or 1c7a:05a1), but $_why.
+Nothing was installed: any other fingerprint reader works with your distro's
+own driver. To install anyway (e.g. building a system image for a Galaxy Book):
+  sudo FPRINT_SDCP_FORCE=1 apt install ./fingerprint-fix-sdcp_*.deb
+
+EOF
+        exit 1
+    fi
+fi
+
 # First install over a copy made by install.sh: remove that copy (its own
 # cleanup; enrolled fingerprints are kept), or its drop-in in /etc would
 # override this package's.

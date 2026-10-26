@@ -36,6 +36,8 @@ DRIVER=$(grep -v '^#' "$REPO/DRIVER" | tr -d '[:space:]')
 install -Dm755 "$SRC/build/libfprint/libfprint-2.so.2.0.0" "$D$FPRINT_LIB"
 install -Dm755 "$SRC/build/sensor-check" "$D$FPRINT_SENSOR_CHECK"
 put dropin.conf.in "$FPRINT_DROPIN"
+# Run by the drop-in each time fprintd starts: the driver only with the reader.
+put fprintd-env.sh.in "$FPRINT_ENV_SCRIPT" 755
 
 # Install marker, in install.sh's format (the Manager shows it):
 # '<driver commit> <driver date> <source> … fingerprint-fix-sdcp <version>'
