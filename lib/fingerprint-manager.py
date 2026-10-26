@@ -178,6 +178,7 @@ menu.fpm-menu separator.fpm-menu-sep { margin: 2px 6px; min-height: 0; padding: 
 .fpm-ok { background-color: alpha(#26a269, 0.18); color: #26a269; }
 .fpm-dead { background-color: alpha(#e01b24, 0.16); color: #e01b24; }
 .fpm-unknown { background-color: alpha(@theme_fg_color, 0.10); }
+.fpm-removed { background-color: alpha(#e5a50a, 0.20); color: #9c6e00; }
 flowbox.fpm-cards, list.fpm-list { background-color: transparent; }
 flowbox.fpm-cards flowboxchild { padding: 3px; background-color: transparent; }
 flowbox.fpm-cards flowboxchild:selected { background-color: transparent; }
@@ -550,8 +551,9 @@ class Manager(Gtk.Window):
         page.pack_start(top, False, False, 0)
         self.slots_bar = Gtk.ProgressBar()
         page.pack_start(self.slots_bar, False, False, 0)
-        hint = Gtk.Label(label=f"Grey = not used by {OS_NAME}: another distro, Windows Hello, or "
-                               "left over from a reinstall. Dashed = free.", xalign=0, wrap=True)
+        hint = Gtk.Label(label=f"Grey = not used by {OS_NAME} (another distro, Windows Hello, or "
+                               "left over from a reinstall) · Removed here = can be restored · "
+                               "Dashed = free", xalign=0, wrap=True)
         hint.get_style_context().add_class("fpm-hint")
         page.pack_start(hint, False, False, 0)
         self.tcards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=True,
@@ -731,6 +733,19 @@ class Manager(Gtk.Window):
             self._mark(w, getattr(w, "tid", None) in self.tsel)
         self._update_buttons()
 
+    def _tpl_tip(self, t):
+        """Hover text for a template on the Sensor tab."""
+        if t["used_by"]:
+            return f"Template {t['id']} — used by {', '.join(t['used_by'])}"
+        rm = t.get("removed")
+        if rm:
+            how = "removed from" if rm["kind"] == "removed" else "replaced on"
+            return (f"Template {t['id']} — {rm['user']}'s {long_finger(rm['name']).lower()}, "
+                    f"{how} {OS_NAME} on {nice_date(rm['date'], True)}. The template is still "
+                    "on the sensor: right-click to restore it, or delete it to free the slot.")
+        return (f"Template {t['id']} — not used by {OS_NAME}: probably another distro; "
+                "it could also be Windows Hello's own, or left over from a reinstall")
+
     def _fill_templates(self, templates):
         self.templates = templates
         for w in self.tcards.get_children() + self.trows.get_children():
@@ -746,6 +761,12 @@ class Manager(Gtk.Window):
                 title = short_finger(owners[0][1]) if len(owners[0]) > 1 else owners[0][0]
                 sub = ", ".join(sorted({o[0] for o in owners}))
                 long_title = long_finger(owners[0][1]) if len(owners[0]) > 1 else title
+            elif t.get("removed"):
+                rm = t["removed"]
+                kind, pill = "unknown", "Removed here"
+                title, long_title = short_finger(rm["name"]), long_finger(rm["name"])
+                sub = (f"Removed from {OS_NAME}" if rm["kind"] == "removed"
+                       else f"Replaced on {OS_NAME}")
             else:
                 kind, pill = "unknown", "Not used here"
                 title, long_title = "Unknown", "Unknown template"
@@ -756,17 +777,15 @@ class Manager(Gtk.Window):
             box.pack_start(FingerprintIcon(kind, 40), False, False, 2)
             box.pack_start(self._label(title, "fpm-name", justify=Gtk.Justification.CENTER,
                                        wrap=True, max_width_chars=8), False, False, 0)
-            box.pack_start(self._label(sub, "dim-label", "fpm-small", justify=Gtk.Justification.CENTER,
+            card_sub = t["removed"]["user"] if t.get("removed") else sub   # cards are narrow
+            box.pack_start(self._label(card_sub, "dim-label", "fpm-small", justify=Gtk.Justification.CENTER,
                                        ellipsize=Pango.EllipsizeMode.END, max_width_chars=10),
                            False, False, 0)
-            box.pack_start(self._pill(kind, pill), False, False, 4)
+            box.pack_start(self._pill("removed" if t.get("removed") else kind, pill),
+                           False, False, 4)
             child = Gtk.FlowBoxChild()
             child.tid = t["id"]
-            child.set_tooltip_text(f"Template {t['id']}"
-                                   + (f" — used by {', '.join(t['used_by'])}" if t["used_by"]
-                                      else f" — not used by {OS_NAME}: probably another distro; "
-                                           "it could also be Windows Hello's own, or left over "
-                                           "from a reinstall"))
+            child.set_tooltip_text(self._tpl_tip(t))
             child.add(box)
             self.tcards.add(child)
             # row
@@ -775,13 +794,16 @@ class Manager(Gtk.Window):
             hb.pack_start(FingerprintIcon(kind, 32), False, False, 0)
             texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
             texts.pack_start(self._label(long_title, "fpm-name", xalign=0), False, False, 0)
-            detail = sub if owners else "Another distro, Windows Hello, or left over from a reinstall?"
+            detail = (sub if owners or t.get("removed")
+                      else "Another distro, Windows Hello, or left over from a reinstall?")
             texts.pack_start(self._label(f"{detail} · template {t['id']}", "dim-label", "fpm-small",
                                          xalign=0, ellipsize=Pango.EllipsizeMode.END), False, False, 0)
             hb.pack_start(texts, True, True, 0)
-            hb.pack_start(self._pill(kind, pill), False, False, 0)
+            hb.pack_start(self._pill("removed" if t.get("removed") else kind, pill),
+                          False, False, 0)
             row = Gtk.ListBoxRow()
             row.tid = t["id"]
+            row.set_tooltip_text(self._tpl_tip(t))
             row.add(hb)
             self.trows.add(row)
         # free slots (cards only)
@@ -929,8 +951,15 @@ class Manager(Gtk.Window):
         t = next((t for t in self.templates if t["id"] == tid), {})
         keys = [tuple(k) for k in t.get("keys", [])]
         entries = []
+        rm = t.get("removed")
         if keys:
             entries.append(("Show finger", lambda: self.show_finger(keys[0]), True, None))
+        elif rm:
+            entries.append((f"Restore to {OS_NAME}",
+                            lambda: self.undo_remove([rm["path"]], what="Restored"),
+                            rm["restorable"],
+                            None if rm["restorable"] else
+                            f"That finger is enrolled on {OS_NAME} again"))
         entries.append(("Delete from sensor…", lambda: self.on_delete_templates(None),
                         self.status["features"].get("STORAGE_DELETE", False), None))
         return self._popup(entries, event)
