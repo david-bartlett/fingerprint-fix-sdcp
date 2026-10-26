@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 1.4.1 — 2026-10-26
 
 - Fingerprint Manager: no lines between the options of the right-click menus
