@@ -24,23 +24,14 @@ warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 step()  { echo -e "\n${BLUE}══ $* ${NC}"; }
 
-FPRINT_LIB_DIR="/usr/local/lib/libfprint-egismoc-sdcp"
-FPRINT_DROPIN_DIR="/etc/systemd/system/fprintd.service.d"
-FPRINT_DROPIN="${FPRINT_DROPIN_DIR}/samsung-galaxybook-egismoc-sdcp.conf"
-FPRINT_MARKER="/etc/samsung-galaxybook-egismoc-sdcp.installed"
-FPRINT_STATE_DIR="/var/lib/samsung-galaxybook"
-FPRINT_SYSLIB_HASH="${FPRINT_STATE_DIR}/libfprint-system.sha256"
-FPRINT_MONITOR_SVC="samsung-galaxybook-fprint-sdcp-monitor.service"
-FPRINT_USER_CHECK_SVC="samsung-galaxybook-fprint-sdcp-user-check.service"
-FPRINT_USER_CHECK_TIMER="samsung-galaxybook-fprint-sdcp-user-check.timer"
-FPRINT_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-monitor.sh"
-FPRINT_USER_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-user-check.sh"
-FPRINT_CLEANUP="/usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh"
-FPRINT_POLKIT_RULE="/etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
-FPRINT_BOOT_CHECK_SCRIPT="/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh"
-FPRINT_BOOT_CHECK_SVC="samsung-galaxybook-fprint-sdcp-boot-check.service"
-FPRINT_BOOT_STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
-FPRINT_REMOVED_DIR="${FPRINT_STATE_DIR}/removed-fingerprints"
+# Paths of an install.sh install (the packages remove themselves).
+# shellcheck source=lib/fixpaths.sh
+. "$SCRIPT_DIR/lib/fixpaths.sh" 2>/dev/null \
+    || error "lib/fixpaths.sh not found — run uninstall.sh from the complete fingerprint-fix-sdcp folder."
+fix_layout local
+if [[ -f "$FIX_PACKAGE_MARKER" && ! -f "$FPRINT_MARKER" ]]; then
+    error "fingerprint-fix-sdcp is installed as a package — remove it with your package\n  manager instead (enrolled fingerprints are kept):\n  sudo pacman -R / dnf remove / apt remove fingerprint-fix-sdcp"
+fi
 
 echo
 echo "╔════════════════════════════════════════════════════════════╗"
@@ -106,11 +97,7 @@ rm -f "$FPRINT_DROPIN" "${FPRINT_DROPIN}.testing"
 rmdir "$FPRINT_DROPIN_DIR" 2>/dev/null || true
 rm -rf "$FPRINT_LIB_DIR"       # includes the Galaxy Book Fingerprint Manager (manager/)
 # Fingerprint Manager's menu entry, command, icon and polkit policy
-MGR_ID="galaxybook-fingerprint-manager"
-rm -f "/usr/local/bin/${MGR_ID}" \
-      "/usr/share/applications/io.github.david_bartlett.GalaxyBookFingerprintManager.desktop" \
-      "/usr/local/share/icons/hicolor/scalable/apps/${MGR_ID}.svg" \
-      "/usr/share/polkit-1/actions/io.github.david-bartlett.${MGR_ID}.policy"
+rm -f "$MGR_BIN" "$MGR_DESKTOP" "$MGR_ICON" "$MGR_POLICY"
 # Refresh the icon cache only if there is one (none is fine: GTK then reads the folder).
 [[ -f /usr/local/share/icons/hicolor/icon-theme.cache ]] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
     && gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor 2>/dev/null || true
@@ -123,8 +110,8 @@ info "✓ fprintd now uses the distro libfprint (it was never replaced)"
 # ── Step 3: Remove the monitor ────────────────────────────────────────────────
 step "Fingerprint Step 3: Removing the fingerprint monitor"
 systemctl disable "$FPRINT_BOOT_CHECK_SVC" 2>/dev/null || true
-rm -f "$FPRINT_POLKIT_RULE" "/etc/systemd/system/${FPRINT_MONITOR_SVC}" \
-      "/etc/systemd/system/${FPRINT_BOOT_CHECK_SVC}"
+rm -f "$FPRINT_POLKIT_RULE" "${FPRINT_UNIT_DIR}/${FPRINT_MONITOR_SVC}" \
+      "${FPRINT_UNIT_DIR}/${FPRINT_BOOT_CHECK_SVC}"
 systemctl daemon-reload 2>/dev/null || true
 for USER_HOME in /home/*/; do
     USER_NAME=$(basename "$USER_HOME")
@@ -138,7 +125,8 @@ for USER_HOME in /home/*/; do
     fi
     rm -f "$USER_TIMER" "$USER_SVC" \
         "${USER_HOME}.config/systemd/user/graphical-session.target.wants/${FPRINT_USER_CHECK_TIMER}" \
-        "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-boot-shown"
+        "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-boot-shown" \
+        "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-welcome-shown"
     [[ -n "$USER_ID" ]] && sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/${USER_ID}" \
         systemctl --user daemon-reload 2>/dev/null || true
     info "Removed user timer and service for $USER_NAME"
@@ -159,9 +147,7 @@ done
 if $_session_helper_in_use; then
     info "Graphical session helper kept — still used by another fix"
 else
-    rm -f /etc/systemd/user/samsung-galaxybook-session.target \
-          /usr/local/bin/samsung-galaxybook-session-start.sh \
-          /etc/xdg/autostart/samsung-galaxybook-session.desktop
+    rm -f "$SESSION_HELPER_TARGET" "$SESSION_HELPER_SCRIPT" "$SESSION_HELPER_AUTOSTART"
     rmdir "$SESSION_HELPER_USERS" /etc/samsung-galaxybook 2>/dev/null || true
     info "Removed graphical session helper"
 fi
