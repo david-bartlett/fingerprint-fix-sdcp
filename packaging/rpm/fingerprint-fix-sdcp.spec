@@ -91,6 +91,11 @@ if [ "$1" -eq 1 ] && [ -f /etc/samsung-galaxybook-egismoc-sdcp.installed ] \
         && [ -x /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh ]; then
     echo "Removing the copy of fingerprint-fix-sdcp installed with install.sh (fingerprints are kept)"
     /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh || :
+    # Its cleanup (before 1.3.1) removed the Manager's icon from /usr/local but
+    # left that folder's icon cache listing it, so GTK showed a broken image
+    # instead of this package's icon: refresh that cache.
+    [ -f /usr/local/share/icons/hicolor/icon-theme.cache ] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
+        && gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor 2>/dev/null || :
 fi
 
 %post
