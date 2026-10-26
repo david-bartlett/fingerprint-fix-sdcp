@@ -2030,7 +2030,7 @@ class Manager(Gtk.Window):
         while True:
             resp = d.run()
             if resp == 1:                            # open the folder, then quit like Quit Manager
-                self._open_uri(GLib.filename_to_uri(os.path.dirname(path)), "the folder")
+                self._open_folder_detached(os.path.dirname(path))
             if resp in (1, 2, 3):
                 clipboard.set_text(cmd, -1)
                 # Hand it to the clipboard manager, so it is still there to paste
@@ -2043,9 +2043,21 @@ class Manager(Gtk.Window):
             break
         d.destroy()
         if resp in (1, 3):
-            # The package replaces the Manager's files and restarts fprintd.
-            self.close()
+            # The package replaces the Manager's files and restarts fprintd. A
+            # moment's wait lets the file manager come up first.
+            GLib.timeout_add(700, lambda: self.close() and False)
         return False
+
+    def _open_folder_detached(self, folder):
+        """Open a folder in the file manager as its own process, so it still
+        opens when the Manager quits straight afterwards (show_uri hands the
+        request over asynchronously and is lost if the Manager exits first)."""
+        try:
+            subprocess.Popen(["xdg-open", folder], start_new_session=True,
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+        except OSError:                              # no xdg-open: GTK's way
+            self._open_uri(GLib.filename_to_uri(folder), "the folder")
 
     # ── a new version installed while the Manager is open ──
     def _watch_install(self):
