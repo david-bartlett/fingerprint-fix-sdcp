@@ -20,7 +20,7 @@ Each build packages this checkout as it is now (tracked and new files) with the 
 
 ```bash
 # Fedora
-sudo dnf install rpm-build gcc meson ninja-build patch glib2-devel libgusb-devel openssl-devel systemd-rpm-macros
+sudo dnf install rpm-build gcc gcc-c++ meson ninja-build patch glib2-devel libgusb-devel openssl-devel systemd-rpm-macros
 bash packaging/rpm/build.sh
 sudo dnf install ./packaging/out/fingerprint-fix-sdcp-*.rpm
 
