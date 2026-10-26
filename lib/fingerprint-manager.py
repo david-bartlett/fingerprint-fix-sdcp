@@ -2057,7 +2057,7 @@ class Manager(Gtk.Window):
         if asset and "files" in asset:
             how = (f"Download the release's {tt('PKGBUILD')} to {tt('~/Downloads/' + asset['folder'])}, "
                    f"then build and install it with {tt('makepkg -si')} "
-                   f"(needs {tt('base-devel')} and {tt('git')}; it takes a minute or two).")
+                   f"(needs {tt('base-devel')} and {tt('git')}; it only takes seconds).")
         elif asset:
             how = f"Download {tt(asset['name'])} to your {tt('~/Downloads')} folder."
         elif installed_fmt:
@@ -2134,7 +2134,7 @@ class Manager(Gtk.Window):
                     "copies the build command to the clipboard.\n\n"
                     "- <b>To build and install</b> — open a terminal and paste the command, or run:\n"
                     + tt(cmd) + "\n"
-                    "It builds the driver (a minute or two), then asks for your password to install.")
+                    "It builds the driver (a few seconds), then asks for your password to install.")
             opened = path
         else:
             text = ("- <b>Open folder</b> — opens your " + tt("~/Downloads") + " folder and copies "

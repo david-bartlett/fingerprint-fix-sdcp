@@ -90,7 +90,7 @@ The packages are only for a Samsung with the Egis reader (`1c7a:05a5` / `1c7a:05
 
 #### Arch-based distros
 
-Arch is rolling, so the fix is built on your laptop against your current libraries rather than downloaded ready-made (the usual way on Arch, as with the AUR). It takes a minute or two:
+Arch is rolling, so the fix is built on your laptop against your current libraries rather than downloaded ready-made (the usual way on Arch, as with the AUR). Only the one driver is built, so it takes seconds:
 
 ```bash
 sudo pacman -S --needed base-devel git
