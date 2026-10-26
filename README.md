@@ -3,9 +3,6 @@
 Fingerprint login for **Samsung Galaxy Book 4 / Book 5 Pro** (and Book 3 / Book 4 with the `05a1` reader) on Linux.
 
 Enables fingerprint authentication on Samsung Galaxy Book laptops with an EgisTec SDCP fingerprint sensor. It builds **only the egismoc driver** from [libfprint-egismoc-sdcp](https://github.com/david-bartlett/libfprint-egismoc-sdcp) (a fork of [Abdallah Alkanani's repo](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp)), and points fprintd at it. **The distro's libfprint is not replaced.**
-
-It replaces the older `fingerprint-fix` (part of Samsung Galaxy Book Fixes), which built the unmerged `feature/sdcp-v2` branch and installed it over the system libfprint. Installing this fix migrates an existing `fingerprint-fix` install automatically, keeping enrolled fingerprints.
-
 ## What's in This Repository
 
 <details>
@@ -48,7 +45,7 @@ See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc
 
 | USB ID | Galaxy Book Model | Status |
 | --- | --- | --- |
-| `1c7a:05a5` | Galaxy Book 4 / Book 5 Pro | **Confirmed working** on Galaxy Book 5 Pro 14" (940XHA): Fedora 45, Linux Mint 27 (beta), Linux Mint 22.3 (OpenSSL 3.0.13 — needs commit 3b0ee1f or later), Ubuntu 26.04, MX Linux (Xfce) and CachyOS (KDE), 2026-10-24/25 — including an existing enrolment migrated from `fingerprint-fix` without re-enrolling |
+| `1c7a:05a5` | Galaxy Book 4 / Book 5 Pro | **Confirmed working** on Galaxy Book 5 Pro 14" (940XHA): Fedora 45, Linux Mint 27 (beta), Linux Mint 22.3 (OpenSSL 3.0.13 — needs commit 3b0ee1f or later), Ubuntu 26.04, MX Linux (Xfce) and CachyOS (KDE), 2026-10-24/25 |
 | `1c7a:05a1` | Galaxy Book 3 / Book 4 (ETU905A80-E) | **Confirmed working** on a Galaxy Book 4 by [@gabaritei88](https://github.com/gabaritei88) (firmware 9050.1.2.33): Zorin OS 18.1 (Ubuntu 24.04 base, OpenSSL 3.0.13 — needs commit 3b0ee1f or later), driver installed for fprintd only, enrol, verify and PAM login working; the 4 existing Windows Hello templates on the sensor were kept, 2026-10-26. Also tested upstream with this build (597 logins through `pam_fprintd`) |
 
 Find your reader's ID with `lsusb | grep 1c7a`.
@@ -59,14 +56,13 @@ Got it working on a model or distro not listed here? Please tell us with the [**
 
 1. Checks the sensor is present
 2. Installs build dependencies, fprintd and fprintd's PAM module
-3. **Migrates from the old `fingerprint-fix`** if it is installed: removes its monitor and restores the distro libfprint, **keeping enrolled fingerprints** (both builds use the same SDCP on-disk format)
-4. Exits without changes if the distro libfprint already handles the sensor (override with `FORCE=1`)
-5. Fetches the newest commit of `egismoc-sdcp` from the fork and builds the egismoc driver only (`-Ddrivers=egismoc -Dtod=false`)
-6. Installs the library to `/usr/local/lib/libfprint-egismoc-sdcp/` and adds a systemd drop-in so **only fprintd** loads it (`LD_LIBRARY_PATH`)
-7. Turns on fingerprint for login and sudo with `fingerprint-pam.sh` (Fedora: authselect; Ubuntu/Debian/MX: pam-auth-update; Mint: its own `fingwit` profile; Arch-based: asks whether to add fingerprint to sudo and polkit — see below)
-8. Installs a login-time monitor and a boot-time sensor check (see below)
-9. Offers to import fingerprints exported from another install on this laptop, if `~/fingerprint-export.tgz` exists (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
-10. Installs the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) and adds it to the app menu, then offers to open it: `Open the Galaxy Book Fingerprint Manager now? [Y/n]` (skipped after 30 seconds, or when there is no terminal or no desktop session; `FPRINT_OPEN_MANAGER=1` or `=0` answers in advance). It opens as you, in your desktop session — never as root
+3. Exits without changes if the distro libfprint already handles the sensor (override with `FORCE=1`)
+4. Fetches the driver commit named in `DRIVER` (the one this release was tested with) from the fork and builds the egismoc driver only (`-Ddrivers=egismoc -Dtod=false`)
+5. Installs the library to `/usr/local/lib/libfprint-egismoc-sdcp/` and adds a systemd drop-in so **only fprintd** loads it (`LD_LIBRARY_PATH`)
+6. Turns on fingerprint for login and sudo with `fingerprint-pam.sh` (Fedora: authselect; Ubuntu/Debian/MX: pam-auth-update; Mint: its own `fingwit` profile; Arch-based: asks whether to add fingerprint to sudo and polkit — see below)
+7. Installs a login-time monitor and a boot-time sensor check (see below)
+8. Offers to import fingerprints exported from another install on this laptop, if `~/fingerprint-export.tgz` exists (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
+9. Installs the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) and adds it to the app menu, then offers to open it: `Open the Galaxy Book Fingerprint Manager now? [Y/n]` (skipped after 30 seconds, or when there is no terminal or no desktop session; `FPRINT_OPEN_MANAGER=1` or `=0` answers in advance). It opens as you, in your desktop session — never as root
 
 It does **not** delete `/var/lib/fprint`. Deleting fprintd's records by hand leaves the templates on the sensor as orphans.
 

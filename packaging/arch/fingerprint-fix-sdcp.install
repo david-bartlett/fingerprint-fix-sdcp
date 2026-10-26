@@ -39,11 +39,6 @@ post_install() {
         echo "    Remove it, keeping your fingerprints, from the fingerprint-fix-sdcp folder:"
         echo "      sudo bash uninstall.sh"
     fi
-    if [[ -f /etc/samsung-galaxybook-libfprint-sdcp-v2.installed ]]; then
-        echo "==> WARNING: the old fingerprint-fix (built over the system libfprint) is installed."
-        echo "    Remove it: sudo /usr/local/bin/samsung-galaxybook-libfprint-cleanup.sh"
-        echo "    then reinstall the distro library: sudo pacman -S libfprint"
-    fi
 
     echo "==> Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger"
     echo "    and turn on fingerprint for sudo and admin prompts."
