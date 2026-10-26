@@ -1,1 +1,4 @@
 __pycache__/
+
+# Package builds (packaging/rpm/build.sh, packaging/debian/build.sh)
+/packaging/out/

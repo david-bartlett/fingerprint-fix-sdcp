@@ -1,0 +1,44 @@
+# Maintainer: David Bartlett <22402006+david-bartlett@users.noreply.github.com>
+#
+# fingerprint-fix-sdcp @VERSION@ for Arch and Arch-based distros (CachyOS, EndeavourOS, …)
+# Attached to the GitHub release; builds that release, with its tested driver.
+#
+#   Put this file and fingerprint-fix-sdcp.install in one folder, then:
+#   makepkg -si
+#
+# Written by .github/workflows/release-packages.yml from
+# packaging/arch/PKGBUILD.release.in — change that file, not a copy.
+
+pkgname=fingerprint-fix-sdcp
+pkgver=@VERSION@
+pkgrel=1
+_driver=@DRIVER@
+pkgdesc="Egis match-on-chip fingerprint reader fix for Samsung Galaxy Book (egismoc SDCP driver for fprintd), with the Galaxy Book Fingerprint Manager"
+arch=('x86_64')
+url="https://github.com/david-bartlett/fingerprint-fix-sdcp"
+license=('GPL-2.0-or-later' 'LGPL-2.1-or-later')   # the fix; the driver (libfprint)
+depends=(
+    'fprintd' 'libfprint' 'glib2' 'libgusb' 'openssl'
+    'bash' 'systemd' 'usbutils' 'libnotify' 'polkit'
+    'python' 'python-gobject' 'python-cairo' 'gtk3'
+)
+makedepends=('git' 'meson' 'ninja' 'pkgconf' 'glib2-devel' 'patch')
+install=fingerprint-fix-sdcp.install
+source=("$pkgname-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz"
+        "libfprint-egismoc-sdcp::git+https://github.com/david-bartlett/libfprint-egismoc-sdcp.git#commit=$_driver")
+sha256sums=('@SHA256@'
+            'SKIP')            # a git source is pinned by its commit id
+
+build() {
+    bash "$srcdir/$pkgname-$pkgver/packaging/build-driver.sh" "$srcdir/libfprint-egismoc-sdcp"
+}
+
+package() {
+    local repo="$srcdir/$pkgname-$pkgver"
+    bash "$repo/packaging/install-files.sh" "$pkgdir" "$srcdir/libfprint-egismoc-sdcp" \
+        "$pkgver-$pkgrel" pacman
+    # polkit's rules folder is root:polkitd 750 on Arch
+    chmod 750 "$pkgdir/usr/share/polkit-1/rules.d"
+    chgrp 102 "$pkgdir/usr/share/polkit-1/rules.d"
+    install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" "$repo/README.md" "$repo/CHANGELOG.md"
+}

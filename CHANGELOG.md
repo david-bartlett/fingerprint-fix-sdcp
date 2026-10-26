@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Arch package: `packaging/arch/PKGBUILD` builds the fix as a pacman package, installed under `/usr`
+- Packages: `.rpm` (Fedora), `.deb` (Ubuntu, Mint, Debian 13 / MX 25) and Arch, installed under `/usr`; built and attached to each GitHub release automatically, with a PKGBUILD for building from source (`packaging/README.md`)
 - Scripts and units that `install.sh` used to write inline are now real files in `packaging/files/`, shared by `install.sh` and the packages; their paths are in `lib/fixpaths.sh`. `install.sh` writes the same files as before
 - The Manager, its helper and the export / import tools find the fix whether it was installed by `install.sh` or as a package
 - First login after installing: a notification points to the Galaxy Book Fingerprint Manager when no finger is enrolled yet
