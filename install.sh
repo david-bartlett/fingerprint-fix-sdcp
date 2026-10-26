@@ -19,7 +19,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 for _f in lib/sensor-check.c lib/fingerprint-manager.py lib/fingerprint-manager-helper.py \
           lib/galaxybook-fingerprint-manager.svg fingerprint-manager.sh \
           tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh \
-          lib/fixpaths.sh lib/update_check.py lib/notify-open-manager.sh packaging/render.sh packaging/files/monitor.sh.in \
+          lib/fixpaths.sh lib/update_check.py lib/notify-open-manager.sh lib/distro-driver-check.py \
+          packaging/render.sh packaging/files/monitor.sh.in \
           packaging/files/fprintd-env.sh.in packaging/files/dropin.conf.in \
           VERSION DRIVER; do
     [[ -f "$SCRIPT_DIR/$_f" ]] || { echo "Missing $SCRIPT_DIR/$_f — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
@@ -172,13 +173,13 @@ if [[ "$DISTRO" == "fedora" ]]; then
     dnf install -y \
         git gcc gcc-c++ meson ninja-build pkgconf-pkg-config \
         glib2-devel libgusb-devel cairo-devel openssl-devel systemd-devel \
-        fprintd fprintd-pam libfprint libnotify \
+        fprintd fprintd-pam libfprint libnotify python3-gobject \
         || error "Failed to install dependencies via dnf.\n  Check your internet connection and that Fedora repos are reachable (dnf repolist)."
 elif [[ "$DISTRO" == "arch" ]]; then
     pacman -S --noconfirm --needed \
         git base-devel meson ninja pkgconf \
         glib2 glib2-devel libgusb cairo openssl systemd \
-        fprintd libfprint libnotify \
+        fprintd libfprint libnotify python-gobject \
         || error "Failed to install dependencies via pacman.\n  Check your internet connection and that Arch repos are reachable (pacman -Sy)."
 else
     apt-get update -q \
@@ -186,27 +187,29 @@ else
     apt-get install -y \
         git build-essential meson ninja-build pkg-config \
         libglib2.0-dev libgusb-dev libcairo2-dev libssl-dev systemd-dev \
-        fprintd libfprint-2-2 libpam-fprintd libnotify-bin \
+        fprintd libfprint-2-2 libpam-fprintd libnotify-bin python3-gi gir1.2-fprint-2.0 \
         || error "Failed to install dependencies via apt-get.\n  Check your internet connection and that the repos are reachable."
 fi
 info "Dependencies installed"
 
 # ── Step 3: Check if the distro libfprint already supports our sensor ─────────
 step "Fingerprint Step 3: Checking if the distro libfprint already supports the sensor"
-# Skipped on a reinstall (our drop-in is active).
+# Skipped on a reinstall (our drop-in is active). Only an SDCP driver counts:
+# the distro's older egismoc driver also claims 1c7a:05a1, but without SDCP it
+# can't keep prints on these readers.
 if [[ -f "$FPRINT_DROPIN" || "${FORCE:-0}" == "1" ]]; then
     info "Skipped (reinstall or FORCE=1)"
-# Only 3 seconds here: the distro libfprint can't use these sensors, so this
-# would otherwise always wait the full 10. Missing a slow start just means the
-# fix is installed anyway, which is harmless.
-elif check_fprintd_functional 3; then
-    info "✓ fprintd can already see the sensor with the distro libfprint."
-    info "  This fix is probably not needed. If fingerprint login still does not"
-    info "  work (enrolled prints not kept, or verify always fails), install it"
-    info "  anyway with:  sudo FORCE=1 bash install.sh"
-    exit 0
 else
-    info "Distro libfprint cannot use the sensor — proceeding with the fix"
+    case "$(env -u LD_LIBRARY_PATH python3 "$SCRIPT_DIR/lib/distro-driver-check.py" 2>/dev/null)" in
+        sdcp)
+            info "✓ The distro libfprint already has an SDCP driver for this sensor."
+            info "  This fix is probably not needed. If fingerprint login still does not"
+            info "  work, install it anyway with:  sudo FORCE=1 bash install.sh"
+            exit 0 ;;
+        plain) info "Distro libfprint handles the sensor without SDCP — proceeding with the fix" ;;
+        none)  info "Distro libfprint has no driver for the sensor — proceeding with the fix" ;;
+        *)     warn "Could not check the distro libfprint — proceeding with the fix" ;;
+    esac
 fi
 
 # ── Step 4: Fetch the source ──────────────────────────────────────────────────
@@ -520,7 +523,8 @@ install -m 644 -o root -g root "$SCRIPT_DIR/VERSION" "$MGR_DIR/"
 install -m 755 -o root -g root "$SCRIPT_DIR/lib/fingerprint-manager.py" \
     "$SCRIPT_DIR/lib/fingerprint-manager-helper.py" "$MGR_DIR/lib/"
 install -m 644 -o root -g root "$SCRIPT_DIR/lib/fixpaths.sh" "$MGR_DIR/lib/"
-install -m 755 -o root -g root "$SCRIPT_DIR/lib/update_check.py" "$SCRIPT_DIR/lib/notify-open-manager.sh" "$MGR_DIR/lib/"
+install -m 755 -o root -g root "$SCRIPT_DIR/lib/update_check.py" "$SCRIPT_DIR/lib/notify-open-manager.sh" \
+    "$SCRIPT_DIR/lib/distro-driver-check.py" "$MGR_DIR/lib/"
 install -m 755 -o root -g root "$SCRIPT_DIR"/tools/*.sh "$MGR_DIR/tools/"
 mkdir -p "$(dirname "$MGR_BIN")"
 ln -sfn "$MGR_DIR/fingerprint-manager.sh" "$MGR_BIN"
