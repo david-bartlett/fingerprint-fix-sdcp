@@ -45,12 +45,15 @@ import json
 import pwd
 import re
 import shutil
+import stat
 import subprocess
+import tarfile
 import time
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 TOOLS = os.path.join(os.path.dirname(HERE), "tools")    # import/export/PAM scripts
 STORE = "/var/lib/fprint"
+EXPORT_NAME = "fingerprint-export.tgz"      # where export-fingerprint.sh writes it
 REMOVED_DIR = "/var/lib/samsung-galaxybook/removed-fingerprints"
 REPLACED_DIR = "/var/lib/samsung-galaxybook/replaced-fingerprints"
 FINGERS = ["unknown", "left-thumb", "left-index-finger", "left-middle-finger",
@@ -214,7 +217,44 @@ def move_records(paths):
 
 
 # ── Requests ──────────────────────────────────────────────────────────────────
-def do_status(_req):
+def export_offer(user, serial, chip, records):
+    """Fingers in the user's ~/fingerprint-export.tgz worth importing here: made
+    on this sensor, still stored on it, and not already the user's (same finger,
+    or the same template under another finger). None when there is no such
+    file or nothing in it to offer. Only that one file is ever read."""
+    try:
+        pw = pwd.getpwnam(user)
+        path = os.path.join(pw.pw_dir, EXPORT_NAME)
+        st = os.lstat(path)
+    except (KeyError, OSError):
+        return None
+    if not stat.S_ISREG(st.st_mode) or st.st_size > (1 << 20) or st.st_uid not in (0, pw.pw_uid):
+        return None
+    mine = [r for r in records if r["user"] == user]
+    have = {r["finger"] for r in mine}
+    offer = []
+    try:
+        with tarfile.open(path, "r:gz") as tar:
+            for m in tar.getmembers():
+                mt = re.fullmatch(r"[a-z_][a-z0-9_.-]*/egismoc/([A-Za-z0-9._-]+)/([1-9a])", m.name)
+                if not mt or not m.isfile() or m.size > 65536 or mt.group(1) != serial \
+                        or mt.group(2) in have:
+                    continue
+                p = FPrint.Print.deserialize(tar.extractfile(m).read())
+                if not any(p.equal(c) for c in chip):
+                    continue                     # gone from the sensor: would never match
+                if any(r["print"] is not None and p.equal(r["print"]) for r in mine):
+                    continue                     # already here under another finger
+                offer.append({"finger": mt.group(2), "name": finger_name(mt.group(2))})
+    except Exception:
+        return None
+    if not offer:
+        return None
+    offer.sort(key=lambda f: int(f["finger"], 16))
+    return {"file": path, "id": f"{int(st.st_mtime)}-{st.st_size}", "fingers": offer}
+
+
+def do_status(req):
     pid, serial = sensor_usb()
     ok, marker = fix_state()
     st = {"user": calling_user(), "usb_id": f"1c7a:{pid}" if pid else None,
@@ -268,6 +308,8 @@ def do_status(_req):
                               "error": r.get("error")})
     st["templates"].sort(key=lambda t: (not t["used_by"], t["id"]))
     st["pam"] = pam_state()
+    if req.get("export"):
+        st["export_offer"] = export_offer(st["user"], serial, chip, records)
     return st
 
 
@@ -492,6 +534,9 @@ def do_import(req):
     argv = [os.path.join(TOOLS, "import-fingerprint.sh"), "--user", calling_user()]
     if req.get("replace"):
         argv.append("--replace")
+    fingers = [f for f in req.get("fingers") or [] if re.fullmatch(FINGER_FILE, str(f))]
+    if fingers:
+        argv += ["--fingers", ",".join(fingers)]
     if req.get("file"):
         argv.append(req["file"])
     return run_script(argv)

@@ -198,20 +198,22 @@ sudo bash tools/export-fingerprint.sh          # writes ~/fingerprint-export.tgz
   - if `~/fingerprint-export.tgz` exists, it is **imported automatically**;
   - otherwise the installer asks `Do you have fingerprints exported from another install to import? [y/N]` (skipped after 30 seconds, or when run without a terminal, e.g. from the GUI app). Answer `y` and it asks for the path, with no time limit;
   - `FPRINT_IMPORT=/path/to/file.tgz` imports a file kept anywhere else without asking.
-- **Before importing**, the fingerprints are checked against the sensor (fprintd is paused for a moment). An out-of-date export — made before re-enrolling, or before Windows wiped the sensor — is refused, so you never end up with a fingerprint that can't match. `--no-check` skips this.
+- **Before importing**, the fingerprints are checked against the sensor (fprintd is paused for a moment). Fingers whose template is gone — re-enrolled since, or wiped by Windows — are left out (an export with none left is refused), so you never end up with a fingerprint that can't match. `--no-check` skips this.
+- **In the Fingerprint Manager:** when `~/fingerprint-export.tgz` has fingers this install doesn't (and the sensor still stores), the Manager offers to import them when it opens — once per export file.
 - **With the fix already installed:**
 
   ```bash
   sudo bash tools/import-fingerprint.sh                           # uses ~/fingerprint-export.tgz
   sudo bash tools/import-fingerprint.sh /path/to/file.tgz         # a file kept elsewhere
   sudo bash tools/import-fingerprint.sh --user NAME               # for another user (their ~/fingerprint-export.tgz)
+  sudo bash tools/import-fingerprint.sh --fingers 7,1             # only these fingers (fprintd's numbers 1-9, a)
   sudo bash tools/import-fingerprint.sh --replace                 # replace fingerprints already on this install
   fprintd-verify
   ```
 
 When the username differs from the one that exported them, each record's owner is rewritten for the new user (by the small `sensor-check` helper the installer builds). The template on the sensor is the same either way. Exports made under the older name `fprint-<user>.tgz` import the same way.
 
-The import refuses records made on a different sensor, users who don't exist on this install, and archives containing anything other than fingerprint records. If the user already has fingerprints on this install it stops and changes nothing; `--replace` replaces them instead, after all the checks have passed. The old records are moved to `/var/lib/samsung-galaxybook/replaced-fingerprints/<date>/` (the last 5 are kept), and nothing is deleted from the sensor, so other installs sharing those fingerprints keep working. Don't use `fprintd-delete` to make room for an import — it deletes the fingerprints from the sensor too, breaking every install that shares them.
+The import refuses records made on a different sensor, users who don't exist on this install, and archives containing anything other than fingerprint records. If the user already has fingerprints on this install, those are kept and only the missing fingers are imported; `--replace` replaces them all instead, after all the checks have passed. The old records are moved to `/var/lib/samsung-galaxybook/replaced-fingerprints/<date>/` (the last 5 are kept), and nothing is deleted from the sensor, so other installs sharing those fingerprints keep working. Don't use `fprintd-delete` to make room for an import — it deletes the fingerprints from the sensor too, breaking every install that shares them.
 
 **Once installs share fingerprints:**
 
@@ -253,7 +255,7 @@ It asks for your password once per session; the prompt says "Galaxy Book Fingerp
 | Fingerprints | Remove from <distro> (right-click a finger, or select it and press Delete) | Moves the record off this install; the template stays, so installs sharing it keep working |
 | Sensor | Delete… | Deletes the selected templates from the sensor (and moves aside any record here that used them) |
 | Sensor | Wipe sensor… | Deletes every template on the sensor (every Linux install and Windows Hello) after you type WIPE; moves every record here aside |
-| ☰ menu | Export / Import fingerprints… | Runs `export-fingerprint.sh` / `import-fingerprint.sh` with all their checks; importing over your existing fingerprints uses `--replace` |
+| ☰ menu | Export / Import fingerprints… | Runs `export-fingerprint.sh` / `import-fingerprint.sh` with all their checks; if you already have fingerprints, it asks whether to **add the missing ones** (yours are kept) or **replace all** (`--replace`) |
 | ☰ menu | Restore removed records… | Lists records moved to `removed-fingerprints/` or `replaced-fingerprints/` and puts the chosen ones back — only if their template is still on the sensor and that finger hasn't been enrolled again here |
 
 </details>
