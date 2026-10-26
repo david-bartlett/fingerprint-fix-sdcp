@@ -63,6 +63,28 @@ def app_version():
         return "unknown"
 
 
+# Where the fix installs the Manager, and the command that starts that copy
+# (lib/fixpaths.sh: package layout first, then install.sh's). The running
+# Manager watches these copies' VERSION files, so it notices a new version
+# however it was installed — a software centre, dnf / apt / pacman, install.sh.
+INSTALLED_COPIES = (("/usr/lib/fingerprint-fix-sdcp/manager", "/usr/bin/galaxybook-fingerprint-manager"),
+                    ("/usr/local/lib/libfprint-egismoc-sdcp/manager",
+                     "/usr/local/bin/galaxybook-fingerprint-manager"))
+
+
+def installed_copy():
+    """(version, command) of the installed Manager, package first; (None, None)."""
+    for folder, command in INSTALLED_COPIES:
+        try:
+            with open(os.path.join(folder, "VERSION")) as f:
+                version = f.read().strip()
+        except OSError:
+            continue
+        if version:
+            return version, command
+    return None, None
+
+
 def parse_marker(marker):
     """(installed version, driver commit, driver date) from the install marker:
     '<commit> <date> <source> … (installed <date>) fingerprint-fix-sdcp <version>'.
@@ -618,6 +640,7 @@ class Manager(Gtk.Window):
         GLib.idle_add(self.refresh)
         if self.update_item.get_active():
             self.check_for_update(max_age=0)        # once, at start-up
+        self._watch_install()
 
     # ── building blocks ──
     def _table(self, store, titles):
@@ -1994,8 +2017,11 @@ class Manager(Gtk.Window):
         d.format_secondary_text(
             f"Saved as {path.replace(os.path.expanduser('~'), '~', 1)} "
             "(checked against the release's SHA256SUMS).\n\n"
-            f"Install it in a terminal, with the Fingerprint Manager closed:\n    {cmd}\n\n"
-            "Quit Manager copies the command for you. Enrolled fingerprints are kept.")
+            "Install it by opening the file (your software centre installs it), or in a "
+            f"terminal:\n    {cmd}\n\n"
+            "Quit Manager copies the command and closes the Manager. If it is still open "
+            "when the new version is installed, it offers to restart. "
+            "Enrolled fingerprints are kept.")
         d.add_button("Open folder", 1)
         d.add_button("Copy command", 2)
         d.add_button("Quit Manager", 3)
@@ -2021,6 +2047,58 @@ class Manager(Gtk.Window):
             # The package replaces the Manager's files and restarts fprintd.
             self.close()
         return False
+
+    # ── a new version installed while the Manager is open ──
+    def _watch_install(self):
+        """Watch the installed copies' VERSION files (not when running from a
+        checkout, where VERSION changes with git pull)."""
+        self._install_monitors = []
+        self._install_check_pending = False
+        self._announced_version = None
+        # Read now: an update replaces the VERSION file this copy reads.
+        self._running_version = app_version()
+        here = os.path.realpath(os.path.join(HERE, ".."))
+        if here not in (os.path.realpath(folder) for folder, _ in INSTALLED_COPIES):
+            return
+        for folder, _ in INSTALLED_COPIES:
+            try:
+                mon = Gio.File.new_for_path(os.path.join(folder, "VERSION")).monitor_file(
+                    Gio.FileMonitorFlags.NONE, None)
+            except GLib.Error:
+                continue
+            mon.connect("changed", self._on_install_changed)
+            self._install_monitors.append(mon)          # kept, or it stops watching
+
+    def _on_install_changed(self, *_):
+        # A package install changes several files: look once it has settled.
+        if not self._install_check_pending:
+            self._install_check_pending = True
+            GLib.timeout_add_seconds(3, self._check_install)
+
+    def _check_install(self):
+        self._install_check_pending = False
+        version, command = installed_copy()
+        if not version or version in (self._running_version, self._announced_version):
+            return False
+        self._announced_version = version
+        self.update_btn.hide()
+        self.refresh()                              # the install restarted fprintd
+        self.message(f"fingerprint-fix-sdcp {version} has been installed — restart the "
+                     "Fingerprint Manager to use it.", Gtk.MessageType.INFO,
+                     action=("Restart", lambda c=command: self._restart_into(c)))
+        return False
+
+    def _restart_into(self, command):
+        """Start the newly installed Manager once this one has gone (it is a
+        single instance: started sooner, it would only bring this window back)."""
+        try:
+            subprocess.Popen(["sh", "-c", 'sleep 1; exec "$0"', command], start_new_session=True,
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL)
+        except OSError as e:
+            self.error(f"Could not start the new Fingerprint Manager: {e}")
+            return
+        self.close()
 
     def on_about(self, *_):
         st = self.status or {}
