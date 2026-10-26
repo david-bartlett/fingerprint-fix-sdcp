@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fingerprint Manager: the hints on both tabs sit in a rounded card like the one above, so their text lines up; on the Sensor tab the slot count, bar and key share it
+
 ## 1.3.3 — 2026-10-26
 
 - Fingerprint Manager: the sensor line is labelled — *Sensor · Serial · Driver commit*, with the version at the end
