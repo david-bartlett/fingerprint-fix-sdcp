@@ -266,9 +266,6 @@ button.fpm-update:disabled { box-shadow: none; font-weight: normal; }
 .fpm-hint { font-size: 100%; }
 menu.fpm-menu { padding: 3px 0; min-width: 0; background-color: @theme_bg_color; }
 menu.fpm-menu menuitem { padding: 5px 14px 5px 10px; min-width: 0; min-height: 0; }
-menu.fpm-menu separator.fpm-menu-sep { margin: 2px 6px; min-height: 0; padding: 0; background: none;
-    border-top: 1px solid shade(@theme_bg_color, 0.75);
-    border-bottom: 1px solid shade(@theme_bg_color, 1.25); }
 .fpm-status { font-size: 100%; }
 .fpm-soft { color: alpha(@theme_fg_color, 0.72); }   /* easier to read than dim-label */
 .fpm-fcard { background-color: @theme_base_color; border: 1px solid alpha(@theme_fg_color, 0.15);
@@ -1164,10 +1161,6 @@ class Manager(Gtk.Window):
         menu.get_style_context().add_class("fpm-menu")
         menu.set_reserve_toggle_size(False)            # no empty check-box column
         for label, cb, sensitive, tip in entries:
-            if menu.get_children():                    # a two-tone line between options
-                sep = Gtk.SeparatorMenuItem()
-                sep.get_style_context().add_class("fpm-menu-sep")
-                menu.append(sep)
             mi = Gtk.MenuItem(label="")
             # a mark before each option, to set them apart
             mi.get_child().set_markup(MENU_MARK + "  " + GLib.markup_escape_text(label))

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fingerprint Manager: no lines between the options of the right-click menus
 - The distro-driver check now also asks the package manager where the library came from (`rpm`, `dpkg` / `apt-cache`, `pacman`). Only the distro's own, unmodified libfprint package counts as "your distro now supports the reader". An SDCP build from another fix — copied over the distro's file, not owned by any package, or from a COPR, PPA, the AUR or a local package — gets "Another fingerprint fix is installed — keep this fix" from the monitor, the Fingerprint Manager and `install.sh`, and the Manager doesn't offer to remove the fix
 
 ## 1.4.0 — 2026-10-26
