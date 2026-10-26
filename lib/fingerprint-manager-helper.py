@@ -233,11 +233,23 @@ def do_status(_req):
             st["enroll_stages"] = 0
         chip = dev.list_prints_sync(None) if st["features"]["STORAGE_LIST"] else []
     records = read_records(serial)
+    # Records this install moved aside (Remove, dead records, import --replace),
+    # newest first: an unused template that matches one is "removed here",
+    # not an unknown template from another distro.
+    moved = sorted((m for m in moved_records(serial) if m["print"] is not None),
+                   key=lambda m: m["date"], reverse=True)
     for p in chip:
         users = [r for r in records if r["print"] is not None and p.equal(r["print"])]
-        st["templates"].append({"id": short_id(p),
-                                "used_by": [f"{r['user']} {r['name']}" for r in users],
-                                "keys": [[r["user"], r["finger"]] for r in users]})
+        tpl = {"id": short_id(p), "used_by": [f"{r['user']} {r['name']}" for r in users],
+               "keys": [[r["user"], r["finger"]] for r in users]}
+        if not users:
+            m = next((m for m in moved if p.equal(m["print"])), None)
+            if m:
+                here = os.path.exists(f"{STORE}/{m['user']}/egismoc/{serial}/{m['finger']}")
+                tpl["removed"] = {"user": m["user"], "name": m["name"], "kind": m["kind"],
+                                  "date": m["date"][:10], "path": m["path"],
+                                  "restorable": not here}
+        st["templates"].append(tpl)
     for r in records:
         on = None if r["print"] is None else any(r["print"].equal(p) for p in chip)
         tid = next((short_id(p) for p in chip
