@@ -1994,23 +1994,32 @@ class Manager(Gtk.Window):
         d.format_secondary_text(
             f"Saved as {path.replace(os.path.expanduser('~'), '~', 1)} "
             "(checked against the release's SHA256SUMS).\n\n"
-            f"Close the Fingerprint Manager, then install it in a terminal:\n    {cmd}\n\n"
-            "Enrolled fingerprints are kept.")
+            f"Install it in a terminal, with the Fingerprint Manager closed:\n    {cmd}\n\n"
+            "Quit Manager copies the command for you. Enrolled fingerprints are kept.")
         d.add_button("Open folder", 1)
         d.add_button("Copy command", 2)
-        d.add_button("Close", Gtk.ResponseType.CLOSE)
-        d.set_default_response(2)
+        d.add_button("Quit Manager", 3)
+        d.set_default_response(3)
+        clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         while True:
             resp = d.run()
-            if resp == 1:
+            if resp == 1:                            # the dialog stays: the command is in it
                 self._open_uri(GLib.filename_to_uri(os.path.dirname(path)), "the folder")
-            elif resp == 2:
-                Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(cmd, -1)
+                continue
+            if resp in (2, 3):
+                clipboard.set_text(cmd, -1)
+                # Hand it to the clipboard manager, so it is still there to paste
+                # after the Manager has quit.
+                clipboard.store()
+            if resp == 2:
                 d.format_secondary_text(d.get_property("secondary-text").split("\n\n✓")[0]
                                         + "\n\n✓ Command copied — paste it into a terminal.")
                 continue
             break
         d.destroy()
+        if resp == 3:
+            # The package replaces the Manager's files and restarts fprintd.
+            self.close()
         return False
 
     def on_about(self, *_):

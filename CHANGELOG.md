@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fingerprint Manager: after a download, **Quit Manager** copies the install command and closes the Manager, ready for the new version to be installed; **Open folder** no longer closes the dialog
 - Fingerprint Manager: the *Update* button stands out more, with a red ring and a soft glow
 
 ## 1.2.1 — 2026-10-26
