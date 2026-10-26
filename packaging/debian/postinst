@@ -9,9 +9,11 @@ if [ "$1" = configure ]; then
     systemctl daemon-reload >/dev/null 2>&1 || true
     systemctl try-restart fprintd.service >/dev/null 2>&1 || true
 
-    # First install: enable the boot check and every user's login check
-    # (they start at the next boot / login). Upgrades keep the admin's choice.
-    if [ -z "$2" ]; then
+    # First install, or installing again after a removal: enable the boot
+    # check and every user's login check (they start at the next boot /
+    # login). Upgrades keep the admin's choice.
+    if [ -z "$2" ] || [ -e "$STATE/fingerprint-fix-sdcp.removed" ]; then
+        rm -f "$STATE/fingerprint-fix-sdcp.removed"
         systemctl enable "$BOOT_CHECK" >/dev/null 2>&1 || true
         systemctl --global enable "$USER_CHECK" >/dev/null 2>&1 || true
         echo "Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger"
