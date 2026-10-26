@@ -52,7 +52,7 @@ jobs:
     container: fedora:${{ matrix.fedora }}
     steps:
       - run: >
-          dnf -y install git rpm-build gcc meson ninja-build patch tar gzip curl
+          dnf -y install git rpm-build gcc gcc-c++ meson ninja-build patch tar gzip curl
           glib2-devel libgusb-devel openssl-devel systemd-rpm-macros
       - uses: actions/checkout@v4
         with:
