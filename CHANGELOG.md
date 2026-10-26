@@ -6,7 +6,7 @@
 - Scripts and units that `install.sh` used to write inline are now real files in `packaging/files/`, shared by `install.sh` and the packages; their paths are in `lib/fixpaths.sh`. `install.sh` writes the same files as before
 - The Manager, its helper and the export / import tools find the fix whether it was installed by `install.sh` or as a package
 - New releases: at login, one notification per newer release on GitHub; in the Fingerprint Manager, an *Update* button with how to update for the way the fix was installed. One check a day shared by both (`lib/update_check.py`); menu → *Check for new versions* turns both off
-- First login after installing: a notification points to the Galaxy Book Fingerprint Manager when no finger is enrolled yet
+- Hints at login, once each, with an *Open Fingerprint Manager* button: enrol a finger (none enrolled yet), or turn on fingerprint login (fingers enrolled but login still asks for the password). The packages show them right after installing too
 - Fingerprint login check: commented-out `pam_fprintd` lines no longer count as enabled (Arch status and enable, Debian status)
 
 ## 1.0.0 — 2026-10-25

@@ -47,6 +47,8 @@ post_install() {
 
     echo "==> Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger"
     echo "    and turn on fingerprint for sudo and admin prompts."
+    # The same hint as a notification now, for anyone logged into a desktop.
+    bash /usr/lib/fingerprint-fix-sdcp/notify-users.sh || true
 }
 
 post_upgrade() {
