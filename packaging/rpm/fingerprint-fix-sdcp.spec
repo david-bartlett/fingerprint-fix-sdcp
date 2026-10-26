@@ -34,6 +34,7 @@ Source1:        https://github.com/david-bartlett/libfprint-egismoc-sdcp/archive
 ExclusiveArch:  x86_64
 
 BuildRequires:  gcc
+BuildRequires:  gcc-c++
 BuildRequires:  meson
 BuildRequires:  ninja-build
 BuildRequires:  patch
