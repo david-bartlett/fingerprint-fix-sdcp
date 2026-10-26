@@ -158,9 +158,9 @@ class Helper:
 CSS = b"""
 /* The Update button stands out like the suggested buttons in galaxybook-tools-gui:
    a red ring with a soft glow, bold text ("button." beats the theme's own shadow) */
-button.fpm-update { border-color: #e74c3c; font-weight: bold; margin: 3px 4px;
-    box-shadow: 0 0 0 2px rgba(231,76,60,0.85), 0 0 10px rgba(231,76,60,0.45); }
-button.fpm-update:hover { box-shadow: 0 0 0 2px rgba(231,76,60,1.0), 0 0 12px rgba(231,76,60,0.55); }
+button.fpm-update { border-color: #e74c3c; font-weight: bold; margin: 0 4px;
+    box-shadow: 0 0 0 1px rgba(231,76,60,0.85), 0 0 6px rgba(231,76,60,0.45); }
+button.fpm-update:hover { box-shadow: 0 0 0 1px rgba(231,76,60,1.0), 0 0 8px rgba(231,76,60,0.6); }
 button.fpm-update:disabled { box-shadow: none; font-weight: normal; }
 .fpm-card { border: 1px solid alpha(currentColor, 0.15); border-radius: 8px; padding: 10px 12px; }
 .fpm-hint { font-size: 100%; }
@@ -419,6 +419,7 @@ class Manager(Gtk.Window):
                                                                Gtk.IconSize.BUTTON))
         self.update_btn.set_always_show_image(True)
         self.update_btn.get_style_context().add_class("fpm-update")
+        self.update_btn.set_valign(Gtk.Align.CENTER)   # the tabs' height, not the header bar's
         self.update_btn.connect("clicked", self.on_update)
         self.update_btn.set_no_show_all(True)
         self._new_version = None
