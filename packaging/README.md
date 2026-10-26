@@ -1,6 +1,6 @@
 # Packages
 
-fingerprint-fix-sdcp ships as an `.rpm` (Fedora), a `.deb` (Ubuntu, Mint, Debian 13 / MX 25) and an Arch package, attached to each GitHub release by `.github/workflows/release-packages.yml`. `install.sh` stays for other distros and for testing.
+fingerprint-fix-sdcp ships as `.rpm` (Fedora), `.deb` (Ubuntu, Mint, Debian 13 / MX 25) and Arch packages, attached to each GitHub release by `.github/workflows/release-packages.yml`. `install.sh` stays for other distros and for testing.
 
 | Folder / file | What it is |
 | --- | --- |
@@ -33,7 +33,15 @@ sudo apt install ./packaging/out/fingerprint-fix-sdcp_*.deb
 cd packaging/arch && makepkg -si
 ```
 
-A `.deb` built on Ubuntu 26.04 needs 26.04's libraries; the release one is built on 24.04 so it installs on both.
+A package is for the release it was built on: its library dependencies come from that system, and Debian / Ubuntu rename library packages between releases (Ubuntu 26.04 renamed `libgusb2` to `libgusb2a`, so a `.deb` built on Debian 13 can't install there). So the release name is in the version — `1.0.1-1~ubuntu26.04`, `1.0.1-1~debian13`, `1.0.1-1.fc45` — and each GitHub release has one per supported release:
+
+| File | For |
+| --- | --- |
+| `…~ubuntu24.04_amd64.deb` | Ubuntu 24.04, Linux Mint 22 |
+| `…~ubuntu26.04_amd64.deb` | Ubuntu 26.04, Linux Mint 27 |
+| `…~debian13_amd64.deb` | Debian 13, MX Linux 25 |
+| `…fc44.x86_64.rpm` / `…fc45.x86_64.rpm` | Fedora 44 / 45 |
+| `…pkg.tar.zst`, `PKGBUILD` | Arch, CachyOS, EndeavourOS, … |
 
 ## What install and removal do
 
