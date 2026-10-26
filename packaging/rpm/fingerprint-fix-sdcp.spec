@@ -111,6 +111,8 @@ fi
 if [ "$1" -eq 1 ]; then
     echo "Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger"
     echo "and turn on fingerprint login."
+    # The same hint as a notification now, for anyone logged into a desktop.
+    %{scriptdir}/notify-users.sh || :
 fi
 
 %preun
