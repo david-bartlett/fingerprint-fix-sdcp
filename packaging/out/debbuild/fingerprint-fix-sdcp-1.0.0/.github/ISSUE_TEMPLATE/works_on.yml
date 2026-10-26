@@ -1,0 +1,87 @@
+name: It works on my laptop / distro
+description: Report that the fix works on a Galaxy Book model or distro that isn't listed as tested yet.
+title: "[Works]: "
+labels: ["works-on"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks — reports like this are how the list of tested laptops and distros grows.
+        If something only *partly* works, say what doesn't below (or open a bug report for it).
+
+  - type: input
+    id: model
+    attributes:
+      label: Laptop model
+      description: The name and model number, from the sticker underneath or `sudo dmidecode -s system-product-name`.
+      placeholder: e.g. Galaxy Book 5 Pro 14" (940XHA)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sensor
+    attributes:
+      label: Fingerprint sensor
+      description: "Run `lsusb | grep -i 1c7a` — the ID after `ID`."
+      options:
+        - 1c7a:05a5
+        - 1c7a:05a1
+        - Another 1c7a ID (paste the lsusb line below)
+    validations:
+      required: true
+
+  - type: input
+    id: firmware
+    attributes:
+      label: Sensor firmware (if you know it)
+      description: For example from Windows Device Manager → the fingerprint reader → Properties → Driver.
+      placeholder: e.g. 9060.1.7.44
+
+  - type: input
+    id: distro
+    attributes:
+      label: Distro and version
+      description: "`grep PRETTY_NAME /etc/os-release`, plus your desktop (GNOME, KDE Plasma, Cinnamon, Xfce…)."
+      placeholder: e.g. Linux Mint 22.3 (Cinnamon)
+    validations:
+      required: true
+
+  - type: input
+    id: build
+    attributes:
+      label: fingerprint-fix-sdcp version
+      description: "`cat /etc/samsung-galaxybook-egismoc-sdcp.installed` — or the version shown at the top of the Fingerprint Manager (e.g. v1.0.0 · driver 3b0ee1f)."
+      placeholder: e.g. 3b0ee1f40fec 2026-10-25 fork (installed 2026-10-25) fingerprint-fix-sdcp 1.0.0
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: works
+    attributes:
+      label: What did you try, and it worked?
+      description: Tick everything you tested successfully.
+      options:
+        - label: Enrolling a finger
+        - label: Login screen
+        - label: Lock screen
+        - label: sudo in a terminal
+        - label: Admin (polkit) password prompts
+        - label: Galaxy Book Fingerprint Manager (test, enrol, remove)
+        - label: Still works after suspend / resume
+        - label: Sharing fingerprints with another distro (export / import)
+
+  - type: dropdown
+    id: windows
+    attributes:
+      label: Do you also have Windows on this laptop?
+      options:
+        - "No"
+        - Yes — fingerprint reader enabled in Windows
+        - Yes — fingerprint reader disabled in Windows Device Manager
+        - "Yes — not sure"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything you had to do differently?
+      description: Extra packages, settings you changed, anything that didn't work, or anything else worth knowing for other people with the same laptop or distro.

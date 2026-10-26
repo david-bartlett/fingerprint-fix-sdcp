@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Samsung Galaxy Book session helper
+Comment=Starts systemd graphical-session.target on desktops that do not
+Exec=@SESSION_HELPER_SCRIPT@
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Galaxy Book Fingerprint Manager
+GenericName=Fingerprint Manager
+Comment=From Samsung Galaxy Book Fixes (fingerprint-fix-sdcp): test, enrol, share and tidy fingerprints
+Exec=/usr/bin/galaxybook-fingerprint-manager
+Icon=galaxybook-fingerprint-manager
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=fingerprint;fprint;sensor;login;galaxy;book;
+StartupWMClass=io.github.david_bartlett.GalaxyBookFingerprintManager

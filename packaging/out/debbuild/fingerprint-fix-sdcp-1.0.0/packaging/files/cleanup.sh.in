@@ -1,0 +1,24 @@
+#!/bin/bash
+# Samsung Galaxy Book — remove egismoc SDCP fingerprint fix and its monitor (runs as root)
+rm -f "@FPRINT_DROPIN@"
+rmdir "@FPRINT_DROPIN_DIR@" 2>/dev/null || true
+rm -rf "@FPRINT_LIB_DIR@"
+rm -f "@MGR_BIN@" "@MGR_DESKTOP@" "@MGR_ICON@" "@MGR_POLICY@"
+rm -f "/var/lib/samsung-galaxybook/libfprint-system.sha256" "@FPRINT_MARKER@"
+rm -rf "/var/lib/samsung-galaxybook/removed-fingerprints"
+rmdir "/var/lib/samsung-galaxybook" 2>/dev/null || true
+systemctl disable "samsung-galaxybook-fprint-sdcp-boot-check.service" 2>/dev/null || true
+rm -f "@FPRINT_UNIT_DIR@/samsung-galaxybook-fprint-sdcp-monitor.service" "@FPRINT_UNIT_DIR@/samsung-galaxybook-fprint-sdcp-boot-check.service" \
+      "@FPRINT_POLKIT_RULE@" "/run/samsung-galaxybook/fprint-sdcp-boot-status"
+systemctl daemon-reload 2>/dev/null || true
+for _home in /home/*/; do
+    _udir="${_home}.config/systemd/user"
+    rm -f "${_udir}/samsung-galaxybook-fprint-sdcp-user-check.timer" "${_udir}/samsung-galaxybook-fprint-sdcp-user-check.service" \
+          "${_udir}/graphical-session.target.wants/samsung-galaxybook-fprint-sdcp-user-check.timer" \
+          "${_home}.cache/samsung-galaxybook/fprint-sdcp-boot-shown" \
+          "${_home}.cache/samsung-galaxybook/fprint-sdcp-welcome-shown" \
+          "${_home}.cache/samsung-galaxybook/fprint-sdcp-pam-hint-shown"
+done
+rm -f /etc/samsung-galaxybook/session-helper.d/fingerprint-fix-sdcp
+# /run/samsung-galaxybook/fprint-sdcp-status is left for the user check script.
+rm -f "@FPRINT_CHECK_SCRIPT@" "@FPRINT_USER_CHECK_SCRIPT@" "@FPRINT_BOOT_CHECK_SCRIPT@" "@FPRINT_CLEANUP@"
