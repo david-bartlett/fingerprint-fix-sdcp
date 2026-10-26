@@ -24,6 +24,8 @@ import sys
 import threading
 import json
 import re
+import time
+import urllib.request
 
 # The application ID. It makes the window a single instance (a second launch
 # brings the running window forward instead), and on Wayland it is the
@@ -231,6 +233,50 @@ def save_view(view):
     save_setting("view", view)
 
 
+# ── new releases on GitHub ───────────────────────────────────────────────────
+# At most one request a day, cached; switched off with the menu's "Check for
+# new versions". Nothing is sent but the request itself.
+REPO_URL = "https://github.com/david-bartlett/fingerprint-fix-sdcp"
+RELEASES_API = "https://api.github.com/repos/david-bartlett/fingerprint-fix-sdcp/releases/latest"
+RELEASE_CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"),
+                             ICON_NAME, "latest-release")
+
+
+def version_key(v):
+    """(major, minor, patch) from '1.2.3' or 'v1.2.3'; None if it isn't one."""
+    m = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", (v or "").strip())
+    return tuple(int(x) for x in m.groups()) if m else None
+
+
+def latest_release(max_age=24 * 3600):
+    """The newest release's tag (e.g. 'v1.0.2'), or None when unknown — offline,
+    no release yet, or the repository not public. Asks GitHub at most once per
+    max_age seconds; runs in a background thread."""
+    now = time.time()
+    try:
+        with open(RELEASE_CACHE) as f:
+            checked, tag = f.read().split()
+        if 0 <= now - float(checked) < max_age:
+            return None if tag == "-" else tag
+    except (OSError, ValueError):
+        pass
+    tag = None
+    try:
+        req = urllib.request.Request(RELEASES_API, headers={
+            "Accept": "application/vnd.github+json", "User-Agent": ICON_NAME})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            tag = json.load(r).get("tag_name") or None
+    except Exception:          # offline, 404 (no release / private), rate limit
+        pass
+    try:
+        os.makedirs(os.path.dirname(RELEASE_CACHE), exist_ok=True)
+        with open(RELEASE_CACHE, "w") as f:
+            f.write(f"{now:.0f} {tag or '-'}\n")
+    except OSError:
+        pass
+    return tag
+
+
 # The fingerprint drawing (64×64 units): start point, then cubic segments.
 FP_PATHS = [
     ((14, 22), [(19, 12, 32, 8, 42, 12), (47, 14, 51, 18, 53, 23)]),
@@ -388,6 +434,12 @@ class Manager(Gtk.Window):
         self.sensor_item.set_active(load_settings().get("sensor_tab") == "1")
         self.sensor_item.connect("toggled", lambda i: self._show_sensor_tab(i.get_active()))
         menu.append(self.sensor_item)
+        self.update_item = Gtk.CheckMenuItem(label="Check for new versions")
+        self.update_item.set_tooltip_text("Asks GitHub once a day whether a newer "
+                                          "fingerprint-fix-sdcp has been released")
+        self.update_item.set_active(load_settings().get("update_check", "1") == "1")
+        self.update_item.connect("toggled", self._on_update_toggled)
+        menu.append(self.update_item)
         menu.append(Gtk.SeparatorMenuItem())
         self._menu_item(menu, "About", self.on_about)
         menu.show_all()
@@ -395,6 +447,16 @@ class Manager(Gtk.Window):
         self.menu_btn.set_image(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
         self.menu_btn.set_tooltip_text("Export, import, restore")
         hb.pack_end(self.menu_btn)
+        # Shown only when a newer release exists (see check_for_update)
+        self.update_btn = Gtk.Button(label="Update")
+        self.update_btn.set_image(Gtk.Image.new_from_icon_name("software-update-available-symbolic",
+                                                               Gtk.IconSize.BUTTON))
+        self.update_btn.set_always_show_image(True)
+        self.update_btn.get_style_context().add_class("suggested-action")
+        self.update_btn.connect("clicked", self.on_update)
+        self.update_btn.set_no_show_all(True)
+        self._new_version = None
+        hb.pack_end(self.update_btn)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin=12)
         self.add(outer)
@@ -584,6 +646,8 @@ class Manager(Gtk.Window):
         self._set_view(load_view(), save=False)
         self._update_buttons()
         GLib.idle_add(self.refresh)
+        if self.update_item.get_active():
+            self.check_for_update()
 
     # ── building blocks ──
     def _table(self, store, titles):
@@ -1783,6 +1847,61 @@ class Manager(Gtk.Window):
                 return
             replace = True
         self.run_job("import", self.after_job("Imported"), file=path, replace=replace)
+
+    # ── new versions ──
+    def check_for_update(self, max_age=24 * 3600):
+        def work():
+            tag = latest_release(max_age)
+            GLib.idle_add(self._show_update, tag)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_update(self, tag):
+        newer = version_key(tag) and version_key(app_version()) \
+            and version_key(tag) > version_key(app_version())
+        self._new_version = tag.lstrip("v") if newer else None
+        if newer:
+            self.update_btn.set_tooltip_text(f"fingerprint-fix-sdcp {self._new_version} is available "
+                                             f"(this is {app_version()})")
+        self.update_btn.set_visible(bool(newer))
+        return False
+
+    def _on_update_toggled(self, item):
+        save_setting("update_check", "1" if item.get_active() else "0")
+        if item.get_active():
+            self.check_for_update(max_age=0)
+        else:
+            self.update_btn.hide()
+
+    def on_update(self, *_):
+        new = self._new_version
+        marker = (self.status or {}).get("marker") or ""
+        fmt = re.search(r"\((rpm|deb|pacman) package ", marker)
+        how = {
+            "rpm": "Download the .rpm from the release page, then install it over this one:\n"
+                   "    sudo dnf install ./fingerprint-fix-sdcp-*.rpm",
+            "deb": "Download the .deb from the release page, then install it over this one:\n"
+                   "    sudo apt install ./fingerprint-fix-sdcp_*.deb",
+            "pacman": "Download the .pkg.tar.zst from the release page and install it:\n"
+                      "    sudo pacman -U ./fingerprint-fix-sdcp-*.pkg.tar.zst\n"
+                      "or build its PKGBUILD (with fingerprint-fix-sdcp.install) with makepkg -si.",
+        }.get(fmt.group(1) if fmt else "",
+              "In your fingerprint-fix-sdcp folder:\n"
+              "    git pull\n    sudo bash install.sh\n"
+              "or download the release's source and run install.sh from it.")
+        d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
+                              buttons=Gtk.ButtonsType.NONE,
+                              text=f"fingerprint-fix-sdcp {new} is available")
+        d.format_secondary_text(f"This is {app_version()}. {how}\n\n"
+                                "Enrolled fingerprints are kept. Close the Fingerprint Manager before installing.")
+        d.add_button("Close", Gtk.ResponseType.CLOSE)
+        d.add_button("Open the release page", Gtk.ResponseType.OK)
+        d.set_default_response(Gtk.ResponseType.OK)
+        if d.run() == Gtk.ResponseType.OK:
+            try:
+                Gtk.show_uri_on_window(self, f"{REPO_URL}/releases/tag/v{new}", Gdk.CURRENT_TIME)
+            except GLib.Error as e:
+                self.error(f"Could not open the release page: {e.message}")
+        d.destroy()
 
     def on_about(self, *_):
         st = self.status or {}
