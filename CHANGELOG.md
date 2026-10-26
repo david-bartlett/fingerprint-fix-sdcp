@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Fingerprint Manager: when Windows is installed on the laptop, a reminder under the sensor line to disable the fingerprint reader in Windows (Windows Hello deletes Linux fingerprints when it starts with the reader enabled), with the steps in its tooltip. Found from the UEFI boot entries and Windows' partitions, without a password; **Got it** hides it, *Menu → Remind me about Windows* brings it back
+- Fingerprint Manager: when Windows is installed on the laptop, a reminder at the bottom of the window to disable the fingerprint reader in Windows (Windows Hello deletes Linux fingerprints when it starts with the reader enabled), with the steps in its tooltip. Found from the UEFI boot entries and Windows' partitions, without a password; **Got it** hides it, *Menu → Remind me about Windows* brings it back
 
 ## 1.3.5 — 2026-10-26
 

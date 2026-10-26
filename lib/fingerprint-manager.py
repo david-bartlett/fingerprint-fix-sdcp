@@ -662,8 +662,9 @@ class Manager(Gtk.Window):
         self.info.get_style_context().add_class("fpm-soft")
         self.info.get_style_context().add_class("fpm-status")
         card.pack_start(self.info, False, False, 0)
-        # Windows on the same laptop: a reminder to disable the reader there.
-        # Hidden until the check (run once the window is up) finds Windows.
+        # Windows on the same laptop: a reminder to disable the reader there, at
+        # the bottom of the window, under the buttons. Hidden until the check
+        # (run once the window is up) finds Windows.
         self.win_row = Gtk.Box(spacing=8)
         win_label = Gtk.Label(xalign=0, wrap=True)
         win_label.set_markup(f'<span foreground="{AMBER}" weight="bold">⚠</span>  Windows found on '
@@ -679,7 +680,6 @@ class Manager(Gtk.Window):
         self.win_row.set_no_show_all(True)
         self.win_row.hide()
         self._windows = False
-        card.pack_start(self.win_row, False, False, 0)
         outer.pack_start(card, False, False, 0)
 
         # ── message bar: one short line, Details… for the full text ──
@@ -711,6 +711,7 @@ class Manager(Gtk.Window):
         # Each tab's buttons sit under the message slot, at the very bottom.
         self.btn_stack = Gtk.Stack()
         outer.pack_start(self.btn_stack, False, False, 0)
+        outer.pack_start(self.win_row, False, False, 0)
         self.stack.connect("notify::visible-child-name",
                            lambda st, _p: self.btn_stack.set_visible_child_name(
                                st.get_visible_child_name()))
