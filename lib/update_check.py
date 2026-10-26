@@ -6,13 +6,18 @@
 #
 #   update_check.py --notify    at login: one notification per new release
 #
-# Asks GitHub at most once a day; both share one cache, so together they still
-# make one request a day. When GitHub can't be reached (no network yet), the
-# next login or Manager start tries again. The Manager's menu item "Check for
-# new versions" (update_check=0 in its settings) turns both off.
+# The Manager asks GitHub each time it starts; the login check asks at most
+# once a day (both share one cache). When GitHub can't be reached (no network
+# yet), the next login or Manager start tries again. The Manager's menu item
+# "Check for new versions" (update_check=0 in its settings) turns both off.
+#
+# The Manager's Download button: this_system() and pick_asset() choose this
+# system's package from the release's files, download() saves and checks it.
 # =============================================================================
+import hashlib
 import json
 import os
+import platform
 import re
 import subprocess
 import sys
@@ -23,6 +28,7 @@ import urllib.request
 APP = "galaxybook-fingerprint-manager"      # the icon, and the settings / cache folder name
 REPO_URL = "https://github.com/david-bartlett/fingerprint-fix-sdcp"
 RELEASES_API = "https://api.github.com/repos/david-bartlett/fingerprint-fix-sdcp/releases/latest"
+RELEASE_BY_TAG_API = "https://api.github.com/repos/david-bartlett/fingerprint-fix-sdcp/releases/tags/{tag}"
 CACHE_DIR = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), APP)
 RELEASE_CACHE = os.path.join(CACHE_DIR, "latest-release")       # "<checked epoch> <tag or ->"
 NOTIFIED = os.path.join(CACHE_DIR, "notified-release")          # tag last announced at login
@@ -94,6 +100,126 @@ def newer_release(max_age=24 * 3600):
     if version_key(tag) and version_key(mine) and version_key(tag) > version_key(mine):
         return tag.lstrip("v")
     return None
+
+
+# ── this system's package ────────────────────────────────────────────────────
+# Ubuntu-based releases by codename (Linux Mint, Zorin, Pop!_OS… name their
+# Ubuntu base in UBUNTU_CODENAME): the release's .deb for each.
+UBUNTU_BASES = {"noble": "ubuntu24.04", "resolute": "ubuntu26.04"}
+
+
+def os_release(path="/etc/os-release"):
+    fields = {}
+    try:
+        with open(path) as f:
+            for line in f:
+                k, _, v = line.strip().partition("=")
+                if k:
+                    fields[k] = v.strip("\"'")
+    except OSError:
+        pass
+    return fields
+
+
+def this_system(fmt="", dist="", fields=None):
+    """The package format and distro release of the package for this system:
+    ('deb', 'ubuntu24.04'), ('rpm', 'fc45'), ('pacman', ''), or ('', '') when
+    no package fits. fmt / dist come from the installed package when it was
+    installed as one; otherwise /etc/os-release decides."""
+    if fmt in ("deb", "rpm") and dist:
+        return fmt, dist
+    if fmt == "pacman":
+        return fmt, ""
+    f = os_release() if fields is None else fields
+    ident = f.get("ID", "")
+    family = [ident] + f.get("ID_LIKE", "").split()
+    version = f.get("VERSION_ID", "")
+    if ident == "fedora" and version:
+        return "rpm", "fc" + version
+    if f.get("UBUNTU_CODENAME") in UBUNTU_BASES:
+        return "deb", UBUNTU_BASES[f["UBUNTU_CODENAME"]]
+    if ident == "ubuntu" and version:
+        return "deb", "ubuntu" + version
+    if ident == "debian" and version:                  # Debian, and MX (Debian's os-release)
+        return "deb", "debian" + version.split(".")[0]
+    if "arch" in family:                                # Arch, CachyOS, EndeavourOS…
+        return "pacman", ""
+    return "", ""
+
+
+def release_assets(version):
+    """The files of release v<version>: [{name, url, sha256, size}]; [] when
+    GitHub can't be asked."""
+    try:
+        req = urllib.request.Request(RELEASE_BY_TAG_API.format(tag="v" + version), headers={
+            "Accept": "application/vnd.github+json", "User-Agent": APP})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            data = json.load(r)
+    except Exception:
+        return []
+    out = []
+    for a in data.get("assets") or []:
+        digest = a.get("digest") or ""
+        out.append({"name": a.get("name", ""), "url": a.get("browser_download_url", ""),
+                    "sha256": digest[7:] if digest.startswith("sha256:") else None,
+                    "size": a.get("size") or 0})
+    return out
+
+
+def pick_asset(assets, version, fmt, dist):
+    """This system's package among a release's files, or None. GitHub shows the
+    '~' of a .deb's version as '.' in file names, so both are accepted."""
+    if platform.machine() not in ("x86_64", "amd64"):
+        return None
+    v, d = re.escape(version), re.escape(dist)
+    pattern = {"deb": rf"fingerprint-fix-sdcp_{v}-\d+[.~]{d}_amd64\.deb",
+               "rpm": rf"fingerprint-fix-sdcp-{v}-\d+\.{d}\.x86_64\.rpm",
+               "pacman": rf"fingerprint-fix-sdcp-{v}-\d+-x86_64\.pkg\.tar\.zst"}.get(fmt)
+    if not pattern or (fmt != "pacman" and not dist):
+        return None
+    return next((a for a in assets if re.fullmatch(pattern, a["name"])), None)
+
+
+def install_command(fmt, path):
+    """The command that installs a downloaded package over the installed fix."""
+    quoted = "'" + path.replace("'", "'\\''") + "'"
+    return {"deb": f"sudo apt install {quoted}",
+            "rpm": f"sudo dnf install {quoted}",
+            "pacman": f"sudo pacman -U {quoted}"}[fmt]
+
+
+def download(asset, folder, progress=None):
+    """Save a release file in folder and check it against GitHub's SHA-256.
+    Returns the file's path; raises OSError / ValueError when it fails, and
+    leaves no partial file behind. progress(done_bytes, total_bytes)."""
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, os.path.basename(asset["name"]))
+    part = path + ".part"
+    digest = hashlib.sha256()
+    try:
+        req = urllib.request.Request(asset["url"], headers={"User-Agent": APP})
+        with urllib.request.urlopen(req, timeout=30) as r, open(part, "wb") as out:
+            total = int(r.headers.get("Content-Length") or asset.get("size") or 0)
+            done = 0
+            while True:
+                chunk = r.read(64 * 1024)
+                if not chunk:
+                    break
+                out.write(chunk)
+                digest.update(chunk)
+                done += len(chunk)
+                if progress:
+                    progress(done, total)
+        if asset.get("sha256") and digest.hexdigest() != asset["sha256"]:
+            raise ValueError("the downloaded file doesn't match GitHub's checksum — try again")
+        os.replace(part, path)
+    except BaseException:
+        try:
+            os.remove(part)
+        except OSError:
+            pass
+        raise
+    return path
 
 
 def notify_once():
