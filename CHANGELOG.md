@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 1.3.3 — 2026-10-26
 
 - Fingerprint Manager: the sensor line is labelled — *Sensor · Serial · Driver commit*, with the version at the end
