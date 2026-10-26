@@ -348,6 +348,46 @@ def os_name():
 OS_NAME = os_name()
 
 
+def _login_screen():
+    """The display manager, from display-manager.service: gdm, sddm,
+    plasmalogin, lightdm… ('' when unknown)."""
+    try:
+        target = os.path.realpath("/etc/systemd/system/display-manager.service")
+        return os.path.basename(target).split(".")[0].lower()
+    except OSError:
+        return ""
+
+
+def pam_scope(method):
+    """(title, tooltip) for the fingerprint switch: what it covers here. It
+    depends on the login screen and desktop as well as the PAM tool.
+    Checked: GDM; Linux Mint (Fingwit); Fedora KDE (authselect: the lock
+    screen follows it, SDDM / Plasma Login don't take fingerprints);
+    Arch / CachyOS (arch-pam.sh sets sudo and polkit-1 only, KDE's lock
+    screen uses its own kde-fingerprint stack)."""
+    dm = _login_screen()
+    desktop = os.environ.get("XDG_CURRENT_DESKTOP", "").lower()
+    kde = "kde" in desktop or dm in ("sddm", "plasmalogin")
+    mint = os.path.exists("/etc/linuxmint/info")
+    admin = "sudo and admin prompts (pkexec, polkit)"
+    if method == "arch-pam.sh":
+        tip = f"Covers {admin}."
+        if kde:
+            tip += (" KDE's lock screen accepts your fingerprint on its own, whether this is "
+                    "on or off; KDE's login screen doesn't support fingerprints.")
+        return "Use fingerprint for sudo and admin prompts", tip
+    if kde:
+        return ("Use fingerprint for the lock screen and sudo",
+                f"Covers the lock screen and {admin}. KDE's login screen doesn't support "
+                "fingerprints, so it always asks for your password.")
+    if dm == "gdm" or mint:
+        return ("Use fingerprint for login, the lock screen and sudo",
+                f"Covers the login screen, the lock screen and {admin}.")
+    return ("Use fingerprint for sudo and admin prompts",
+            f"Covers {admin}. The login and lock screens may accept it too, if they "
+            "support fingerprints.")
+
+
 def long_finger(name):
     """right-index-finger -> Right index finger"""
     return name.replace("-", " ").capitalize()
@@ -462,9 +502,9 @@ class Manager(Gtk.Window):
         card.get_style_context().add_class("fpm-card")
         row = Gtk.Box(spacing=12)
         texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        title = Gtk.Label(xalign=0)
-        title.set_markup("<b>Use fingerprint for login and sudo</b>")
-        texts.pack_start(title, False, False, 0)
+        self.pam_title = Gtk.Label(xalign=0, ellipsize=Pango.EllipsizeMode.END)
+        self._set_pam_title("")
+        texts.pack_start(self.pam_title, False, False, 0)
         self.pam_detail = Gtk.Label(xalign=0, wrap=True)
         self.pam_detail.get_style_context().add_class("fpm-soft")
         self.pam_detail.get_style_context().add_class("fpm-hint")
@@ -1366,8 +1406,15 @@ class Manager(Gtk.Window):
                                  "enrol again.",
                          action=("Remove dead records", lambda: self.on_remove_dead(None)))
 
+    def _set_pam_title(self, method):
+        """The switch's title and tooltip for this system (pam_scope)."""
+        self._pam_title, tip = pam_scope(method)
+        self.pam_title.set_markup(f"<b>{GLib.markup_escape_text(self._pam_title)}</b>")
+        self.pam_title.set_tooltip_text(tip)
+
     def show_pam(self, pam):
         state = pam.get("state", "unavailable")
+        self._set_pam_title(pam.get("method", ""))
         self._pam_syncing = True
         on = state == "enabled"
         self.pam_switch.set_active(on)
@@ -1381,9 +1428,9 @@ class Manager(Gtk.Window):
         if self._pam_syncing:
             return False
         if not want_on and not self.confirm(
-                "Turn off fingerprint for login and sudo?",
-                "Login, sudo and admin prompts will ask for your password only. Your enrolled "
-                "fingerprints are kept, and you can turn this back on at any time.", "Turn off"):
+                self._pam_title.replace("Use fingerprint", "Turn off fingerprint", 1) + "?",
+                "These will ask for your password only. Your enrolled fingerprints are kept, "
+                "and you can turn this back on at any time.", "Turn off"):
             self.show_pam(self.status.get("pam", {}))
             return True
         op = "enable" if want_on else "disable"
@@ -1393,7 +1440,7 @@ class Manager(Gtk.Window):
                 self.refresh(lambda: self.error(err))
             else:
                 word = "on" if op == "enable" else "off"
-                self.refresh(lambda: self.message(f"Fingerprint for login and sudo is now {word}."))
+                self.refresh(lambda: self.message(self._pam_title.replace("Use fingerprint", "Fingerprint", 1) + f" is now {word}."))
         self.run_job("pam", done, op=op)
         return True                       # the switch follows the real state after refresh
 

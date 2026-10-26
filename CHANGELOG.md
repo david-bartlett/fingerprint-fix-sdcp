@@ -4,12 +4,14 @@
 
 - Fingerprint Manager: the sensor line is labelled — *Sensor · Serial · Driver commit*, with the version at the end
 - Fingerprint Manager: clearer hints under the tabs — *Test: double-click · Enrol: click a grey finger · More: right-click*, and on the Sensor tab what green, grey, *Removed here* and dashed mean
+- Fingerprint Manager: the fingerprint switch says what it covers on this system — *login, the lock screen and sudo* (GNOME, Mint), *the lock screen and sudo* (KDE, whose login screen can't take fingerprints), or *sudo and admin prompts* (Arch-based); the tooltip has the details
 - Fingerprint Manager: shorter Update and Downloaded dialogs — the file to download, then what *Open folder* does and the install command (shown in a fixed-width font); *Open folder* is the default
 
 ## 1.3.2 — 2026-10-26
 
 - Fingerprint Manager on Arch: when the fix was installed with `install.sh`, the install command after **Download** removes that copy first (pacman refused to install over its files), keeping fingerprints and fingerprint login
 - `install.sh`: the Fingerprint Manager's icon goes in `/usr/share/icons` like its menu entry, so Cinnamon's menu shows it straight away (it didn't notice an icon added under `/usr/local/share/icons` until Cinnamon restarted); the old `/usr/local` copy is removed
+
 ## 1.3.1 — 2026-10-26
 
 - Moving from an `install.sh` copy to the `.rpm` or `.deb`: the Manager's icon is no longer shown as a broken image (the old copy's icon cache in `/usr/local` is refreshed — by the package for copies installed before 1.3.1, and by their own cleanup from 1.3.1 on)
