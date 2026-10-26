@@ -58,7 +58,7 @@ Got it working on a model or distro not listed here? Please tell us with the [**
 2. Installs build dependencies, fprintd and fprintd's PAM module
 3. Exits without changes if the distro libfprint already handles the sensor (override with `FORCE=1`)
 4. Fetches the driver commit named in `DRIVER` (the one this release was tested with) from the fork and builds the egismoc driver only (`-Ddrivers=egismoc -Dtod=false`)
-5. Installs the library to `/usr/local/lib/libfprint-egismoc-sdcp/` and adds a systemd drop-in so **only fprintd** loads it (`LD_LIBRARY_PATH`)
+5. Installs the library to `/usr/local/lib/libfprint-egismoc-sdcp/` and adds a systemd drop-in so **only fprintd** loads it (`LD_LIBRARY_PATH`), and only while the Galaxy Book's reader is present: each time fprintd starts, the drop-in checks for `1c7a:05a5` / `1c7a:05a1` on USB, so on other hardware fprintd keeps the distro libfprint and its drivers
 6. Turns on fingerprint for login and sudo with `fingerprint-pam.sh` (Fedora: authselect; Ubuntu/Debian/MX: pam-auth-update; Mint: its own `fingwit` profile; Arch-based: asks whether to add fingerprint to sudo and polkit — see below)
 7. Installs a login-time monitor and a boot-time sensor check (see below)
 8. Offers to import fingerprints exported from another install on this laptop, if `~/fingerprint-export.tgz` exists (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
@@ -80,6 +80,8 @@ Download the file for your distro from the [**latest release**](https://github.c
 | Ubuntu 24.04, Linux Mint 22, Zorin OS 18 | `ubuntu24.04_amd64.deb` | `sudo apt install ./fingerprint-fix-sdcp_*ubuntu24.04_amd64.deb` |
 | Debian 13, MX Linux 25 | `debian13_amd64.deb` | `sudo apt install ./fingerprint-fix-sdcp_*debian13_amd64.deb` |
 | Arch, CachyOS, EndeavourOS | `x86_64.pkg.tar.zst` | `sudo pacman -U ./fingerprint-fix-sdcp-*.pkg.tar.zst` |
+
+The packages are only for a Samsung with the Egis reader (`1c7a:05a5` / `1c7a:05a1`, see `lsusb | grep 1c7a`): on other hardware the `.rpm` and `.deb` stop before installing anything (`sudo FPRINT_SDCP_FORCE=1 dnf install …` / `apt install …` installs anyway, e.g. for a system image), and pacman installs but warns. Either way, fprintd only uses the fix's driver while the reader is present, so another laptop's fingerprint reader keeps working.
 
 `dnf` and `apt` install what the fix needs from your distro (fprintd, the Manager's GTK libraries…); nothing is compiled on your laptop. Fingerprints work straight away: open **Galaxy Book Fingerprint Manager** from the app menu to enrol a finger and turn on fingerprint login.
 
@@ -385,6 +387,7 @@ session include system-local-login
 
 - `/usr/local/lib/libfprint-egismoc-sdcp/libfprint-2.so.2` — the egismoc SDCP build
 - `/etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf` — makes fprintd load it
+- `/usr/local/bin/samsung-galaxybook-fprint-sdcp-fprintd-env.sh` — run by the drop-in each time fprintd starts; writes `/run/samsung-galaxybook/fprintd-sdcp.env` (the library's path, or nothing if the reader isn't present)
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-monitor.sh` — root monitor script
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-user-check.sh` — user login check
 - Arch-based, if you said yes: one marked line in `/etc/pam.d/sudo` and `/etc/pam.d/polkit-1` (plus `*.bak-samsung-galaxybook` backups, and `/var/lib/samsung-galaxybook/pam-polkit-1-created` if `polkit-1` was copied)

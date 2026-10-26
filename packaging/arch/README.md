@@ -14,7 +14,7 @@ Rebuilding the same version: raise `pkgrel` or use `makepkg -sif`.
 | Path | What |
 | --- | --- |
 | `/usr/lib/fingerprint-fix-sdcp/` | driver library, `sensor-check`, monitor / boot / login check scripts, `installed` marker, `manager/` |
-| `/usr/lib/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf` | points fprintd at the driver |
+| `/usr/lib/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf` | points fprintd at the driver while the reader is present (`fprintd-env.sh` decides each time fprintd starts) |
 | `/usr/lib/systemd/system/`, `/usr/lib/systemd/user/` | monitor and boot-check services, login-check timer, session target |
 | `/usr/share/polkit-1/` | monitor rule, Manager policy |
 | `/usr/bin/galaxybook-fingerprint-manager`, `/usr/share/applications/`, `/usr/share/icons/` | the Manager |

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Samsung Galaxy Book — remove egismoc SDCP fingerprint fix and its monitor (runs as root)
-rm -f "@FPRINT_DROPIN@"
+rm -f "@FPRINT_DROPIN@" "@FPRINT_ENV_SCRIPT@" "@FPRINT_ENV_FILE@"
 rmdir "@FPRINT_DROPIN_DIR@" 2>/dev/null || true
 rm -rf "@FPRINT_LIB_DIR@"
 rm -f "@MGR_BIN@" "@MGR_DESKTOP@" "@MGR_ICON@" "@MGR_POLICY@"

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Packages are only for a Samsung with the Galaxy Book's Egis reader (`1c7a:05a5` / `1c7a:05a1`): on other hardware the `.rpm` and `.deb` stop before installing anything, saying why (`FPRINT_SDCP_FORCE=1` installs anyway, e.g. for a system image), and pacman warns
+- fprintd uses the fix's driver only while that reader is present: the drop-in checks each time fprintd starts, so on any other hardware (a moved disk, a forced install) fprintd keeps the distro libfprint and its drivers, and other fingerprint readers keep working
+- Fingerprint Manager: without that reader, explains that the app is for the Galaxy Book's reader and how to remove the fix, instead of asking for a password and failing
+- `install.sh`: the Samsung check also accepts `board_vendor`, like the packages
+
 ## 1.3.4 — 2026-10-26
 
 - Fingerprint Manager: the hints on both tabs sit in a rounded card like the one above, so their text lines up; on the Sensor tab the slot count, bar and key share it

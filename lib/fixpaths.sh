@@ -32,6 +32,7 @@ fix_layout() {
         FPRINT_USER_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-user-check.sh"
         FPRINT_BOOT_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-boot-check.sh"
         FPRINT_CLEANUP="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-cleanup.sh"
+        FPRINT_ENV_SCRIPT="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-fprintd-env.sh"
         FPRINT_POLKIT_RULE="/etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
         MGR_BIN="/usr/local/bin/galaxybook-fingerprint-manager"
         # In /usr/share like the menu entry (below): Cinnamon's menu doesn't pick
@@ -54,6 +55,7 @@ fix_layout() {
         FPRINT_USER_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/user-check.sh"
         FPRINT_BOOT_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/boot-check.sh"
         FPRINT_CLEANUP=""                       # the package manager removes a package
+        FPRINT_ENV_SCRIPT="${FPRINT_SCRIPT_DIR}/fprintd-env.sh"
         FPRINT_POLKIT_RULE="/usr/share/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
         MGR_BIN="/usr/bin/galaxybook-fingerprint-manager"
         MGR_ICON="/usr/share/icons/hicolor/scalable/apps/galaxybook-fingerprint-manager.svg"
@@ -78,6 +80,9 @@ fix_layout() {
     FPRINT_SYSLIB_HASH="${FPRINT_STATE_DIR}/libfprint-system.sha256"
     FPRINT_REMOVED_DIR="${FPRINT_STATE_DIR}/removed-fingerprints"
     FPRINT_BOOT_STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
+    # Written by FPRINT_ENV_SCRIPT each time fprintd starts, read by the drop-in:
+    # LD_LIBRARY_PATH only when the Galaxy Book's reader is present.
+    FPRINT_ENV_FILE="/run/samsung-galaxybook/fprintd-sdcp.env"
     FPRINT_MONITOR_SVC="samsung-galaxybook-fprint-sdcp-monitor.service"
     FPRINT_USER_CHECK_SVC="samsung-galaxybook-fprint-sdcp-user-check.service"
     FPRINT_USER_CHECK_TIMER="samsung-galaxybook-fprint-sdcp-user-check.timer"

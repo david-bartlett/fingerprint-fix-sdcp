@@ -1,5 +1,10 @@
 # Samsung Galaxy Book fingerprint fix — load the egismoc SDCP driver build.
+# Only on the Galaxy Book's Egis reader: each time fprintd starts,
+# @FPRINT_ENV_SCRIPT@ writes LD_LIBRARY_PATH into
+# @FPRINT_ENV_FILE@ if the reader (USB 1c7a:05a5 / 05a1) is present, and
+# leaves it empty otherwise, so other hardware keeps the distro libfprint.
 # Remove this file (then: systemctl daemon-reload && systemctl restart fprintd)
 # to go back to the distro libfprint.
 [Service]
-Environment=LD_LIBRARY_PATH=@FPRINT_LIB_DIR@
+ExecStartPre=-+@FPRINT_ENV_SCRIPT@
+EnvironmentFile=-@FPRINT_ENV_FILE@

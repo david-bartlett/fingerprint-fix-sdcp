@@ -17,6 +17,7 @@
 # which does the root work. Needs fingerprint-fix-sdcp installed, PyGObject
 # with GTK 3, and libfprint's GObject introspection data.
 # =============================================================================
+import glob
 import os
 import shutil
 import subprocess
@@ -108,6 +109,54 @@ FINGERS = ["right-index-finger", "right-middle-finger", "right-thumb", "right-ri
            "right-little-finger", "left-index-finger", "left-middle-finger", "left-thumb",
            "left-ring-finger", "left-little-finger"]
 GREEN, RED, AMBER = "#26a269", "#c01c28", "#e5a50a"
+
+
+def reader_present():
+    """True when the Galaxy Book's Egis reader (1c7a:05a5 / 1c7a:05a1) is on USB.
+    The same rule as packaging/files/fprintd-env.sh.in, which keeps fprintd on
+    the distro libfprint without it. Read from sysfs: no password needed."""
+    for d in glob.glob("/sys/bus/usb/devices/*"):
+        try:
+            with open(os.path.join(d, "idVendor")) as f:
+                if f.read().strip() != "1c7a":
+                    continue
+            with open(os.path.join(d, "idProduct")) as f:
+                if f.read().strip() in ("05a5", "05a1"):
+                    return True
+        except OSError:
+            continue
+    return False
+
+
+def remove_command():
+    """How to remove the fix the way it was installed."""
+    if os.path.isfile("/usr/lib/fingerprint-fix-sdcp/installed"):
+        for tool, cmd in (("dnf", "sudo dnf remove fingerprint-fix-sdcp"),
+                          ("pacman", "sudo pacman -R fingerprint-fix-sdcp"),
+                          ("apt", "sudo apt remove fingerprint-fix-sdcp")):
+            if shutil.which(tool):
+                return cmd
+    return "sudo bash uninstall.sh   (in the fingerprint-fix-sdcp folder)"
+
+
+def no_reader_dialog():
+    """Explain, without asking for a password, that this computer doesn't have
+    the reader this app is for."""
+    dlg = Gtk.MessageDialog(message_type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.CLOSE,
+                            text="No Galaxy Book fingerprint reader found")
+    dlg.set_title(TITLE)
+    dlg.set_icon_name(ICON_NAME)
+    dlg.format_secondary_markup(
+        "This app and fingerprint-fix-sdcp are only for the Egis fingerprint reader of "
+        "Samsung Galaxy Book 3, 4 and 5 laptops (USB <tt>1c7a:05a5</tt> or <tt>1c7a:05a1</tt>), "
+        "and it isn't on this computer.\n\n"
+        "Without it, fprintd uses your distro's own driver, so any other fingerprint reader "
+        "keeps working: set it up in your desktop's settings.\n\n"
+        "If this is a Galaxy Book, the reader may be switched off in the BIOS — check, then "
+        "restart. Otherwise you can remove the fix:\n"
+        f"<tt>{GLib.markup_escape_text(remove_command())}</tt>")
+    dlg.run()
+    dlg.destroy()
 
 
 class NoAccess(RuntimeError):
@@ -2225,6 +2274,9 @@ class App(Gtk.Application):
         self.window = None
 
     def do_activate(self):
+        if self.window is None and not reader_present():
+            no_reader_dialog()          # nothing to manage; the app then quits
+            return
         if self.window is None:
             self.window = Manager(application=self)
         else:

@@ -1,0 +1,50 @@
+#!/bin/bash
+# Samsung Galaxy Book — fingerprint-fix-sdcp: choose fprintd's libfprint
+# (run as root by fprintd's drop-in, as ExecStartPre, each time fprintd starts)
+#
+# The fix's library holds only the egismoc SDCP driver. fprintd uses it only
+# while the Galaxy Book's Egis reader (USB 1c7a:05a5 or 1c7a:05a1) is present;
+# on any other hardware — the disk moved to another laptop, a forced install —
+# fprintd keeps the distro libfprint, with its drivers for every other reader.
+#
+# The same hardware rule is in the packages' pre-install scripts (deb preinst,
+# rpm %pre, pacman pre_install), install.sh and the Fingerprint Manager: they
+# run where this file isn't installed, so each has its own copy. Keep them in step.
+# Never fails fprintd's start.
+ENV_FILE="@FPRINT_ENV_FILE@"
+LIB_DIR="@FPRINT_LIB_DIR@"
+
+reader_present() {
+    local d
+    for d in /sys/bus/usb/devices/*; do
+        [[ "$(cat "$d/idVendor" 2>/dev/null)" == "1c7a" ]] || continue
+        case "$(cat "$d/idProduct" 2>/dev/null)" in 05a5|05a1) return 0 ;; esac
+    done
+    return 1
+}
+
+# On a Samsung, give the reader a moment to appear on USB (early boot, or
+# just after resume); elsewhere don't wait.
+found=false
+if reader_present; then
+    found=true
+elif [[ "$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/board_vendor 2>/dev/null)" =~ [Ss][Aa][Mm][Ss][Uu][Nn][Gg] ]]; then
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+        sleep 0.2
+        reader_present && { found=true; break; }
+    done
+fi
+
+mkdir -p "${ENV_FILE%/*}" && chmod 755 "${ENV_FILE%/*}"
+tmp=$(mktemp "${ENV_FILE}.XXXXXX") || exit 0
+if $found; then
+    printf 'LD_LIBRARY_PATH=%s\n' "$LIB_DIR" > "$tmp"
+else
+    : > "$tmp"
+    logger -t fingerprint-fix-sdcp \
+        "Galaxy Book fingerprint reader (1c7a:05a5 / 1c7a:05a1) not found — fprintd uses the distro libfprint" \
+        2>/dev/null || true
+fi
+chmod 644 "$tmp"
+mv -f "$tmp" "$ENV_FILE"
+exit 0

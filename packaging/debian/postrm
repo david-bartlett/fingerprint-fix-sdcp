@@ -4,7 +4,8 @@ case "$1" in
     remove|purge)
         # Back to the distro libfprint. Enrolled fingerprints (/var/lib/fprint
         # and on the sensor) and the fingerprint-login setting are kept.
-        rm -f /run/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf
+        rm -f /run/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf \
+              /run/samsung-galaxybook/fprintd-sdcp.env
         systemctl daemon-reload >/dev/null 2>&1 || true
         systemctl try-restart fprintd.service >/dev/null 2>&1 || true
         ;;

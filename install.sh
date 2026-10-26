@@ -20,6 +20,7 @@ for _f in lib/sensor-check.c lib/fingerprint-manager.py lib/fingerprint-manager-
           lib/galaxybook-fingerprint-manager.svg fingerprint-manager.sh \
           tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh \
           lib/fixpaths.sh lib/update_check.py lib/notify-open-manager.sh packaging/render.sh packaging/files/monitor.sh.in \
+          packaging/files/fprintd-env.sh.in packaging/files/dropin.conf.in \
           VERSION DRIVER; do
     [[ -f "$SCRIPT_DIR/$_f" ]] || { echo "Missing $SCRIPT_DIR/$_f — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
 done
@@ -111,11 +112,13 @@ detect_distro() {
 }
 
 # ── Hardware detection ────────────────────────────────────────────────────────
+# The same rule as the packages' pre-install scripts: a Samsung (sys_vendor or
+# board_vendor), with the Egis reader 1c7a:05a5 / 05a1 (checked in Step 1).
 check_hardware() {
     local _vendor
-    _vendor=$(cat /sys/class/dmi/id/sys_vendor 2>/dev/null || echo "unknown")
-    if ! echo "$_vendor" | grep -qi "samsung"; then
-        echo "Unsupported hardware: vendor is '$_vendor' — this script is for Samsung Galaxy Book laptops only"
+    _vendor=$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/board_vendor 2>/dev/null)
+    if ! grep -qi "samsung" <<< "$_vendor"; then
+        echo "Unsupported hardware: vendor is '$(head -1 <<< "${_vendor:-unknown}")' — this script is for Samsung Galaxy Book laptops only"
         return 1
     fi
     return 0
@@ -294,6 +297,11 @@ $SENSOR_CHECK_BUILT && install -m755 build/sensor-check "$FPRINT_SENSOR_CHECK"
 command -v restorecon >/dev/null 2>&1 && restorecon -R "$FPRINT_LIB_DIR" 2>/dev/null || true
 cd /
 rm -rf "$FPRINT_BUILD_DIR"
+# The drop-in runs this each time fprintd starts: it points fprintd at the
+# library only while the Galaxy Book's reader is present.
+render fprintd-env.sh.in > "$FPRINT_ENV_SCRIPT"
+chown root:root "$FPRINT_ENV_SCRIPT"; chmod 755 "$FPRINT_ENV_SCRIPT"
+command -v restorecon >/dev/null 2>&1 && restorecon "$FPRINT_ENV_SCRIPT" 2>/dev/null || true
 mkdir -p "$FPRINT_DROPIN_DIR"
 render dropin.conf.in > "$FPRINT_DROPIN"
 chmod 644 "$FPRINT_DROPIN"
