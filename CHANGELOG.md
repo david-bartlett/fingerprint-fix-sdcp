@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fingerprint Manager on Arch: when the fix was installed with `install.sh`, the install command after **Download** removes that copy first (pacman refused to install over its files), keeping fingerprints and fingerprint login
 - `install.sh`: the Fingerprint Manager's icon goes in `/usr/share/icons` like its menu entry, so Cinnamon's menu shows it straight away (it didn't notice an icon added under `/usr/local/share/icons` until Cinnamon restarted); the old `/usr/local` copy is removed
 ## 1.3.1 — 2026-10-26
 

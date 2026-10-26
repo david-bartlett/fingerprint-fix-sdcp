@@ -72,6 +72,11 @@ INSTALLED_COPIES = (("/usr/lib/fingerprint-fix-sdcp/manager", "/usr/bin/galaxybo
                      "/usr/local/bin/galaxybook-fingerprint-manager"))
 
 
+# install.sh's own clean-up (lib/fixpaths.sh, local layout): removes that copy
+# without asking, keeping enrolled fingerprints.
+LOCAL_CLEANUP = "/usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh"
+
+
 def installed_copy():
     """(version, command) of the installed Manager, package first; (None, None)."""
     for folder, command in INSTALLED_COPIES:
@@ -1950,8 +1955,9 @@ class Manager(Gtk.Window):
                 how += ("\n\nIt replaces the copy installed with install.sh — "
                         "the package removes that copy first.")
             elif not installed_fmt:
-                how += ("\n\nBefore installing it, remove the copy installed with install.sh: "
-                        "sudo bash uninstall.sh in its folder.")
+                how += ("\n\npacman won't install over the copy installed with install.sh, so the "
+                        "install command removes that copy first — fingerprints and fingerprint "
+                        "login are kept.")
         elif installed_fmt:
             how = ("No package for this system was found in the release — "
                    "download the right one from the release page.")
@@ -1975,7 +1981,7 @@ class Manager(Gtk.Window):
         if resp == 1:
             self._open_uri(page, "the release page")
         elif resp == 2:
-            self._download_update(asset, fmt)
+            self._download_update(asset, fmt, replace_local=not installed_fmt)
 
     def _open_uri(self, uri, what):
         try:
@@ -1983,7 +1989,7 @@ class Manager(Gtk.Window):
         except GLib.Error as e:
             self.error(f"Could not open {what}: {e.message}")
 
-    def _download_update(self, asset, fmt):
+    def _download_update(self, asset, fmt, replace_local=False):
         folder = (GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD)
                   or os.path.expanduser("~/Downloads"))
         self.update_btn.set_sensitive(False)
@@ -2000,18 +2006,25 @@ class Manager(Gtk.Window):
         def work():
             try:
                 path = update_check.download(asset, folder, progress)
-                GLib.idle_add(self._downloaded, path, fmt, None)
+                GLib.idle_add(self._downloaded, path, fmt, None, replace_local)
             except Exception as e:                   # network, disk, checksum
-                GLib.idle_add(self._downloaded, None, fmt, str(e))
+                GLib.idle_add(self._downloaded, None, fmt, str(e), replace_local)
         threading.Thread(target=work, daemon=True).start()
 
-    def _downloaded(self, path, fmt, err):
+    def _downloaded(self, path, fmt, err, replace_local=False):
         self.update_btn.set_sensitive(True)
         self._hide_message()
         if err:
             self.error(f"Download failed: {err}")
             return False
         cmd = update_check.install_command(fmt, path)
+        # pacman refuses files it doesn't own, such as an install.sh copy's menu
+        # entry, icon and polkit policy: remove that copy first with its own
+        # cleanup, which asks nothing and keeps fingerprints and the sudo /
+        # polkit-1 lines (the package takes those over). dnf and apt replace
+        # it themselves, from the package's install script.
+        if fmt == "pacman" and replace_local and os.path.exists(LOCAL_CLEANUP):
+            cmd = f"sudo {LOCAL_CLEANUP} && {cmd}"
         d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE, text="Downloaded")
         d.format_secondary_text(
