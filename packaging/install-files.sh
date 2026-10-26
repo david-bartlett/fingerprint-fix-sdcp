@@ -57,6 +57,9 @@ put polkit-monitor.rules.in "$FPRINT_POLKIT_RULE"
 # Starts graphical-session.target on desktops that don't (Xfce and others),
 # so the login check runs there too.
 put session-start.sh.in   "$SESSION_HELPER_SCRIPT" 755
+# Run by the package's install script: the login check right away for users
+# already logged in.
+put notify-users.sh.in    "$FPRINT_SCRIPT_DIR/notify-users.sh" 755
 put session.target.in     "$SESSION_HELPER_TARGET"
 put session-autostart.desktop.in "$SESSION_HELPER_AUTOSTART"
 
@@ -64,7 +67,7 @@ put session-autostart.desktop.in "$SESSION_HELPER_AUTOSTART"
 install -Dm755 "$REPO/fingerprint-manager.sh" "$D$MGR_DIR/fingerprint-manager.sh"
 install -Dm644 "$REPO/VERSION" "$D$MGR_DIR/VERSION"
 install -Dm755 -t "$D$MGR_DIR/lib" "$REPO/lib/fingerprint-manager.py" "$REPO/lib/fingerprint-manager-helper.py" \
-    "$REPO/lib/update_check.py"
+    "$REPO/lib/update_check.py" "$REPO/lib/notify-open-manager.sh"
 install -Dm644 -t "$D$MGR_DIR/lib" "$REPO/lib/fixpaths.sh"
 install -d "$D$MGR_DIR/tools"
 for t in fingerprint-pam.sh arch-pam.sh export-fingerprint.sh import-fingerprint.sh; do
