@@ -9,11 +9,18 @@
 #
 #   sudo bash arch-pam.sh enable     # add fingerprint to sudo and polkit-1
 #   sudo bash arch-pam.sh disable    # remove exactly what 'enable' added
+#   sudo bash arch-pam.sh update     # bring lines added by an older version up
+#                                    # to date (changes nothing else)
 #   sudo bash arch-pam.sh status
 #
 # Each file gets one 'auth sufficient pam_fprintd.so' line above its first
 # auth line, marked with a comment. Until a finger is enrolled, pam_fprintd
 # reports "not available" and the password is asked for as usual.
+#
+# polkit-1 gets timeout=10 (the shortest pam_fprintd allows): admin dialogs
+# show a password box, but polkit only checks a typed password once the
+# fingerprint step gives up (3 tries or 30 s by default) — the same on Fedora
+# (polkit issue #650). sudo keeps the default: Ctrl+C skips to the password.
 #
 # Not touched: the KDE lock screen (its kde-fingerprint service already uses
 # the fingerprint) and the login screen (fingerprint there makes it wait for
@@ -44,6 +51,7 @@ esac
 
 MARK="# Added by Samsung Galaxy Book fingerprint-fix-sdcp (arch-pam.sh)"
 RULE="auth            sufficient      pam_fprintd.so"
+rule_for() { [[ "$1" == polkit-1 ]] && echo "$RULE timeout=10" || echo "$RULE"; }
 STATE_DIR="/var/lib/samsung-galaxybook"
 POLKIT_CREATED="${STATE_DIR}/pam-polkit-1-created"
 BAK=".bak-samsung-galaxybook"
@@ -51,13 +59,16 @@ BAK=".bak-samsung-galaxybook"
 # file in /etc/pam.d, optional vendor copy in /usr/lib/pam.d
 SERVICES=(sudo polkit-1)
 
-# Print FILE with our two lines inserted above its first auth line.
+# Print FILE with our two lines (rule $2) inserted above its first auth line.
 with_rule() {
-    awk -v mark="$MARK" -v rule="$RULE" '
+    awk -v mark="$MARK" -v rule="$2" '
         !done && /^[[:space:]]*-?auth[[:space:]]/ { print mark; print rule; done = 1 }
         { print }
         END { if (!done) exit 3 }' "$1"
 }
+
+# The rule line we added to FILE (the line after our mark), if any.
+our_rule() { awk -v mark="$MARK" 'prev == mark { print; exit } { prev = $0 }' "$1"; }
 
 # Print FILE without our two lines.
 without_rule() {
@@ -80,13 +91,17 @@ enable_one() {
             return 0
         fi
     fi
+    if grep -qxF "$MARK" "$f"; then
+        update_one "$svc"
+        return 0
+    fi
     if grep -qE '^[[:space:]]*[^#[:space:]].*pam_fprintd' "$f"; then
         info "$svc: fingerprint already enabled — left as it is"
         return 0
     fi
     [[ -f "$f$BAK" ]] || cp -p "$f" "$f$BAK"
     tmp=$(mktemp)
-    if ! with_rule "$f" > "$tmp"; then
+    if ! with_rule "$f" "$(rule_for "$svc")" > "$tmp"; then
         rm -f "$tmp"
         warn "$svc: no auth line in $f — skipped"
         return 0
@@ -100,6 +115,28 @@ enable_one() {
     cat "$tmp" > "$f"      # keep the file's owner, mode and SELinux label
     rm -f "$tmp"
     info "✓ $svc: fingerprint enabled (backup: $f$BAK)"
+}
+
+# Our line from an older version (e.g. polkit-1 without timeout=10): replace
+# it with the current one. Lines this script didn't add are never touched.
+update_one() {
+    local svc="$1" f="/etc/pam.d/$1" want tmp
+    [[ -f "$f" ]] && grep -qxF "$MARK" "$f" || return 0
+    want=$(rule_for "$svc")
+    if [[ "$(our_rule "$f")" == "$want" ]]; then
+        info "$svc: fingerprint already enabled — up to date"
+        return 0
+    fi
+    tmp=$(mktemp)
+    if ! without_rule "$f" | with_rule /dev/stdin "$want" > "$tmp" \
+            || [[ "$(our_rule "$tmp")" != "$want" ]]; then
+        rm -f "$tmp"
+        warn "$svc: could not update $f safely — left unchanged"
+        return 0
+    fi
+    cat "$tmp" > "$f"
+    rm -f "$tmp"
+    info "✓ $svc: fingerprint line updated ($want)"
 }
 
 disable_one() {
@@ -156,6 +193,7 @@ case "${1:-}" in
              echo "  Test in a NEW terminal:  sudo -k; sudo true   and   pkexec true"
              echo "  Undo:                    sudo bash $(basename "$0") disable" ;;
     disable) for s in "${SERVICES[@]}"; do disable_one "$s"; done ;;
+    update)  for s in "${SERVICES[@]}"; do update_one "$s"; done ;;
     status)  for s in "${SERVICES[@]}"; do status_one "$s"; done ;;
-    *)       error "Usage: sudo bash $0 enable|disable|status" ;;
+    *)       error "Usage: sudo bash $0 enable|disable|update|status" ;;
 esac
