@@ -2019,8 +2019,8 @@ class Manager(Gtk.Window):
             "(checked against the release's SHA256SUMS).\n\n"
             "Install it by opening the file (your software centre installs it), or in a "
             f"terminal:\n    {cmd}\n\n"
-            "Quit Manager copies the command and closes the Manager. If it is still open "
-            "when the new version is installed, it offers to restart. "
+            "Open folder and Quit Manager copy the command and close the Manager. If it is "
+            "still open when the new version is installed, it offers to restart. "
             "Enrolled fingerprints are kept.")
         d.add_button("Open folder", 1)
         d.add_button("Copy command", 2)
@@ -2029,10 +2029,9 @@ class Manager(Gtk.Window):
         clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         while True:
             resp = d.run()
-            if resp == 1:                            # the dialog stays: the command is in it
+            if resp == 1:                            # open the folder, then quit like Quit Manager
                 self._open_uri(GLib.filename_to_uri(os.path.dirname(path)), "the folder")
-                continue
-            if resp in (2, 3):
+            if resp in (1, 2, 3):
                 clipboard.set_text(cmd, -1)
                 # Hand it to the clipboard manager, so it is still there to paste
                 # after the Manager has quit.
@@ -2043,7 +2042,7 @@ class Manager(Gtk.Window):
                 continue
             break
         d.destroy()
-        if resp == 3:
+        if resp in (1, 3):
             # The package replaces the Manager's files and restarts fprintd.
             self.close()
         return False
