@@ -1,8 +1,15 @@
 # Changelog
 
-## 1.1.1 — 2026-10-26
+## Unreleased
 
 **Driver:** unchanged, libfprint-egismoc-sdcp `3b0ee1f`.
+
+### Releases
+
+- Packages are built and the GitHub release is made automatically when a version tag is pushed
+- Fedora packages build again (they needed `gcc-c++`)
+- Arch: no separate debug package in the downloads
+- Galaxy Book 4 with the `1c7a:05a1` sensor confirmed working (firmware 9050.1.2.33) on Zorin OS 18.1 (Ubuntu 24.04 base)
 
 ### Packages
 
