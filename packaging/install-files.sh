@@ -63,7 +63,8 @@ put session-autostart.desktop.in "$SESSION_HELPER_AUTOSTART"
 # ── Galaxy Book Fingerprint Manager ───────────────────────────────────────────
 install -Dm755 "$REPO/fingerprint-manager.sh" "$D$MGR_DIR/fingerprint-manager.sh"
 install -Dm644 "$REPO/VERSION" "$D$MGR_DIR/VERSION"
-install -Dm755 -t "$D$MGR_DIR/lib" "$REPO/lib/fingerprint-manager.py" "$REPO/lib/fingerprint-manager-helper.py"
+install -Dm755 -t "$D$MGR_DIR/lib" "$REPO/lib/fingerprint-manager.py" "$REPO/lib/fingerprint-manager-helper.py" \
+    "$REPO/lib/update_check.py"
 install -Dm644 -t "$D$MGR_DIR/lib" "$REPO/lib/fixpaths.sh"
 install -d "$D$MGR_DIR/tools"
 for t in fingerprint-pam.sh arch-pam.sh export-fingerprint.sh import-fingerprint.sh; do

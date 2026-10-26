@@ -24,8 +24,6 @@ import sys
 import threading
 import json
 import re
-import time
-import urllib.request
 
 # The application ID. It makes the window a single instance (a second launch
 # brings the running window forward instead), and on Wayland it is the
@@ -233,48 +231,9 @@ def save_view(view):
     save_setting("view", view)
 
 
-# ── new releases on GitHub ───────────────────────────────────────────────────
-# At most one request a day, cached; switched off with the menu's "Check for
-# new versions". Nothing is sent but the request itself.
-REPO_URL = "https://github.com/david-bartlett/fingerprint-fix-sdcp"
-RELEASES_API = "https://api.github.com/repos/david-bartlett/fingerprint-fix-sdcp/releases/latest"
-RELEASE_CACHE = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"),
-                             ICON_NAME, "latest-release")
-
-
-def version_key(v):
-    """(major, minor, patch) from '1.2.3' or 'v1.2.3'; None if it isn't one."""
-    m = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", (v or "").strip())
-    return tuple(int(x) for x in m.groups()) if m else None
-
-
-def latest_release(max_age=24 * 3600):
-    """The newest release's tag (e.g. 'v1.0.2'), or None when unknown — offline,
-    no release yet, or the repository not public. Asks GitHub at most once per
-    max_age seconds; runs in a background thread."""
-    now = time.time()
-    try:
-        with open(RELEASE_CACHE) as f:
-            checked, tag = f.read().split()
-        if 0 <= now - float(checked) < max_age:
-            return None if tag == "-" else tag
-    except (OSError, ValueError):
-        pass
-    tag = None
-    try:
-        req = urllib.request.Request(RELEASES_API, headers={
-            "Accept": "application/vnd.github+json", "User-Agent": ICON_NAME})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            tag = json.load(r).get("tag_name") or None
-    except Exception:          # offline, 404 (no release / private), rate limit
-        pass
-    try:
-        os.makedirs(os.path.dirname(RELEASE_CACHE), exist_ok=True)
-        with open(RELEASE_CACHE, "w") as f:
-            f.write(f"{now:.0f} {tag or '-'}\n")
-    except OSError:
-        pass
-    return tag
+# ── new releases on GitHub: lib/update_check.py, shared with the login check ─
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
+import update_check  # noqa: E402
 
 
 # The fingerprint drawing (64×64 units): start point, then cubic segments.
@@ -1851,18 +1810,16 @@ class Manager(Gtk.Window):
     # ── new versions ──
     def check_for_update(self, max_age=24 * 3600):
         def work():
-            tag = latest_release(max_age)
-            GLib.idle_add(self._show_update, tag)
+            new = update_check.newer_release(max_age)
+            GLib.idle_add(self._show_update, new)
         threading.Thread(target=work, daemon=True).start()
 
-    def _show_update(self, tag):
-        newer = version_key(tag) and version_key(app_version()) \
-            and version_key(tag) > version_key(app_version())
-        self._new_version = tag.lstrip("v") if newer else None
-        if newer:
-            self.update_btn.set_tooltip_text(f"fingerprint-fix-sdcp {self._new_version} is available "
+    def _show_update(self, new):
+        self._new_version = new
+        if new:
+            self.update_btn.set_tooltip_text(f"fingerprint-fix-sdcp {new} is available "
                                              f"(this is {app_version()})")
-        self.update_btn.set_visible(bool(newer))
+        self.update_btn.set_visible(bool(new))
         return False
 
     def _on_update_toggled(self, item):
@@ -1898,7 +1855,8 @@ class Manager(Gtk.Window):
         d.set_default_response(Gtk.ResponseType.OK)
         if d.run() == Gtk.ResponseType.OK:
             try:
-                Gtk.show_uri_on_window(self, f"{REPO_URL}/releases/tag/v{new}", Gdk.CURRENT_TIME)
+                Gtk.show_uri_on_window(self, f"{update_check.REPO_URL}/releases/tag/v{new}",
+                                       Gdk.CURRENT_TIME)
             except GLib.Error as e:
                 self.error(f"Could not open the release page: {e.message}")
         d.destroy()
