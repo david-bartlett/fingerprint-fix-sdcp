@@ -34,7 +34,9 @@ fix_layout() {
         FPRINT_CLEANUP="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-cleanup.sh"
         FPRINT_POLKIT_RULE="/etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
         MGR_BIN="/usr/local/bin/galaxybook-fingerprint-manager"
-        MGR_ICON="/usr/local/share/icons/hicolor/scalable/apps/galaxybook-fingerprint-manager.svg"
+        # In /usr/share like the menu entry (below): Cinnamon's menu doesn't pick
+        # up an icon newly added under /usr/local/share/icons until it restarts.
+        MGR_ICON="/usr/share/icons/hicolor/scalable/apps/galaxybook-fingerprint-manager.svg"
         # Shared with other Galaxy Book fixes (same paths as theirs).
         SESSION_HELPER_TARGET="/etc/systemd/user/samsung-galaxybook-session.target"
         SESSION_HELPER_SCRIPT="/usr/local/bin/samsung-galaxybook-session-start.sh"
