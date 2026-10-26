@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `install.sh` no longer looks for or migrates the old `fingerprint-fix` (nobody has it installed); its steps are renumbered
 - Fingerprint Manager: notices when a new version is installed while it is open — from a software centre, `dnf` / `apt` / `pacman` or `install.sh` — and offers **Restart**; the download dialog says the file can also be installed by opening it
 - Fingerprint Manager: after a download, **Open folder** and **Quit Manager** copy the install command and close the Manager, ready for the new version to be installed; Open folder brings an already open (or minimised) file manager to the front
 - Fingerprint Manager: the *Update* button stands out more, with a red ring and a soft glow

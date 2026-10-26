@@ -98,14 +98,6 @@ FPRINT_BUILD_DIR="/tmp/libfprint-egismoc-sdcp"
 # Scripts and units come from packaging/files/, filled in with these paths.
 render() { bash "$SCRIPT_DIR/packaging/render.sh" local "$1"; }
 
-# Old fingerprint-fix (feature/sdcp-v2 installed over the system libfprint)
-OLD_MARKER="/etc/samsung-galaxybook-libfprint-sdcp-v2.installed"
-OLD_HASH_FILE="/var/lib/samsung-galaxybook/libfprint.sha256"
-OLD_CLEANUP="/usr/local/bin/samsung-galaxybook-libfprint-cleanup.sh"
-OLD_MONITOR_SVC="samsung-galaxybook-fprint-monitor.service"
-OLD_USER_CHECK_SVC="samsung-galaxybook-fprint-user-check.service"
-OLD_USER_CHECK_TIMER="samsung-galaxybook-fprint-user-check.timer"
-
 # ── Distro detection ──────────────────────────────────────────────────────────
 detect_distro() {
     [[ -f /etc/os-release ]] || error "Cannot detect distro — /etc/os-release not found"
@@ -153,16 +145,6 @@ system_libfprint() {
     ldconfig -p | grep 'libfprint-2\.so\.2 ' | awk '{print $NF}' | head -1
 }
 
-reinstall_distro_libfprint() {
-    if [[ "$DISTRO" == "fedora" ]]; then
-        dnf reinstall -y libfprint
-    elif [[ "$DISTRO" == "arch" ]]; then
-        pacman -S --noconfirm libfprint
-    else
-        apt-get install -y --reinstall libfprint-2-2
-    fi
-}
-
 # ── Install ───────────────────────────────────────────────────────────────────
 detect_distro
 check_hardware || exit 1
@@ -206,45 +188,11 @@ else
 fi
 info "Dependencies installed"
 
-# ── Step 3: Migrate from the old fingerprint-fix if present ───────────────────
-step "Fingerprint Step 3: Checking for the old fingerprint-fix"
-if [[ -f "$OLD_MARKER" || -f "$OLD_HASH_FILE" || -f "$OLD_CLEANUP" \
-      || -f "/etc/systemd/system/${OLD_MONITOR_SVC}" ]]; then
-    warn "Old fingerprint-fix found (feature/sdcp-v2 built over the system libfprint)"
-    info "Removing its monitor and restoring the distro libfprint."
-    info "Enrolled fingerprints are KEPT — both builds use the same SDCP print format."
-    if [[ -x "$OLD_CLEANUP" ]]; then
-        "$OLD_CLEANUP" || true
-    else
-        rm -f "$OLD_HASH_FILE" "$OLD_MARKER" \
-              "/etc/systemd/system/${OLD_MONITOR_SVC}" \
-              /etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-monitor.rules \
-              /usr/local/bin/samsung-galaxybook-fprint-monitor.sh \
-              /usr/local/bin/samsung-galaxybook-fprint-user-check.sh
-        for _home in /home/*/; do
-            _udir="${_home}.config/systemd/user"
-            rm -f "${_udir}/${OLD_USER_CHECK_TIMER}" "${_udir}/${OLD_USER_CHECK_SVC}" \
-                  "${_udir}/graphical-session.target.wants/${OLD_USER_CHECK_TIMER}" \
-                  "${_udir}/graphical-session.target.wants/${OLD_USER_CHECK_SVC}"
-        done
-        systemctl daemon-reload 2>/dev/null || true
-    fi
-    rm -f /etc/samsung-galaxybook/session-helper.d/fingerprint-fix
-    reinstall_distro_libfprint \
-        || error "Could not reinstall the distro libfprint.\n  Run it manually, then re-run this installer:\n  Fedora: sudo dnf reinstall libfprint\n  Ubuntu: sudo apt install --reinstall libfprint-2-2\n  Arch:   sudo pacman -S libfprint"
-    ldconfig
-    MIGRATED=1
-    info "✓ Old fingerprint-fix removed, distro libfprint restored"
-else
-    info "Old fingerprint-fix not installed"
-fi
-
-# ── Step 4: Check if the distro libfprint already supports our sensor ─────────
-step "Fingerprint Step 4: Checking if the distro libfprint already supports the sensor"
-# Skipped on a reinstall (our drop-in is active) and right after migrating from
-# the old fix (we already know the distro libfprint wasn't enough).
-if [[ -f "$FPRINT_DROPIN" || "${MIGRATED:-0}" == "1" || "${FORCE:-0}" == "1" ]]; then
-    info "Skipped (reinstall, migration or FORCE=1)"
+# ── Step 3: Check if the distro libfprint already supports our sensor ─────────
+step "Fingerprint Step 3: Checking if the distro libfprint already supports the sensor"
+# Skipped on a reinstall (our drop-in is active).
+if [[ -f "$FPRINT_DROPIN" || "${FORCE:-0}" == "1" ]]; then
+    info "Skipped (reinstall or FORCE=1)"
 # Only 3 seconds here: the distro libfprint can't use these sensors, so this
 # would otherwise always wait the full 10. Missing a slow start just means the
 # fix is installed anyway, which is harmless.
@@ -258,8 +206,8 @@ else
     info "Distro libfprint cannot use the sensor — proceeding with the fix"
 fi
 
-# ── Step 5: Fetch the source ──────────────────────────────────────────────────
-step "Fingerprint Step 5: Fetching libfprint-egismoc-sdcp ($SDCP_BRANCH)"
+# ── Step 4: Fetch the source ──────────────────────────────────────────────────
+step "Fingerprint Step 4: Fetching libfprint-egismoc-sdcp ($SDCP_BRANCH)"
 info "From: $SDCP_REPO_URL"
 rm -rf "$FPRINT_BUILD_DIR"
 mkdir -p "$FPRINT_BUILD_DIR"
@@ -312,8 +260,8 @@ for _patch in "$SCRIPT_DIR"/lib/patches/*.patch; do
     fi
 done
 
-# ── Step 6: Build only the egismoc driver ─────────────────────────────────────
-step "Fingerprint Step 6: Building libfprint (egismoc driver only)"
+# ── Step 5: Build only the egismoc driver ─────────────────────────────────────
+step "Fingerprint Step 5: Building libfprint (egismoc driver only)"
 cd "$FPRINT_BUILD_DIR"
 meson setup build --buildtype=release \
     -Ddrivers=egismoc -Dtod=false -Ddoc=false -Dgtk-examples=false \
@@ -339,8 +287,8 @@ else
     warn "Could not build the sensor check helper — the fix works, but you won't be told\n       if fingerprints are removed from the sensor (e.g. by Windows)."
 fi
 
-# ── Step 7: Install the library and the fprintd drop-in ───────────────────────
-step "Fingerprint Step 7: Installing the library for fprintd only"
+# ── Step 6: Install the library and the fprintd drop-in ───────────────────────
+step "Fingerprint Step 6: Installing the library for fprintd only"
 install -Dm755 build/libfprint/libfprint-2.so.2.0.0 "$FPRINT_LIB"
 $SENSOR_CHECK_BUILT && install -m755 build/sensor-check "$FPRINT_SENSOR_CHECK"
 command -v restorecon >/dev/null 2>&1 && restorecon -R "$FPRINT_LIB_DIR" 2>/dev/null || true
@@ -353,8 +301,8 @@ systemctl daemon-reload
 systemctl restart fprintd 2>/dev/null || true
 info "✓ Library installed to $FPRINT_LIB_DIR (distro libfprint untouched)"
 
-# ── Step 8: Confirm fprintd loaded our library ────────────────────────────────
-step "Fingerprint Step 8: Checking fprintd uses the new driver"
+# ── Step 7: Confirm fprintd loaded our library ────────────────────────────────
+step "Fingerprint Step 7: Checking fprintd uses the new driver"
 if check_fprintd_functional \
         && grep -q "$FPRINT_LIB_DIR" "/proc/$(pidof fprintd 2>/dev/null | awk '{print $1}')/maps" 2>/dev/null; then
     info "✓ fprintd is running with the egismoc SDCP driver and sees the sensor"
@@ -362,8 +310,8 @@ else
     warn "Could not confirm fprintd loaded $FPRINT_LIB.\n       Check with: fprintd-list \"\$USER\"; sudo grep libfprint /proc/\$(pidof fprintd)/maps"
 fi
 
-# ── Step 9: Record state ──────────────────────────────────────────────────────
-step "Fingerprint Step 9: Recording installed state"
+# ── Step 8: Record state ──────────────────────────────────────────────────────
+step "Fingerprint Step 8: Recording installed state"
 mkdir -p "$FPRINT_STATE_DIR"
 SYSLIB=$(system_libfprint)
 if [[ -n "$SYSLIB" ]]; then
@@ -373,8 +321,8 @@ fi
 echo "${SDCP_COMMIT:0:12} ${SDCP_DATE} ${SDCP_SOURCE}${SDCP_FIXES[*]:+ +${SDCP_FIXES[*]}} (installed $(date '+%Y-%m-%d')) fingerprint-fix-sdcp ${FIX_VERSION}" > "$FPRINT_MARKER"
 info "✓ Marker and distro libfprint hash stored"
 
-# ── Step 10: Monitor — cleanup helper, scripts, polkit rule, services ─────────
-step "Fingerprint Step 10: Installing the fingerprint monitor"
+# ── Step 9: Monitor — cleanup helper, scripts, polkit rule, services ─────────
+step "Fingerprint Step 9: Installing the fingerprint monitor"
 
 # Cleanup helper — removes the whole fix (used by the monitor once the distro
 # libfprint supports the sensor). PAM fingerprint auth is left enabled.
@@ -434,8 +382,8 @@ else
         || warn "systemctl --user enable failed for ${FPRINT_USER_CHECK_TIMER}"
 fi
 
-# ── Step 11: Graphical session helper (Xfce and other desktops) ───────────────
-step "Fingerprint Step 11: Checking the desktop starts graphical-session.target"
+# ── Step 10: Graphical session helper (Xfce and other desktops) ───────────────
+step "Fingerprint Step 10: Checking the desktop starts graphical-session.target"
 # Shared with other Galaxy Book fixes; each registers a marker and the last one
 # uninstalled removes it (same helper as fingerprint-fix and webcam-toggle).
 SESSION_HELPER_USERS="/etc/samsung-galaxybook/session-helper.d"
@@ -466,8 +414,8 @@ else
     info "Desktop starts graphical-session.target itself — no session helper needed"
 fi
 
-# ── Step 12: Enable fingerprint authentication ────────────────────────────────
-step "Fingerprint Step 12: Enabling fingerprint authentication"
+# ── Step 11: Enable fingerprint authentication ────────────────────────────────
+step "Fingerprint Step 11: Enabling fingerprint authentication"
 # fingerprint-pam.sh does it the way each distro expects (authselect on
 # Fedora, pam-auth-update on Ubuntu/Debian/MX, Mint's fingwit profile on Mint,
 # arch-pam.sh on Arch); the Fingerprint Manager uses the same script.
@@ -502,13 +450,13 @@ else
     info "The KDE lock screen uses the fingerprint without changes (kde-fingerprint)"
 fi
 
-# ── Step 13: Import fingerprints exported from another install ───────────────
+# ── Step 12: Import fingerprints exported from another install ───────────────
 # ~/fingerprint-export.tgz (where export-fingerprint.sh writes it) is imported
 # automatically — import-fingerprint.sh first checks its fingerprints are
 # still on the sensor. Without it, the user is asked [y/N] (30s, then skip)
 # and, only if they say yes, for the path (no timeout).
 # FPRINT_IMPORT=FILE imports a file kept anywhere else without asking.
-step "Fingerprint Step 13: Importing fingerprints from another install (optional)"
+step "Fingerprint Step 12: Importing fingerprints from another install (optional)"
 _imp_user="${FPRINT_USER:-${SUDO_USER:-}}"
 _imp_home=""
 [[ -n "$_imp_user" ]] && _imp_home=$(getent passwd "$_imp_user" | cut -d: -f6)
@@ -543,13 +491,13 @@ else
     fi
 fi
 
-# ── Step 14: Galaxy Book Fingerprint Manager ──────────────────────────────────
+# ── Step 13: Galaxy Book Fingerprint Manager ──────────────────────────────────
 # A root-owned copy of the Manager (window + helper + tools), so the helper that
 # pkexec runs as root can't be changed by anything running as the user. It
 # lives inside FPRINT_LIB_DIR, so uninstalling the fix (or the monitor's
 # cleanup) removes it with the library. Its GUI packages are installed here,
 # separately: if they fail, the fix itself is still fine.
-step "Fingerprint Step 14: Installing the Galaxy Book Fingerprint Manager"
+step "Fingerprint Step 13: Installing the Galaxy Book Fingerprint Manager"
 case "$DISTRO" in
     fedora) dnf install -y python3-gobject python3-cairo gtk3 polkit ;;
     arch)   pacman -S --noconfirm --needed python-gobject python-cairo gtk3 polkit ;;
@@ -599,7 +547,7 @@ info "            branch $SDCP_BRANCH, commit ${SDCP_COMMIT:0:12} (${SDCP_DATE})
 [[ "$SDCP_SOURCE" == "fork" ]] \
     || warn "This is a TEST build (not the usual fork). Run the installer again without\n       SDCP_REPO_URL to go back to the fork's build."
 echo
-echo "  Existing SDCP enrolments (from the old fingerprint-fix) are kept."
+echo "  Existing SDCP enrolments are kept."
 echo "  Test with:  fprintd-verify"
 echo
 echo "  If verify never matches, the prints were enrolled with a non-SDCP"
