@@ -1,7 +1,0 @@
-# The libfprint-egismoc-sdcp commit this release of fingerprint-fix-sdcp is
-# tested with. install.sh builds exactly this commit from the fork
-# (david-bartlett/libfprint-egismoc-sdcp), so syncing the fork changes nothing
-# for users until a new release names a new commit here.
-#
-#   sudo SDCP_COMMIT=latest bash install.sh   builds the fork's newest commit instead
-3b0ee1f40fececc78ca44b218ea094390df6f58a

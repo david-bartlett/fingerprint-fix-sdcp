@@ -1,5 +1,0 @@
-[Unit]
-Description=Samsung Galaxy Book — graphical session (desktops without systemd session support)
-BindsTo=graphical-session.target
-Wants=graphical-session-pre.target
-After=graphical-session-pre.target

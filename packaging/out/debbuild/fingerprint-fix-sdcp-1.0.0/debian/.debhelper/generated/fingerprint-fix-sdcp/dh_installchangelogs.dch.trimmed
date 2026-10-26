@@ -1,6 +1,0 @@
-fingerprint-fix-sdcp (1.0.0-1) unstable; urgency=medium
-
-  * fingerprint-fix-sdcp 1.0.0 with libfprint-egismoc-sdcp 3b0ee1f40fec.
-    See /usr/share/doc/fingerprint-fix-sdcp/CHANGELOG.md.gz.
-
- -- David Bartlett <22402006+david-bartlett@users.noreply.github.com>  Mon, 26 Oct 2026 08:54:42 +0000
