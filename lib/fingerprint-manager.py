@@ -25,6 +25,7 @@ import sys
 import threading
 import json
 import re
+import uuid
 
 # The application ID. It makes the window a single instance (a second launch
 # brings the running window forward instead), and on Wayland it is the
@@ -282,6 +283,92 @@ list.fpm-list row.fpm-selected .fpm-lcard { border-color: @theme_selected_bg_col
 # The egismoc sensor stores up to this many templates (EGISMOC_MAX_ENROLL_NUM).
 SENSOR_SLOTS = 10
 
+# ── Windows on the same laptop ───────────────────────────────────────────────
+# Windows Hello deletes the sensor templates it didn't create when Windows
+# starts with the reader enabled, so a Linux install sharing the laptop with
+# Windows loses its fingerprints unless the reader is disabled in Windows.
+# Detected without a password and without mounting anything: a UEFI boot entry
+# for Windows Boot Manager whose partition still exists, and Windows' own
+# partitions (an NTFS / BitLocker one plus the Microsoft Reserved or Windows
+# Recovery partition only the Windows installer makes).
+EFI_GLOBAL = "8be4df61-93ca-11d2-aa0d-00e098032b8c"   # vendor GUID of the Boot#### variables
+WINDOWS_PART_TYPES = ("e3c9e316-0b5c-4db8-817d-f92df00215ae",   # Microsoft Reserved
+                      "de94bba4-06d1-4d40-a16a-bfd50179d6ac")   # Windows Recovery
+WINDOWS_TIP = ("When Windows starts with the fingerprint reader enabled, Windows Hello deletes "
+               "the fingerprints it didn't create — including your Linux ones.\n\n"
+               "In Windows, open Device Manager → Biometric devices, right-click the fingerprint "
+               "sensor and choose Disable device. Linux then keeps its fingerprints.\n\n"
+               "If they do disappear, a notification tells you at the next login, and you can "
+               "enrol them again.")
+
+
+def efi_boot_entries():
+    """[(description, partition GUID or None, file path or None)] of the UEFI
+    boot entries this user can read; None when there are none to read (legacy
+    boot, or the firmware variables aren't readable)."""
+    entries, seen = [], False
+    for path in glob.glob(f"/sys/firmware/efi/efivars/Boot[0-9A-Fa-f][0-9A-Fa-f]"
+                          f"[0-9A-Fa-f][0-9A-Fa-f]-{EFI_GLOBAL}"):
+        try:
+            with open(path, "rb") as f:
+                data = f.read()[4:]               # skip efivarfs' attribute word
+        except OSError:
+            continue
+        seen = True
+        if len(data) < 8:
+            continue
+        # EFI_LOAD_OPTION: attributes (4), device path length (2), UTF-16
+        # description ending in a NUL, then the device path.
+        dp_len = int.from_bytes(data[4:6], "little")
+        end = 6
+        while end + 1 < len(data) and data[end:end + 2] != b"\0\0":
+            end += 2
+        desc = data[6:end].decode("utf-16-le", "replace")
+        dp = data[end + 2:end + 2 + dp_len]
+        guid = file = None
+        i = 0
+        while i + 4 <= len(dp):
+            kind, subkind = dp[i], dp[i + 1]
+            length = int.from_bytes(dp[i + 2:i + 4], "little")
+            if length < 4 or kind == 0x7F:            # bad node, or end of path
+                break
+            node = dp[i:i + length]
+            if kind == 4 and subkind == 1 and length >= 42 and node[41] == 2:
+                guid = str(uuid.UUID(bytes_le=bytes(node[24:40])))    # GPT partition
+            elif kind == 4 and subkind == 4:
+                file = node[4:].decode("utf-16-le", "replace").rstrip("\0")
+            i += length
+        entries.append((desc, guid, file))
+    return entries if seen else None
+
+
+def windows_partitions():
+    """True when a disk has Windows' partitions: NTFS or BitLocker, plus the
+    Microsoft Reserved or Windows Recovery partition."""
+    try:
+        out = subprocess.run(["lsblk", "-J", "-l", "-o", "FSTYPE,PARTTYPE"], capture_output=True,
+                             text=True, timeout=5).stdout
+        devs = json.loads(out).get("blockdevices", [])
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return False
+    fs = any((d.get("fstype") or "").lower() in ("ntfs", "bitlocker") for d in devs)
+    marker = any((d.get("parttype") or "").lower() in WINDOWS_PART_TYPES for d in devs)
+    return fs and marker
+
+
+def windows_installed():
+    """Best guess, without root, whether Windows is installed on this laptop."""
+    entries = efi_boot_entries()
+    if entries is not None:
+        def is_windows(desc, file):
+            return ("windows boot manager" in desc.lower()
+                    or "\\microsoft\\boot\\bootmgfw.efi" in (file or "").lower())
+        if not any(is_windows(d, f) and (g is None or os.path.exists(f"/dev/disk/by-partuuid/{g}"))
+                   for d, g, f in entries):
+            return False                         # no Windows entry, or only a stale one
+    return windows_partitions()
+
+
 # ── fingerprint pictures, names and the remembered view ─────────────────────
 SETTINGS = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
                         ICON_NAME, "settings")
@@ -529,6 +616,13 @@ class Manager(Gtk.Window):
         self.update_item.set_active(load_settings().get("update_check", "1") == "1")
         self.update_item.connect("toggled", self._on_update_toggled)
         menu.append(self.update_item)
+        self.windows_item = Gtk.CheckMenuItem(label="Remind me about Windows")
+        self.windows_item.set_tooltip_text("When Windows is installed on this laptop, show a "
+                                           "reminder to disable its fingerprint reader there")
+        self.windows_item.set_active(load_settings().get("windows_hint", "1") == "1")
+        self.windows_item.connect("toggled", self._on_windows_toggled)
+        self.windows_item.set_no_show_all(True)     # only shown once Windows is found
+        menu.append(self.windows_item)
         menu.append(Gtk.SeparatorMenuItem())
         self._menu_item(menu, "About", self.on_about)
         menu.show_all()
@@ -575,6 +669,24 @@ class Manager(Gtk.Window):
         self.info.get_style_context().add_class("fpm-soft")
         self.info.get_style_context().add_class("fpm-status")
         card.pack_start(self.info, False, False, 0)
+        # Windows on the same laptop: a reminder to disable the reader there.
+        # Hidden until the check (run once the window is up) finds Windows.
+        self.win_row = Gtk.Box(spacing=8)
+        win_label = Gtk.Label(xalign=0, wrap=True)
+        win_label.set_markup(f'<span foreground="{AMBER}" weight="bold">⚠</span>  Windows found on '
+                             "this laptop — disable its fingerprint reader there")
+        win_label.get_style_context().add_class("fpm-status")
+        win_label.set_tooltip_text(WINDOWS_TIP)
+        self.win_row.pack_start(win_label, True, True, 0)
+        win_ok = Gtk.Button(label="Got it", relief=Gtk.ReliefStyle.NONE, valign=Gtk.Align.CENTER)
+        win_ok.set_tooltip_text("Hide this reminder (Menu → Remind me about Windows brings it back)")
+        win_ok.connect("clicked", lambda *_: self.windows_item.set_active(False))
+        self.win_row.pack_end(win_ok, False, False, 0)
+        self.win_row.show_all()
+        self.win_row.set_no_show_all(True)
+        self.win_row.hide()
+        self._windows = False
+        card.pack_start(self.win_row, False, False, 0)
         outer.pack_start(card, False, False, 0)
 
         # ── message bar: one short line, Details… for the full text ──
@@ -747,6 +859,7 @@ class Manager(Gtk.Window):
         self._set_view(load_view(), save=False)
         self._update_buttons()
         GLib.idle_add(self.refresh)
+        GLib.idle_add(self._check_windows)
         if self.update_item.get_active():
             self.check_for_update(max_age=0)        # once, at start-up
         self._watch_install()
@@ -2091,6 +2204,24 @@ class Manager(Gtk.Window):
                                              f"(this is {app_version()})")
         self.update_btn.set_visible(bool(new))
         return False
+
+    def _check_windows(self):
+        """Look for Windows in the background (lsblk), then show the reminder."""
+        def work():
+            found = windows_installed()
+            GLib.idle_add(self._windows_checked, found)
+        threading.Thread(target=work, daemon=True).start()
+        return False
+
+    def _windows_checked(self, found):
+        self._windows = found
+        self.windows_item.set_visible(found)
+        self.win_row.set_visible(found and self.windows_item.get_active())
+        return False
+
+    def _on_windows_toggled(self, item):
+        save_setting("windows_hint", "1" if item.get_active() else "0")
+        self.win_row.set_visible(self._windows and item.get_active())
 
     def _on_update_toggled(self, item):
         save_setting("update_check", "1" if item.get_active() else "0")
