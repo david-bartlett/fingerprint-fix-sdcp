@@ -20,7 +20,7 @@
 # polkit-1 gets timeout=10 (the shortest pam_fprintd allows): admin dialogs
 # show a password box, but polkit only checks a typed password once the
 # fingerprint step gives up (3 tries or 30 s by default) — the same on Fedora
-# (polkit issue #650). sudo keeps the default: Ctrl+C skips to the password.
+# (a known polkit limitation). sudo keeps the default: Ctrl+C skips to the password.
 #
 # Not touched: the KDE lock screen (its kde-fingerprint service already uses
 # the fingerprint) and the login screen (fingerprint there makes it wait for
