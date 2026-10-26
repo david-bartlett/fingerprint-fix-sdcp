@@ -6,9 +6,13 @@
 #
 # Packages the checkout as it is now (tracked and new files) with the driver
 # commit named in DRIVER. The .deb is written to packaging/out/.
-# Build on the oldest release it should run on — Ubuntu 24.04 (the driver
-# needs glib 2.80) — and the result also installs on Ubuntu 26.04, Mint 22 / 27
-# and Debian 13 / MX 25.
+#
+# A .deb is for the release it was built on: its library dependencies are
+# taken from that system, and Debian / Ubuntu rename library packages between
+# releases (e.g. libgusb2 → libgusb2a in Ubuntu 26.04). So the release name is
+# part of the version — 1.0.1-1~ubuntu26.04, 1.0.1-1~debian13 — and the release
+# workflow builds one per supported release. Mint builds as its Ubuntu base,
+# MX as its Debian base.
 # Needs: sudo apt install build-essential debhelper meson ninja-build patch \
 #            pkgconf libglib2.0-dev libgusb-dev libssl-dev curl
 # =============================================================================
@@ -20,7 +24,22 @@ OUT="$REPO/packaging/out"
 WORK="$OUT/debbuild"
 VERSION=$(tr -d '[:space:]' < "$REPO/VERSION")
 DRIVER=$(grep -v '^#' "$REPO/DRIVER" | tr -d '[:space:]')
-DEBVER="$VERSION-${1:-1}"
+# The release this is built on: ubuntu24.04, ubuntu26.04, debian13, …
+dist_tag() {
+    local ID="" VERSION_ID="" UBUNTU_CODENAME=""
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    case "${UBUNTU_CODENAME:-}" in                    # Mint and other Ubuntu-based
+        noble)    echo ubuntu24.04; return ;;
+        resolute) echo ubuntu26.04; return ;;
+    esac
+    case "$ID" in
+        ubuntu|debian) echo "$ID$VERSION_ID" ;;
+        *)             echo "${ID}${VERSION_ID}" ;;
+    esac
+}
+DIST=$(dist_tag)
+DEBVER="$VERSION-${1:-1}~$DIST"
 
 rm -rf "$WORK"
 mkdir -p "$WORK"
