@@ -416,6 +416,7 @@ class Manager(Gtk.Window):
         self.update_btn.connect("clicked", self.on_update)
         self.update_btn.set_no_show_all(True)
         self._new_version = None
+        self._export_offered = None
         hb.pack_end(self.update_btn)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin=12)
@@ -1204,8 +1205,9 @@ class Manager(Gtk.Window):
             self._hide_message()
 
     def confirm(self, title, text, ok_label, destructive=True):
-        d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
-                              buttons=Gtk.ButtonsType.NONE, text=title)
+        d = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE, text=title,
+                              message_type=Gtk.MessageType.WARNING if destructive
+                              else Gtk.MessageType.QUESTION)
         d.format_secondary_text(text)
         d.add_button("Cancel", Gtk.ResponseType.CANCEL)
         ok = d.add_button(ok_label, Gtk.ResponseType.OK)
@@ -1298,11 +1300,13 @@ class Manager(Gtk.Window):
                 after()
 
         self.info.set_text("Reading the sensor…")
-        self.run_job("status", done)
+        self.run_job("status", done, export=True)
         return False
 
     def show_status(self, st):
         self.status = st
+        if st.get("export_offer"):
+            GLib.idle_add(self._offer_export, st["export_offer"])
         self._fill_records(st["records"], st["user"])
         self._fill_templates(st["templates"])
         for name, n in (("fingers", len(st["records"])), ("sensor", len(st["templates"]))):
@@ -1825,16 +1829,47 @@ class Manager(Gtk.Window):
         mine = [r for r in self.status["records"] if r["user"] == self.status["user"]]
         replace = False
         if mine:
-            names = ", ".join(r["name"] for r in mine)
-            if not self.confirm("Replace your fingerprints on this install?",
-                                f"You already have {names} here. Importing replaces them with the "
-                                "ones in this file, once the file has been checked against the "
-                                "sensor. The old records are moved to "
-                                "/var/lib/samsung-galaxybook/replaced-fingerprints/ — nothing is "
-                                "deleted from the sensor.", "Replace"):
+            names = ", ".join(long_finger(r["name"]).lower() for r in mine)
+            d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.QUESTION,
+                                  buttons=Gtk.ButtonsType.NONE,
+                                  text="You already have fingerprints on this install")
+            d.format_secondary_text(
+                f"You have {names} here.\n\n"
+                "Add the missing ones: imports only the fingers you don't have here yet, "
+                "and keeps yours as they are.\n\n"
+                "Replace all: replaces yours with the ones in this file. Your records are "
+                "moved to /var/lib/samsung-galaxybook/replaced-fingerprints/ — nothing is "
+                "deleted from the sensor.")
+            d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+            rb = d.add_button("Replace all", 2)
+            rb.get_style_context().add_class("destructive-action")
+            d.add_button("Add the missing ones", Gtk.ResponseType.OK)
+            d.set_default_response(Gtk.ResponseType.OK)
+            r = d.run()
+            d.destroy()
+            if r not in (Gtk.ResponseType.OK, 2):
                 return
-            replace = True
+            replace = r == 2
         self.run_job("import", self.after_job("Imported"), file=path, replace=replace)
+
+    # ── fingerprints in ~/fingerprint-export.tgz that this install lacks ──
+    def _offer_export(self, offer):
+        """Once per export file (a new export asks again): offer the fingers in
+        it that this install doesn't have and the sensor still stores."""
+        if self.busy or offer["id"] in (self._export_offered, load_settings().get("export_offer_seen")):
+            return False
+        self._export_offered = offer["id"]
+        save_setting("export_offer_seen", offer["id"])
+        names = ", ".join(long_finger(f["name"]).lower() for f in offer["fingers"])
+        n = len(offer["fingers"])
+        short = offer["file"].replace(os.path.expanduser("~") + "/", "~/")
+        if self.confirm(f"Import {n} fingerprint{'s' if n > 1 else ''} from another install?",
+                        f"{short} has {names}, which {'are' if n > 1 else 'is'} not on this "
+                        "install yet and still stored on the sensor. Your fingerprints here "
+                        "stay as they are.", "Import", destructive=False):
+            self.run_job("import", self.after_job("Imported"), file=offer["file"],
+                         fingers=[f["finger"] for f in offer["fingers"]])
+        return False
 
     # ── new versions ──
     def check_for_update(self, max_age=24 * 3600):
