@@ -16,24 +16,38 @@
 # of the marker, library and drop-in paths: change them there as well.
 # =============================================================================
 
+# Two parts, each its own package from 2.0.0 (install.sh installs both):
+#   the driver   fingerprint-fix-sdcp            libfprint build, fprintd drop-in
+#   the Manager  galaxybook-fingerprint-manager  window, helper, tools, monitor,
+#                                                boot and login checks
+# The driver requires the Manager; the Manager works without the driver (with
+# the distro's libfprint, once it has SDCP), so the driver can be removed alone.
 FIX_PACKAGE_MARKER="/usr/lib/fingerprint-fix-sdcp/installed"
 FIX_LOCAL_MARKER="/etc/samsung-galaxybook-egismoc-sdcp.installed"
+MGR_PACKAGE_MARKER="/usr/lib/galaxybook-fingerprint-manager/installed"
+MGR_LOCAL_MARKER="/etc/galaxybook-fingerprint-manager.installed"
 
 fix_layout() {
     FIX_LAYOUT="$1"
     case "$FIX_LAYOUT" in
     local)
+        # the driver
         FPRINT_LIB_DIR="/usr/local/lib/libfprint-egismoc-sdcp"
         FPRINT_MARKER="$FIX_LOCAL_MARKER"
-        FPRINT_UNIT_DIR="/etc/systemd/system"
-        FPRINT_USER_UNIT_DIR=""                 # written into each user's home instead
         FPRINT_SCRIPT_DIR="/usr/local/bin"
-        FPRINT_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-monitor.sh"
-        FPRINT_USER_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-user-check.sh"
-        FPRINT_BOOT_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-boot-check.sh"
         FPRINT_CLEANUP="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-cleanup.sh"
         FPRINT_ENV_SCRIPT="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-fprintd-env.sh"
         FPRINT_OTHER_FIX="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-other-fix.sh"
+        # the Manager
+        MGR_ROOT="/usr/local/lib/galaxybook-fingerprint-manager"
+        MGR_MARKER="$MGR_LOCAL_MARKER"
+        MGR_SCRIPT_DIR="/usr/local/bin"
+        MGR_CLEANUP="${MGR_SCRIPT_DIR}/galaxybook-fingerprint-manager-cleanup.sh"
+        FPRINT_CHECK_SCRIPT="${MGR_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-monitor.sh"
+        FPRINT_USER_CHECK_SCRIPT="${MGR_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-user-check.sh"
+        FPRINT_BOOT_CHECK_SCRIPT="${MGR_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-boot-check.sh"
+        FPRINT_UNIT_DIR="/etc/systemd/system"
+        FPRINT_USER_UNIT_DIR=""                 # written into each user's home instead
         FPRINT_POLKIT_RULE="/etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
         MGR_BIN="/usr/local/bin/galaxybook-fingerprint-manager"
         # In /usr/share like the menu entry (below): Cinnamon's menu doesn't pick
@@ -45,26 +59,32 @@ fix_layout() {
         SESSION_HELPER_AUTOSTART="/etc/xdg/autostart/samsung-galaxybook-session.desktop"
         ;;
     package)
+        # the driver
         FPRINT_LIB_DIR="/usr/lib/fingerprint-fix-sdcp"
         FPRINT_MARKER="$FIX_PACKAGE_MARKER"
-        FPRINT_UNIT_DIR="/usr/lib/systemd/system"
-        FPRINT_USER_UNIT_DIR="/usr/lib/systemd/user"
         # Fedora keeps scripts in /usr/libexec (SELinux labels them as
-        # programs there); Arch and Debian in the library folder.
+        # programs there); Arch and Debian in the package's library folder.
         FPRINT_SCRIPT_DIR="${FIX_PACKAGE_SCRIPT_DIR:-$FPRINT_LIB_DIR}"
-        FPRINT_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/monitor.sh"
-        FPRINT_USER_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/user-check.sh"
-        FPRINT_BOOT_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/boot-check.sh"
         FPRINT_CLEANUP=""                       # the package manager removes a package
         FPRINT_ENV_SCRIPT="${FPRINT_SCRIPT_DIR}/fprintd-env.sh"
         FPRINT_OTHER_FIX="${FPRINT_SCRIPT_DIR}/other-fix.sh"
+        # the Manager
+        MGR_ROOT="/usr/lib/galaxybook-fingerprint-manager"
+        MGR_MARKER="$MGR_PACKAGE_MARKER"
+        MGR_SCRIPT_DIR="${MGR_PACKAGE_SCRIPT_DIR:-$MGR_ROOT}"
+        MGR_CLEANUP=""
+        FPRINT_CHECK_SCRIPT="${MGR_SCRIPT_DIR}/monitor.sh"
+        FPRINT_USER_CHECK_SCRIPT="${MGR_SCRIPT_DIR}/user-check.sh"
+        FPRINT_BOOT_CHECK_SCRIPT="${MGR_SCRIPT_DIR}/boot-check.sh"
+        FPRINT_UNIT_DIR="/usr/lib/systemd/system"
+        FPRINT_USER_UNIT_DIR="/usr/lib/systemd/user"
         FPRINT_POLKIT_RULE="/usr/share/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
         MGR_BIN="/usr/bin/galaxybook-fingerprint-manager"
         MGR_ICON="/usr/share/icons/hicolor/scalable/apps/galaxybook-fingerprint-manager.svg"
         # Package-owned copies: names that can't clash with the shared helper's
         # files (the target itself is the same unit, so either copy works).
         SESSION_HELPER_TARGET="/usr/lib/systemd/user/samsung-galaxybook-session.target"
-        SESSION_HELPER_SCRIPT="${FPRINT_SCRIPT_DIR}/session-start.sh"
+        SESSION_HELPER_SCRIPT="${MGR_SCRIPT_DIR}/session-start.sh"
         SESSION_HELPER_AUTOSTART="/etc/xdg/autostart/fingerprint-fix-sdcp-session.desktop"
         ;;
     *)
@@ -73,7 +93,6 @@ fix_layout() {
     esac
 
     FPRINT_LIB="${FPRINT_LIB_DIR}/libfprint-2.so.2"
-    FPRINT_SENSOR_CHECK="${FPRINT_LIB_DIR}/sensor-check"
     FPRINT_DROPIN_DIR="${FPRINT_UNIT_DIR}/fprintd.service.d"
     FPRINT_DROPIN="${FPRINT_DROPIN_DIR}/samsung-galaxybook-egismoc-sdcp.conf"
 
@@ -91,9 +110,11 @@ fix_layout() {
     FPRINT_BOOT_CHECK_SVC="samsung-galaxybook-fprint-sdcp-boot-check.service"
     HARDWARE_USB_ID="1c7a:05a5|1c7a:05a1"
 
-    # Galaxy Book Fingerprint Manager — its files live in MGR_DIR
+    # Galaxy Book Fingerprint Manager — the app itself lives in MGR_DIR
     MGR_ID="galaxybook-fingerprint-manager"
-    MGR_DIR="${FPRINT_LIB_DIR}/manager"
+    MGR_DIR="$MGR_ROOT"
+    # The boot-time sensor check (Python, with whichever libfprint fprintd uses)
+    FPRINT_SENSOR_CHECK="${MGR_DIR}/lib/sensor-check.py"
     # The menu entry's file name must equal the app's ID (its Wayland app ID), or
     # the taskbar can't match the window to it and shows a generic icon.
     MGR_APP_ID="io.github.david_bartlett.GalaxyBookFingerprintManager"
@@ -104,12 +125,26 @@ fix_layout() {
 }
 
 fix_detect() {
-    if [[ -f "$FIX_PACKAGE_MARKER" ]]; then fix_layout package
+    if [[ -f "$FIX_PACKAGE_MARKER" || -f "$MGR_PACKAGE_MARKER" ]]; then fix_layout package
     else fix_layout local
     fi
 }
 
-# True when every file fprintd needs for the fix is in place.
+# True when every file fprintd needs for the driver is in place.
 fix_installed() {
     [[ -f "$FPRINT_MARKER" && -f "$FPRINT_LIB" && -f "$FPRINT_DROPIN" ]]
+}
+
+# True when the Manager (and its monitor and checks) is installed.
+mgr_installed() {
+    [[ -f "$MGR_MARKER" ]]
+}
+
+# True when fprintd can use SDCP fingerprints: this fix's driver is installed,
+# or — once it has been removed — the distro's own libfprint has an SDCP driver
+# for the reader (from the distro itself, not another fix). Run as root.
+sdcp_available() {
+    fix_installed && return 0
+    [[ -f "$MGR_DIR/lib/distro-driver-check.py" ]] || return 1
+    [[ "$(env -u LD_LIBRARY_PATH python3 "$MGR_DIR/lib/distro-driver-check.py" 2>/dev/null | head -n1)" == sdcp ]]
 }

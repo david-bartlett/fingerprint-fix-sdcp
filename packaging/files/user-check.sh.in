@@ -8,7 +8,7 @@
 FPRINT_STATUS_FILE="/run/samsung-galaxybook/fprint-sdcp-status"
 FPRINT_BOOT_STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
 FPRINT_OTHER_STATUS="/run/samsung-galaxybook/fprint-sdcp-other-driver"
-[[ -f "@FPRINT_MARKER@" ]] || exit 0
+[[ -f "@MGR_MARKER@" ]] || exit 0
 
 show() {
     local ICON TITLE MSG NEXT

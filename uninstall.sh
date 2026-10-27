@@ -2,7 +2,11 @@
 # =============================================================================
 # Samsung Galaxy Book — Fingerprint Fix (egismoc SDCP driver) — Uninstall
 # =============================================================================
-# Self-contained. Run as root: sudo bash uninstall.sh
+# Self-contained. Run as root:
+#   sudo bash uninstall.sh                 the driver and the Fingerprint Manager
+#   sudo bash uninstall.sh --driver-only   only the driver (once the distro's own
+#                                          libfprint has SDCP): fprintd switches to
+#                                          it, and the Manager stays
 # Enrolled fingerprints are always kept (fprintd's records and the templates
 # on the sensor). To delete fingers, use the Fingerprint Manager first.
 # =============================================================================
@@ -29,9 +33,26 @@ step()  { echo -e "\n${BLUE}══ $* ${NC}"; }
 . "$SCRIPT_DIR/lib/fixpaths.sh" 2>/dev/null \
     || error "lib/fixpaths.sh not found — run uninstall.sh from the complete fingerprint-fix-sdcp folder."
 fix_layout local
-if [[ -f "$FIX_PACKAGE_MARKER" && ! -f "$FPRINT_MARKER" ]]; then
-    error "fingerprint-fix-sdcp is installed as a package — remove it with your package\n  manager instead (enrolled fingerprints are kept):\n  sudo pacman -R / dnf remove / apt remove fingerprint-fix-sdcp"
+if [[ ( -f "$FIX_PACKAGE_MARKER" || -f "$MGR_PACKAGE_MARKER" ) && ! -f "$FPRINT_MARKER" && ! -f "$MGR_MARKER" ]]; then
+    error "fingerprint-fix-sdcp is installed as packages — remove them with your package\n  manager instead (enrolled fingerprints are kept):\n  sudo pacman -R / dnf remove / apt remove fingerprint-fix-sdcp galaxybook-fingerprint-manager"
 fi
+
+# --driver-only: the driver's own cleanup, nothing else (fingerprint login,
+# the Manager, its monitor and checks all stay).
+if [[ "${1:-}" == --driver-only ]]; then
+    [[ -f "$FPRINT_MARKER" ]] || error "fingerprint-fix-sdcp's driver isn't installed here (by install.sh)."
+    echo
+    info "Removing fingerprint-fix-sdcp's driver — fprintd switches to your distro's libfprint"
+    rm -f "$FPRINT_DROPIN" "${FPRINT_DROPIN}.testing" "$FPRINT_ENV_SCRIPT" "$FPRINT_ENV_FILE" "$FPRINT_OTHER_FIX"
+    rmdir "$FPRINT_DROPIN_DIR" 2>/dev/null || true
+    rm -rf "$FPRINT_LIB_DIR"
+    rm -f "$FPRINT_MARKER" "$FPRINT_CLEANUP"
+    systemctl daemon-reload
+    systemctl restart fprintd 2>/dev/null || true
+    info "✓ Driver removed. Enrolled fingerprints and the Fingerprint Manager are kept."
+    exit 0
+fi
+[[ -z "${1:-}" ]] || error "Unknown option: $1 (use --driver-only, or nothing)"
 
 echo
 echo "╔════════════════════════════════════════════════════════════╗"
@@ -77,7 +98,8 @@ fi
 step "Fingerprint Step 2: Restoring the distro libfprint for fprintd"
 rm -f "$FPRINT_DROPIN" "${FPRINT_DROPIN}.testing" "$FPRINT_ENV_SCRIPT" "$FPRINT_ENV_FILE" "$FPRINT_OTHER_FIX"
 rmdir "$FPRINT_DROPIN_DIR" 2>/dev/null || true
-rm -rf "$FPRINT_LIB_DIR"       # includes the Galaxy Book Fingerprint Manager (manager/)
+rm -rf "$FPRINT_LIB_DIR"       # before 2.0.0 this included the Manager (manager/)
+rm -rf "$MGR_DIR"
 # Fingerprint Manager's menu entry, command, icon and polkit policy
 rm -f "$MGR_BIN" "$MGR_DESKTOP" "$MGR_ICON" "$MGR_POLICY"
 # Refresh the icon caches only where there is one (none is fine: GTK then reads
@@ -120,7 +142,7 @@ for USER_HOME in /home/*/; do
         systemctl --user daemon-reload 2>/dev/null || true
     info "Removed user timer and service for $USER_NAME"
 done
-rm -f "$FPRINT_CHECK_SCRIPT" "$FPRINT_USER_CHECK_SCRIPT" "$FPRINT_BOOT_CHECK_SCRIPT" "$FPRINT_CLEANUP"
+rm -f "$FPRINT_CHECK_SCRIPT" "$FPRINT_USER_CHECK_SCRIPT" "$FPRINT_BOOT_CHECK_SCRIPT" "$FPRINT_CLEANUP" "$MGR_CLEANUP"
 info "✓ Monitor and boot-time sensor check removed"
 
 # Shared graphical session helper — remove only if no other fix uses it.
@@ -143,7 +165,7 @@ fi
 
 # ── Step 4: Remove state files ────────────────────────────────────────────────
 step "Fingerprint Step 4: Removing state files"
-rm -f "$FPRINT_MARKER" "$FPRINT_SYSLIB_HASH" /run/samsung-galaxybook/fprint-sdcp-status \
+rm -f "$FPRINT_MARKER" "$MGR_MARKER" "$FPRINT_SYSLIB_HASH" /run/samsung-galaxybook/fprint-sdcp-status \
       "$FPRINT_BOOT_STATUS" /run/samsung-galaxybook/fprint-sdcp-other-driver
 rm -rf "$FPRINT_REMOVED_DIR" "${FPRINT_STATE_DIR}/replaced-fingerprints"
 rmdir /run/samsung-galaxybook 2>/dev/null || true

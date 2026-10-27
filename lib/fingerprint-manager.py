@@ -65,18 +65,28 @@ def app_version():
         return "unknown"
 
 
-# Where the fix installs the Manager, and the command that starts that copy
-# (lib/fixpaths.sh: package layout first, then install.sh's). The running
-# Manager watches these copies' VERSION files, so it notices a new version
-# however it was installed — a software centre, dnf / apt / pacman, install.sh.
-INSTALLED_COPIES = (("/usr/lib/fingerprint-fix-sdcp/manager", "/usr/bin/galaxybook-fingerprint-manager"),
-                    ("/usr/local/lib/libfprint-egismoc-sdcp/manager",
+# Where the Manager is installed (its own package, galaxybook-fingerprint-manager,
+# or install.sh's copy), and the command that starts that copy (lib/fixpaths.sh:
+# package layout first, then install.sh's). The running Manager watches these
+# copies' VERSION files, so it notices a new version however it was installed —
+# a software centre, dnf / apt / pacman, install.sh.
+INSTALLED_COPIES = (("/usr/lib/galaxybook-fingerprint-manager", "/usr/bin/galaxybook-fingerprint-manager"),
+                    ("/usr/local/lib/galaxybook-fingerprint-manager",
                      "/usr/local/bin/galaxybook-fingerprint-manager"))
 
+# The driver (fingerprint-fix-sdcp): its install markers, package then install.sh.
+DRIVER_MARKERS = ("/usr/lib/fingerprint-fix-sdcp/installed",
+                  "/etc/samsung-galaxybook-egismoc-sdcp.installed")
 
-# install.sh's own clean-up (lib/fixpaths.sh, local layout): removes that copy
-# without asking, keeping enrolled fingerprints.
+# install.sh's own clean-ups (lib/fixpaths.sh, local layout), which remove that
+# copy without asking, keeping enrolled fingerprints: the driver's, then the
+# Manager's (a package replacing an install.sh copy runs both).
 LOCAL_CLEANUP = "/usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh"
+LOCAL_MGR_CLEANUP = "/usr/local/bin/galaxybook-fingerprint-manager-cleanup.sh"
+
+
+def driver_installed():
+    return any(os.path.isfile(m) for m in DRIVER_MARKERS)
 
 
 def installed_copy():
@@ -169,11 +179,25 @@ def add_details(dialog, details):
 
 
 def remove_command():
-    """How to remove the fix the way it was installed."""
-    if os.path.isfile("/usr/lib/fingerprint-fix-sdcp/installed"):
+    """How to remove the driver (fingerprint-fix-sdcp) the way it was installed.
+    The Manager is its own package (or install.sh part) and stays."""
+    if os.path.isfile(DRIVER_MARKERS[0]):
         for tool, cmd in (("dnf", "sudo dnf remove fingerprint-fix-sdcp"),
                           ("pacman", "sudo pacman -R fingerprint-fix-sdcp"),
                           ("apt", "sudo apt remove fingerprint-fix-sdcp")):
+            if shutil.which(tool):
+                return cmd
+    return "sudo bash uninstall.sh --driver-only   (in the fingerprint-fix-sdcp folder)"
+
+
+def remove_all_command():
+    """How to remove the driver and this Manager together."""
+    if any(os.path.isfile(m) for m in (DRIVER_MARKERS[0],
+                                        "/usr/lib/galaxybook-fingerprint-manager/installed")):
+        pkgs = "fingerprint-fix-sdcp galaxybook-fingerprint-manager"
+        for tool, cmd in (("dnf", f"sudo dnf remove {pkgs}"),
+                          ("pacman", f"sudo pacman -R {pkgs}"),
+                          ("apt", f"sudo apt remove {pkgs}")):
             if shutil.which(tool):
                 return cmd
     return "sudo bash uninstall.sh   (in the fingerprint-fix-sdcp folder)"
@@ -183,7 +207,7 @@ def no_reader_dialog():
     """Explain, without asking for a password, that this computer doesn't have
     the reader this app is for."""
     dlg = MessageDialog(message_type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.CLOSE,
-                            text="No Galaxy Book fingerprint reader found")
+                        text="No Galaxy Book fingerprint reader found")
     dlg.set_title(TITLE)
     dlg.set_icon_name(ICON_NAME)
     dlg.format_secondary_text(
@@ -193,7 +217,7 @@ def no_reader_dialog():
         "desktop's settings.")
     add_details(dlg, "Looked for the Egis reader, USB 1c7a:05a5 or 1c7a:05a1. On a Galaxy "
                      "Book, it may be switched off in the BIOS.\n\n"
-                     f"To remove fingerprint-fix-sdcp:\n{remove_command()}")
+                     f"To remove fingerprint-fix-sdcp and this app:\n{remove_all_command()}")
     dlg.run()
     dlg.destroy()
 
@@ -659,7 +683,7 @@ class Manager(Gtk.Window):
         self.windows_item.set_no_show_all(True)     # only shown once Windows is found
         menu.append(self.windows_item)
         menu.append(Gtk.SeparatorMenuItem())
-        self._menu_item(menu, "Test your distro's driver…", self.on_test_distro)
+        self.test_distro_item = self._menu_item(menu, "Test your distro's driver…", self.on_test_distro)
         menu.append(Gtk.SeparatorMenuItem())
         self._menu_item(menu, "About", self.on_about)
         menu.show_all()
@@ -1646,12 +1670,18 @@ class Manager(Gtk.Window):
             self.stack.child_set_property(self.stack.get_child_by_name(name), "title",
                                           f"{self.pages[name]} ({n})")
         self.title_lbl.set_text(f"Fingerprints ({len(st['records'])})")
-        marker = st.get("marker") or "unknown"
-        version, driver, _date = parse_marker(marker)
+        marker = st.get("marker")
+        _version, driver, _date = parse_marker(marker)
         self.info.set_text(f"Sensor: {st['usb_id']} · Serial: {st['serial']} · "
-                           + f"Driver commit: {(driver or 'unknown')[:7]}"
-                           + (f" · v{version}" if version else ""))
-        self.info.set_tooltip_text(f"{st.get('device_name', '')}\nfingerprint-fix-sdcp: {marker}")
+                           + (f"Driver commit: {(driver or 'unknown')[:7]}" if marker
+                              else "Driver: your distro's libfprint")
+                           + f" · v{app_version()}")
+        self.info.set_tooltip_text(f"{st.get('device_name', '')}\n"
+                                   + (f"fingerprint-fix-sdcp: {marker}" if marker
+                                      else "fingerprint-fix-sdcp's driver isn't installed: fprintd "
+                                           "uses your distro's libfprint"))
+        # Testing the distro's driver only makes sense while ours is installed.
+        self.test_distro_item.set_visible(bool(st.get("fix_installed")))
         self.show_pam(st.get("pam") or {})
         other = [r for r in st["records"] if rec_kind(r)[0] == "other"]
         dead = [r for r in st["records"] if r["on_sensor"] is False and r not in other]
@@ -2243,7 +2273,7 @@ class Manager(Gtk.Window):
         reader, say so and offer the test. Asked of the root helper: some
         libfprint builds open the reader while listing it, which needs root.
         Its messages don't replace one already shown (e.g. dead records)."""
-        if self.status is None or self.msg_bar.get_visible():
+        if self.status is None or self.msg_bar.get_visible() or not self.status.get("fix_installed"):
             return False
 
         def done(res, err):
@@ -2342,21 +2372,18 @@ class Manager(Gtk.Window):
         """After a match with the distro's driver: remove the fix from here, or
         copy the command."""
         cmd = remove_command()
-        arch = shutil.which("pacman") and os.path.isfile("/usr/lib/fingerprint-fix-sdcp/installed")
         d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
-                              buttons=Gtk.ButtonsType.NONE,
-                              text="Your fingerprints work with your distro's driver")
-        d.format_secondary_text("You can remove fingerprint-fix-sdcp now. Your fingerprints are "
-                                "kept and keep working.")
-        add_details(d, "fprintd switches to your distro's driver. This Fingerprint Manager is "
-                       "removed too; manage fingers in your desktop's settings afterwards."
-                       + ("\n\nOn Arch-based distros it also turns off fingerprint for sudo and "
-                          "admin prompts: add pam_fprintd to /etc/pam.d/sudo again to keep it."
-                          if arch else "")
-                       + f"\n\nTo remove it yourself:\n{cmd}")
+                          buttons=Gtk.ButtonsType.NONE,
+                          text="Your fingerprints work with your distro's driver")
+        d.format_secondary_text("You can remove fingerprint-fix-sdcp's driver now. Your "
+                                "fingerprints are kept and keep working, and this Fingerprint "
+                                "Manager stays.")
+        add_details(d, "fprintd switches to your distro's driver. The Manager, its boot and "
+                       "login checks, and fingerprint login stay as they are."
+                       f"\n\nTo remove it yourself:\n{cmd}")
         d.add_button("Keep it", Gtk.ResponseType.CLOSE)
         d.add_button("Copy command", 2)
-        remove = d.add_button("Remove fingerprint-fix-sdcp", 1)
+        remove = d.add_button("Remove the driver", 1)
         remove.get_style_context().add_class("suggested-action")
         d.set_default_response(Gtk.ResponseType.CLOSE)
         while True:
@@ -2373,12 +2400,10 @@ class Manager(Gtk.Window):
 
         def done(res, err):
             if err:
-                return self.error(f"fingerprint-fix-sdcp was not removed:\n{err}")
-            self.show_output("fingerprint-fix-sdcp removed",
-                             "Your fingerprints now use your distro's driver. Manage them in your "
-                             "desktop's settings; the Fingerprint Manager closes now.")
-            self.close()
-        self.message("Removing fingerprint-fix-sdcp…", Gtk.MessageType.OTHER)
+                return self.error(f"The driver was not removed:\n{err}")
+            self.refresh(lambda: self.message("Driver removed — fprintd now uses your distro's "
+                                              "libfprint, with your fingerprints."))
+        self.message("Removing fingerprint-fix-sdcp's driver…", Gtk.MessageType.OTHER)
         self.run_job("remove_fix", done)
 
     def _check_windows(self):
@@ -2410,7 +2435,8 @@ class Manager(Gtk.Window):
         """How this copy was installed: ('deb', 'ubuntu26.04'), ('rpm', 'fc45'),
         ('pacman', ''), or ('', '') for install.sh. The install marker says,
         e.g. "(deb package 1.0.0-1~ubuntu26.04)"."""
-        marker = (self.status or {}).get("marker") or ""
+        st = self.status or {}
+        marker = (st.get("marker") or "") + " " + (st.get("mgr_marker") or "")
         m = re.search(r"\((rpm|deb|pacman) package (\S+)\)", marker)
         if not m:
             return "", ""
@@ -2422,8 +2448,7 @@ class Manager(Gtk.Window):
         new = self._new_version
         installed_fmt, installed_dist = self._installed_as()
         fmt, dist = update_check.this_system(installed_fmt, installed_dist)
-        fix_installed = any(os.path.isfile(m) for m in (
-            "/usr/lib/fingerprint-fix-sdcp/installed", "/etc/samsung-galaxybook-egismoc-sdcp.installed"))
+        fix_installed = driver_installed()
         asset = (update_check.pick_asset(self._new_assets, new, fmt, dist, fix_installed)
                  if fmt else None)
         page = f"{update_check.REPO_URL}/releases/tag/v{new}"
@@ -2504,8 +2529,10 @@ class Manager(Gtk.Window):
         # cleanup, which asks nothing and keeps fingerprints and the sudo /
         # polkit-1 lines (the package takes those over). dnf and apt replace
         # it themselves, from the package's install script.
-        if fmt == "pacman" and replace_local and os.path.exists(LOCAL_CLEANUP):
-            cmd = f"sudo {LOCAL_CLEANUP} && {cmd}"
+        if fmt == "pacman" and replace_local:
+            cleanups = [c for c in (LOCAL_CLEANUP, LOCAL_MGR_CLEANUP) if os.path.exists(c)]
+            if cleanups:
+                cmd = " && ".join(f"sudo {c}" for c in cleanups) + f" && {cmd}"
         d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE, text="Downloaded")
         tt = lambda t: f"<tt>{GLib.markup_escape_text(t)}</tt>"
@@ -2642,10 +2669,13 @@ class Manager(Gtk.Window):
                        "not made or endorsed by Samsung.")
         version, driver, date = parse_marker(st.get("marker"))
         d.set_version(app_version())
-        d.set_comments(d.get_comments() + "\n\nInstalled: "
-                       + (f"fingerprint-fix-sdcp {version}" if version else "fingerprint-fix-sdcp")
-                       + (f"\nDriver: libfprint-egismoc-sdcp {driver[:7]}" if driver else "")
-                       + (f" ({nice_date(date, True)})" if date else ""))
+        if st.get("marker"):
+            installed = ((f"fingerprint-fix-sdcp {version}" if version else "fingerprint-fix-sdcp")
+                         + (f"\nDriver: libfprint-egismoc-sdcp {driver[:7]}" if driver else "")
+                         + (f" ({nice_date(date, True)})" if date else ""))
+        else:
+            installed = "Driver: your distro's libfprint (fingerprint-fix-sdcp's isn't installed)"
+        d.set_comments(d.get_comments() + "\n\nInstalled: " + installed)
         d.set_website("https://github.com/david-bartlett/fingerprint-fix-sdcp")
         d.set_website_label("github.com/david-bartlett/fingerprint-fix-sdcp")
         d.set_license_type(Gtk.License.GPL_2_0)

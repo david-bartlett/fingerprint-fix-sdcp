@@ -7,8 +7,7 @@
 # In DRIVER_SOURCE_DIR (libfprint-egismoc-sdcp at the DRIVER commit):
 #   1. applies lib/patches/*.patch that are still needed  → .fix-patches
 #   2. builds only the egismoc driver                     → build/libfprint/libfprint-2.so.2.0.0
-#   3. builds the boot-time sensor check against it       → build/sensor-check
-#   4. notes the driver commit's date                     → .driver-date
+#   3. notes the driver commit's date                     → .driver-date
 # The distro's CFLAGS / LDFLAGS are used when set (makepkg, rpmbuild, dh).
 # install.sh does the same steps itself, with its own messages.
 # =============================================================================
@@ -58,18 +57,7 @@ meson compile -C build
 [[ -f build/libfprint/libfprint-2.so.2.0.0 ]] \
     || { echo "Build finished but libfprint-2.so.2.0.0 was not produced" >&2; exit 1; }
 
-# ── 3. Boot-time sensor check ─────────────────────────────────────────────────
-# Its runpath makes it load the library from the package folder, never the
-# distro libfprint.
-# shellcheck disable=SC2046,SC2086  # flags and pkg-config output must be word-split
-${CC:-gcc} ${CPPFLAGS:-} $CFLAGS -Wall -o build/sensor-check "$REPO/lib/sensor-check.c" \
-    -Ilibfprint -Ibuild/libfprint \
-    $(pkg-config --cflags glib-2.0 gio-2.0 gobject-2.0 gusb) \
-    ${LDFLAGS:-} -Lbuild/libfprint -lfprint-2 \
-    $(pkg-config --libs glib-2.0 gio-2.0 gobject-2.0) \
-    -Wl,-rpath,"$FPRINT_LIB_DIR"
-
-# ── 4. The driver commit's date, for the install marker ───────────────────────
+# ── 3. The driver commit's date, for the install marker ───────────────────────
 # From git when there is a checkout; a GitHub or git-archive tarball stamps
 # every file with the commit's time instead.
 if [[ -e .git ]]; then

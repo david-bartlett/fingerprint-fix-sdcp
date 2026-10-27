@@ -5,7 +5,7 @@ SENSOR_CHECK="@FPRINT_SENSOR_CHECK@"
 STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
 # Fingers enrolled with another driver (shown once per user by the login check)
 OTHER_STATUS="/run/samsung-galaxybook/fprint-sdcp-other-driver"
-[[ -f "@FPRINT_MARKER@" && -x "$SENSOR_CHECK" ]] || exit 0
+[[ -f "@MGR_MARKER@" && -f "$SENSOR_CHECK" ]] || exit 0
 mkdir -p "$(dirname "$STATUS")"; chmod 755 "$(dirname "$STATUS")"
 rm -f "$STATUS" "$OTHER_STATUS"
 
@@ -23,7 +23,9 @@ for _ in $(seq 1 40); do
 done
 $found || { echo "Fingerprint sensor not found — skipping check"; exit 0; }
 
-OUT=$(timeout 8 "$SENSOR_CHECK" 2>&1); RC=$?
+# Python with libfprint's bindings: the driver's libfprint when it's installed,
+# the distro's otherwise (sensor-check.py picks it).
+OUT=$(timeout 10 python3 "$SENSOR_CHECK" 2>&1); RC=$?
 echo "$OUT"
 
 FINGERS=(unknown left-thumb left-index-finger left-middle-finger left-ring-finger

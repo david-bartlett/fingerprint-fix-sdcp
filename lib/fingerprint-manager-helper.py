@@ -19,17 +19,24 @@
 import os
 import sys
 
-# (marker, library folder, fprintd drop-in) of each way the fix is installed:
-# a package first, then install.sh. Keep in step with lib/fixpaths.sh.
+# Each way the fix is installed: (driver marker, driver library folder, fprintd
+# drop-in, Manager marker) — a package first, then install.sh. Keep in step
+# with lib/fixpaths.sh. The driver (fingerprint-fix-sdcp) can be removed while
+# the Manager stays (once the distro's libfprint has SDCP), so the layout is
+# the driver's if it is installed, else the one this Manager belongs to.
 LAYOUTS = [
     ("/usr/lib/fingerprint-fix-sdcp/installed",
      "/usr/lib/fingerprint-fix-sdcp",
-     "/usr/lib/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf"),
+     "/usr/lib/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf",
+     "/usr/lib/galaxybook-fingerprint-manager/installed"),
     ("/etc/samsung-galaxybook-egismoc-sdcp.installed",
      "/usr/local/lib/libfprint-egismoc-sdcp",
-     "/etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf"),
+     "/etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf",
+     "/etc/galaxybook-fingerprint-manager.installed"),
 ]
-MARKER, LIBDIR, DROPIN = next((l for l in LAYOUTS if os.path.isfile(l[0])), LAYOUTS[-1])
+MARKER, LIBDIR, DROPIN, MGR_MARKER = next(
+    (l for l in LAYOUTS if os.path.isfile(l[0])),
+    next((l for l in LAYOUTS if os.path.isfile(l[3])), LAYOUTS[-1]))
 
 # pkexec clears the environment. Re-run with the fix's library first in the
 # search path, before anything loads libfprint.
@@ -108,11 +115,17 @@ def sensor_usb():
     return None, None
 
 
+def read_marker(path):
+    try:
+        with open(path) as f:
+            return f.read().strip() or None
+    except OSError:
+        return None
+
+
 def fix_state():
-    marker = None
-    if os.path.isfile(MARKER):
-        with open(MARKER) as f:
-            marker = f.read().strip()
+    """(driver installed and complete, driver marker or None)."""
+    marker = read_marker(MARKER)
     ok = bool(marker) and os.path.isfile(os.path.join(LIBDIR, "libfprint-2.so.2")) \
         and os.path.isfile(DROPIN)
     return ok, marker
@@ -200,6 +213,10 @@ class Sensor:
                 subprocess.run(["systemctl", "stop", "fprintd"], capture_output=True)
                 time.sleep(0.7)
         subprocess.run(["systemctl", "start", "fprintd"], capture_output=True)
+        if last.startswith("No egismoc") and not fix_state()[0]:
+            # Without the driver, the distro's own libfprint drives the reader.
+            raise Fail("fingerprint-fix-sdcp's driver isn't installed, and your distro's "
+                       "libfprint can't use the reader.\nInstall fingerprint-fix-sdcp.")
         raise Fail(f"Could not open the fingerprint sensor: {last}")
 
     def __exit__(self, *exc):
@@ -275,12 +292,13 @@ def do_status(req):
     ok, marker = fix_state()
     st = {"user": calling_user(), "usb_id": f"1c7a:{pid}" if pid else None,
           "serial": serial, "fix_installed": ok, "marker": marker,
+          "mgr_marker": read_marker(MGR_MARKER),
           "records": [], "templates": [], "features": {}}
     if not pid:
         raise Fail("EgisTec fingerprint sensor (1c7a:05a5 / 1c7a:05a1) not found.")
-    if not ok:
-        raise Fail("fingerprint-fix-sdcp is not installed (or incomplete) here.\n"
-                   "Install it first: sudo bash install.sh")
+    if marker and not ok:
+        raise Fail("fingerprint-fix-sdcp's driver is incomplete here — files are missing.\n"
+                   "Reinstall fingerprint-fix-sdcp.")
     if FPrint is None:
         raise Fail(f"Python can't load libfprint ({GI_ERROR}).\n"
                    "Install your distro's libfprint GObject introspection package "
@@ -529,6 +547,9 @@ def do_test_distro(req):
     enrolled fingers exactly as login would after removing the fix. The
     drop-in always goes back on afterwards. Cancelled like the test."""
     user = calling_user()
+    if not fix_state()[0]:
+        raise Fail("fingerprint-fix-sdcp's driver isn't installed: fprintd already uses your "
+                   "distro's libfprint.")
     kind, detail = distro_driver()
     if kind != "sdcp":
         return {"result": "unsupported", "driver": kind, "detail": detail}
@@ -567,9 +588,10 @@ LOCAL_CLEANUP = "/usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh"   # i
 
 
 def do_remove_fix(_req):
-    """Remove fingerprint-fix-sdcp the way it was installed — only offered once
-    the user's fingers matched with the distro's driver. Enrolled fingerprints
-    (/var/lib/fprint and the sensor) are kept either way."""
+    """Remove fingerprint-fix-sdcp's driver the way it was installed — only
+    offered once the user's fingers matched with the distro's driver. The
+    Manager is its own package (galaxybook-fingerprint-manager, or install.sh's
+    Manager part) and stays; enrolled fingerprints are kept."""
     env = dict(os.environ, DEBIAN_FRONTEND="noninteractive")
     env.pop("LD_LIBRARY_PATH", None)
     if MARKER.startswith("/usr/lib/"):              # a package
