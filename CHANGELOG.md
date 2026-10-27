@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.1.0 — 2026-10-27
 
 - **Sensor tab always shown:** see how full the sensor's 10 slots are, next to your fingerprints
 - Fingerprint Manager: the Sensor tab (every template on the sensor, its 10 slots, delete and wipe) is always shown next to Fingerprints; the menu option to show it is gone, and messages that pointed to that option now point to the tab
