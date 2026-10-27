@@ -17,14 +17,18 @@
 #                 egismoc before SDCP: 1c7a:05a1 only, and it can't keep prints)
 #     none     1  no driver for the reader in the distro's libfprint, or the
 #                 reader isn't on USB
-#     error    3  libfprint's Python bindings couldn't be loaded
+#     error    3  libfprint's Python bindings couldn't be loaded (the detail
+#                 line says which package to install)
 #     unknown  4  the reader is on USB, but libfprint didn't list it — some
 #                 builds open the device while listing, which needs root
 #
 # Always runs on the distro's libfprint: started with the fix's LD_LIBRARY_PATH,
-# it starts itself again without it. Lists the USB devices; fprintd can keep
-# running. Run it as root for a definite answer: some libfprint builds open the
-# reader while listing it (the monitor, install.sh and the Manager's helper do).
+# it starts itself again without it. It changes no files and no fingerprints,
+# and fprintd can keep running, but it isn't purely passive: libfprint opens
+# the reader while listing it (e.g. Ubuntu's 1.95.1+tod1) and may set its USB
+# power "persist" setting. Opening it needs root on most distros, so run it as
+# root for a definite answer (the monitor, install.sh and the Manager's helper
+# do); as a normal user it can only say "unknown".
 #
 # Used by install.sh (Step 3), the monitor (after a distro libfprint update)
 # and the Fingerprint Manager. For testing, CHECK_DRIVER=<driver id> looks for
@@ -55,7 +59,11 @@ try:
     gi.require_version("FPrint", "2.0")
     from gi.repository import FPrint
 except (ImportError, ValueError) as e:
-    answer("error", 3, f"libfprint's Python bindings: {e}")
+    hint = next((cmd for tool, cmd in (
+        ("apt-get", "sudo apt install python3-gi gir1.2-fprint-2.0"),
+        ("dnf", "sudo dnf install python3-gobject libfprint"),
+        ("pacman", "sudo pacman -S python-gobject libfprint")) if shutil.which(tool)), "")
+    answer("error", 3, f"libfprint's Python bindings: {e}" + (f" — install them: {hint}" if hint else ""))
 
 
 def class_names(obj):
