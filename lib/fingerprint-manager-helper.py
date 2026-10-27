@@ -563,6 +563,40 @@ def do_test_distro(req):
         subprocess.run(["systemctl", "restart", "fprintd"], capture_output=True)
 
 
+LOCAL_CLEANUP = "/usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh"   # install.sh's copy
+
+
+def do_remove_fix(_req):
+    """Remove fingerprint-fix-sdcp the way it was installed — only offered once
+    the user's fingers matched with the distro's driver. Enrolled fingerprints
+    (/var/lib/fprint and the sensor) are kept either way."""
+    env = dict(os.environ, DEBIAN_FRONTEND="noninteractive")
+    env.pop("LD_LIBRARY_PATH", None)
+    if MARKER.startswith("/usr/lib/"):              # a package
+        for tool, cmd in (("dnf", ["dnf", "remove", "-y", "fingerprint-fix-sdcp"]),
+                          ("pacman", ["pacman", "-R", "--noconfirm", "fingerprint-fix-sdcp"]),
+                          ("apt-get", ["apt-get", "remove", "-y", "fingerprint-fix-sdcp"])):
+            if shutil.which(tool):
+                break
+        else:
+            raise Fail("No dnf, pacman or apt-get found to remove the package.")
+    elif os.path.isfile(LOCAL_CLEANUP):            # install.sh's copy: its own cleanup
+        cmd = [LOCAL_CLEANUP]
+    else:
+        raise Fail("fingerprint-fix-sdcp's removal script wasn't found.")
+    try:
+        r = subprocess.run(cmd, env=env, stdin=subprocess.DEVNULL, capture_output=True,
+                           text=True, timeout=600)
+    except subprocess.TimeoutExpired:
+        raise Fail("Removing fingerprint-fix-sdcp took too long — is another update running?")
+    out = ANSI.sub("", (r.stdout or "") + (r.stderr or "")).strip()
+    if r.returncode != 0:
+        raise Fail(out or f"{cmd[0]} failed ({r.returncode})")
+    subprocess.run(["systemctl", "daemon-reload"], capture_output=True)
+    subprocess.run(["systemctl", "try-restart", "fprintd"], capture_output=True)
+    return {"output": out}
+
+
 def pam_state():
     try:
         out = run_script([os.path.join(TOOLS, "fingerprint-pam.sh"), "status", "--short"])
@@ -686,6 +720,7 @@ def do_import(req):
 
 ACTIONS = {"status": do_status, "remove_records": do_remove_records,
            "test_distro": do_test_distro, "distro_check": do_distro_check,
+           "remove_fix": do_remove_fix,
            "delete_other_driver": do_delete_other_driver,
            "delete_templates": do_delete_templates, "wipe": do_wipe,
            "export": do_export, "import": do_import, "test": do_test,

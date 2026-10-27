@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Notifications whose next step is in the Fingerprint Manager — **Your Distro Now Supports the Fingerprint Reader**, **Fingerprints From Another Driver** and **Fingerprint Removed From Sensor** — have an **Open Fingerprint Manager** button, on desktops whose notifications support buttons
+- Fingerprint Manager: when *Test your distro's driver* matches, **Remove fingerprint-fix-sdcp** removes the fix the way it was installed (`dnf` / `apt-get` / `pacman`, or an `install.sh` copy's own cleanup), keeping your fingerprints, and closes the Manager; **Copy command** gives the command instead. When it doesn't match, it explains how to delete your fingers first so they don't stay on the sensor after switching
+
 - The Galaxy Book3 isn't supported: it can have the same `1c7a:05a1` reader as the Book4, but hasn't been tested. `install.sh`, the `.rpm`, the `.deb` and the Arch release `PKGBUILD` refuse to install on a Book3 (pacman's install script warns), recognised by its model name or model code (`…XF…` / `…QF…`); `FPRINT_SDCP_FORCE=1` installs anyway. README, package descriptions and the Fingerprint Manager say Book4 and Book5
 
 - Distro-driver check: when libfprint's Python bindings are missing (e.g. Ubuntu without `gir1.2-fprint-2.0`), the `error` answer says what to install; its description no longer suggests it's purely read-only (libfprint opens the reader while listing it, and may set its USB power "persist" setting). Confirmed on a Galaxy Book4 (`1c7a:05a1`, Ubuntu 26.04, libfprint 1.95.1+tod1): Ubuntu's own driver answers `plain` — it handles the reader without SDCP — thanks to Andy

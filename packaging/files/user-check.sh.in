@@ -2,16 +2,23 @@
 # Samsung Galaxy Book — egismoc SDCP fingerprint fix user check (runs as user)
 # 1. Starts the root monitor (allowed by polkit) and shows any notification it left.
 # 2. Shows the result of the boot-time sensor check, once per boot.
-# Status files: line 1 = icon, line 2 = title, line 3 = message.
+# Status files: line 1 = icon, line 2 = title, line 3 = message, and an optional
+# line 4 "manager": the next step is in the Fingerprint Manager, so the
+# notification gets an "Open Fingerprint Manager" button where the desktop has them.
 FPRINT_STATUS_FILE="/run/samsung-galaxybook/fprint-sdcp-status"
 FPRINT_BOOT_STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
 FPRINT_OTHER_STATUS="/run/samsung-galaxybook/fprint-sdcp-other-driver"
 [[ -f "@FPRINT_MARKER@" ]] || exit 0
 
 show() {
-    local ICON TITLE MSG
-    { IFS= read -r ICON; IFS= read -r TITLE; IFS= read -r MSG; } < "$1"
+    local ICON TITLE MSG NEXT
+    { IFS= read -r ICON; IFS= read -r TITLE; IFS= read -r MSG; IFS= read -r NEXT; } < "$1"
     [[ -n "$TITLE" ]] || return 0
+    # With a button, the helper waits for a click: start it on its own.
+    if [[ "$NEXT" == manager ]] && systemd-run --user --quiet --collect \
+            "@MGR_DIR@/lib/notify-open-manager.sh" "$TITLE" "$MSG" "${ICON:-dialog-information}" 2>/dev/null; then
+        return 0
+    fi
     notify-send -t 0 -a "Samsung Galaxy Book Fixes" -i "${ICON:-dialog-information}" "$TITLE" "$MSG" \
         || logger -t samsung-galaxybook-fprint-sdcp-user-check "notify-send failed: $TITLE: $MSG"
 }
