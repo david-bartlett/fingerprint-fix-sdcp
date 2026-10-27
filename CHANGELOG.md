@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fingerprint Manager: shorter dialogs — each says what matters in a line or two, with paths, how it works and caveats under **More details**; *Details…* on a message is titled with that message
+
 ## 1.5.0 — 2026-10-27
 
 - Fingerprint Manager: **Update** is ready for releases with two packages — the driver (`fingerprint-fix-sdcp`) and the Manager (`galaxybook-fingerprint-manager`), planned for 2.0.0 — and downloads both into `~/Downloads/fingerprint-fix-sdcp-<version>/` to install together (`sudo dnf install ./*.rpm`, `sudo apt install ./*.deb`, or `makepkg -si`), or only the Manager once the driver has been removed. Releases with one package work as before. Update to this version before 2.0.0 comes out: older Managers can't install a two-package release by themselves
