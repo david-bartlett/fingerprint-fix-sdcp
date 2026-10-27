@@ -4,6 +4,8 @@
      headline, "- **Two packages:** …", are listed under What's new; the whole
      section is under "Full changelog". Keep to a few per release. -->
 
+## Unreleased
+
 ## 2.0.1 — 2026-10-27
 
 - The "Fingerprint Login Is Off" notification named a switch the Fingerprint Manager doesn't have ("Use fingerprint for login and sudo"); it now points to the switch at the top of the Manager, whatever your distro calls it
