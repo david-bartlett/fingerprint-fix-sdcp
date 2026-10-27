@@ -1827,8 +1827,9 @@ class Manager(Gtk.Window):
         what = picked[0][1] if picked else "any of your fingers (as login and sudo do)"
 
         d = Gtk.Dialog(title="Test fingerprint", transient_for=self, modal=True)
-        d.set_default_size(420, -1)
-        d.set_resizable(False)          # just as tall as its text: no empty space below
+        WIDTH = 440
+        d.set_default_size(WIDTH, -1)
+        d.set_resizable(False)          # its size is set below, the same in every state
         close_btn = d.add_button("Cancel", Gtk.ResponseType.CANCEL)
         area = d.get_content_area()
         area.set_spacing(8)
@@ -1847,6 +1848,15 @@ class Manager(Gtk.Window):
             head.set_markup(f'<span size="x-large" weight="bold"{span}>'
                             f'{GLib.markup_escape_text(title)}</span>')
             sub.set_text(detail)
+
+        # One size for every state (touch prompt, result, countdown): the
+        # tallest — no match, with its countdown — plus a little room below.
+        no_match_detail = (f"Tested: {what}\nThat finger didn't match. Try again, "
+                           "or test another finger.")
+        show("✗", None, "No match", f"{no_match_detail}\n\nTesting again in {AGAIN_IN}…")
+        area.show_all()
+        tallest = area.get_preferred_height_for_width(WIDTH)[1]
+        area.set_size_request(WIDTH, tallest + 50)
 
         def start():
             show("☝", None, "Touch the fingerprint sensor", f"Testing: {what}")
@@ -1875,8 +1885,7 @@ class Manager(Gtk.Window):
             if result == "match":
                 show("✓", "#26a269", f"Match — {long_finger(res['name'])}", f"Tested: {what}")
             elif result == "no-match":
-                show("✗", "#c01c28", "No match",
-                     f"Tested: {what}\nThat finger didn't match. Try again, or test another finger.")
+                show("✗", "#c01c28", "No match", no_match_detail)
             elif result == "timeout":
                 show("!", "#e5a50a", "No touch", "Nothing touched the sensor within 60 seconds.")
             elif result == "retry":
