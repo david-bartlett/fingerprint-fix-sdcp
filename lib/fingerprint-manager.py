@@ -2352,7 +2352,7 @@ class Manager(Gtk.Window):
                                  details="To switch to your distro's driver anyway: first delete "
                                          "your fingers here (☰ → Show the Sensor tab, select your "
                                          "templates, Delete…), so they don't stay on the sensor "
-                                         "taking up its 10 slots. Then remove the fix and enrol "
+                                         "taking up its 10 slots. Then remove the driver and enrol "
                                          f"again in your desktop's settings:\n{remove_command()}")
             elif r == "unsupported" and res.get("driver") in ("modified", "foreign"):
                 self.show_output("Keep fingerprint-fix-sdcp",
@@ -2369,7 +2369,7 @@ class Manager(Gtk.Window):
         self.run_job("test_distro", done)
 
     def _offer_removal(self):
-        """After a match with the distro's driver: remove the fix from here, or
+        """After a match with the distro's driver: remove the driver from here, or
         copy the command."""
         cmd = remove_command()
         d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
