@@ -1454,9 +1454,12 @@ class Manager(Gtk.Window):
         self.enrol_ok = len([r for r in records if r["user"] == me]) < 10
         for w in self.cards.get_children() + self.rows.get_children():
             w.destroy()
-        # cards: all ten of your fingers (grey = not enrolled); other users: list only
+        # cards: all ten of your fingers (grey = not enrolled); other users: list only.
+        # No cards when the sensor couldn't be read (me is None): grey cards
+        # would wrongly say your fingers aren't enrolled.
         mine = {r["name"]: r for r in records if r["user"] == me}
-        for name in GRID_FINGERS + [n for n in mine if n not in GRID_FINGERS]:
+        names = [] if me is None else GRID_FINGERS + [n for n in mine if n not in GRID_FINGERS]
+        for name in names:
             r = mine.get(name)
             self.cards.add(self._finger_card(r) if r else self._empty_card(name))
         others = sorted({r["user"] for r in records if r["user"] != me})
