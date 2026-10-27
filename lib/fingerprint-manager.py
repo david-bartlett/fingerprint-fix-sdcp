@@ -694,10 +694,16 @@ class Manager(Gtk.Window):
         self.windows_item.set_no_show_all(True)     # only shown once Windows is found
         menu.append(self.windows_item)
         menu.append(Gtk.SeparatorMenuItem())
+        # Only with the driver installed: without it fprintd already uses the
+        # distro's driver, so there is nothing to compare (see _show_distro_item).
         self.test_distro_item = self._menu_item(menu, "Test your distro's driver…", self.on_test_distro)
-        menu.append(Gtk.SeparatorMenuItem())
+        self.test_distro_sep = Gtk.SeparatorMenuItem()
+        menu.append(self.test_distro_sep)
+        for w in (self.test_distro_item, self.test_distro_sep):
+            w.set_no_show_all(True)
         self._menu_item(menu, "About", self.on_about)
         menu.show_all()
+        self._show_distro_item()
         self.menu_btn = Gtk.MenuButton(popup=menu)
         self.menu_btn.set_image(Gtk.Image.new_from_icon_name("open-menu-symbolic", Gtk.IconSize.BUTTON))
         self.menu_btn.set_tooltip_text("Export, import, restore")
@@ -1666,6 +1672,7 @@ class Manager(Gtk.Window):
                 self._fill_templates([])
                 self.info.set_text("")
                 self.pam_detail.set_text("")
+                self._show_distro_item()
                 self.error(err)
             else:
                 self.show_status(st)
@@ -1698,7 +1705,7 @@ class Manager(Gtk.Window):
                                       else "fingerprint-fix-sdcp's driver isn't installed: fprintd "
                                            "uses your distro's libfprint"))
         # Testing the distro's driver only makes sense while ours is installed.
-        self.test_distro_item.set_visible(bool(st.get("fix_installed")))
+        self._show_distro_item()
         self.show_pam(st.get("pam") or {})
         other = [r for r in st["records"] if rec_kind(r)[0] == "other"]
         dead = [r for r in st["records"] if r["on_sensor"] is False and r not in other]
@@ -2316,6 +2323,13 @@ class Manager(Gtk.Window):
                              "removing fingerprint-fix-sdcp.",
                      action=("Test your distro's driver", lambda: self.on_test_distro(None)))
         return False
+
+    def _show_distro_item(self):
+        """'Test your distro's driver…' is in the menu only while the driver is
+        installed (checked again at every refresh: it can be removed meanwhile)."""
+        on = driver_installed()
+        self.test_distro_item.set_visible(on)
+        self.test_distro_sep.set_visible(on)
 
     def on_test_distro(self, _item):
         """Check the distro's driver, then (if it has SDCP) test the user's
