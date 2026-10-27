@@ -50,7 +50,7 @@ if [[ -s "$FPRINT_OTHER_STATUS" ]]; then
 fi
 
 # Hints that point to the Fingerprint Manager, each shown once per user:
-#  - no finger enrolled yet: enrol one and turn on fingerprint login
+#  - no finger enrolled yet: enrol one
 #  - fingers enrolled, but fingerprint login (PAM) is off: turn it on
 # With an "Open Fingerprint Manager" button where the desktop supports it.
 # Retried next login if fprintd can't answer yet.
@@ -66,7 +66,7 @@ hint() {
 if LIST=$(timeout 15 fprintd-list "$USER" 2>/dev/null); then
     if ! grep -qE '^ *- #[0-9]+:' <<< "$LIST"; then
         hint fprint-sdcp-welcome-shown "Samsung Galaxy Book — Fingerprint Sensor Ready" \
-            "Open Galaxy Book Fingerprint Manager to enrol a finger and turn on fingerprint login."
+            "Open Galaxy Book Fingerprint Manager to enrol a finger."
     else
         PAM=$(bash "@MGR_DIR@/tools/fingerprint-pam.sh" status --short 2>/dev/null)
         if [[ "${PAM%%|*}" == disabled || "${PAM%%|*}" == partial ]]; then

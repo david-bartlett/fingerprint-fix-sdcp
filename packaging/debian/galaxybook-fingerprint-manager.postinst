@@ -6,6 +6,18 @@ STATE=/var/lib/samsung-galaxybook
 REMOVED="$STATE/galaxybook-fingerprint-manager.removed"
 
 if [ "$1" = configure ]; then
+    # Fingerprint for login, the lock screen and sudo: turned on at the first
+    # install on this system, like install.sh (no libfprint hash yet: every
+    # earlier install, of 1.x too, left one). Later installs and upgrades keep
+    # what the user set in the Manager. FPRINT_PAM=0 leaves it off.
+    # (keep-pam-setting: replacing an install.sh copy, whose cleanup deleted the hash.)
+    if [ ! -f "$STATE/libfprint-system.sha256" ] && [ ! -f "$STATE/keep-pam-setting" ] \
+            && [ "${FPRINT_PAM:-1}" != 0 ]; then
+        bash /usr/lib/galaxybook-fingerprint-manager/tools/fingerprint-pam.sh enable \
+            || echo "Fingerprint login wasn't turned on — turn it on in the Fingerprint Manager."
+    fi
+    rm -f "$STATE/keep-pam-setting"
+
     # First install (including the move from fingerprint-fix-sdcp 1.x, which
     # had these units), or installing again after a removal: enable the boot
     # check and every user's login check. Upgrades keep the admin's choice.
@@ -13,8 +25,7 @@ if [ "$1" = configure ]; then
         rm -f "$REMOVED" "$STATE/fingerprint-fix-sdcp.removed"
         systemctl enable "$BOOT_CHECK" >/dev/null 2>&1 || true
         systemctl --global enable "$USER_CHECK" >/dev/null 2>&1 || true
-        echo "Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger"
-        echo "and turn on fingerprint login."
+        echo "Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger."
         # The same hint as a notification now, for anyone logged into a desktop
         # (shown once per user, so a move from 1.x shows nothing new).
         /usr/lib/galaxybook-fingerprint-manager/notify-users.sh || true

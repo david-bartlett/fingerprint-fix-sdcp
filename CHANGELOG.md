@@ -6,6 +6,8 @@
 - The Manager lives in `/usr/lib/galaxybook-fingerprint-manager/` (packages) or `/usr/local/lib/galaxybook-fingerprint-manager/` (`install.sh`), with its own install marker and cleanup script; the driver keeps its folder
 - Boot-time sensor check: rewritten in Python (`lib/sensor-check.py`, replacing the C program), using whichever libfprint drives the reader, so it keeps working with your distro's driver
 - Fingerprint Manager: without the driver, the info line says *Driver: your distro's libfprint* and *Test your distro's driver* is hidden; **Remove the driver** keeps the Manager open
+- Packages turn fingerprint login on (lock screen, sudo, admin prompts) on the first install on a system, as `install.sh` does — on Arch too, where `install.sh` asks. `FPRINT_PAM=0` skips it. Upgrades and reinstalls keep what you set in the Manager
+- Removing the fix never turns fingerprint login off, on any distro: the Arch package and `uninstall.sh` no longer take out the sudo / polkit-1 lines. Once your distro's libfprint has SDCP and you switch to it, fingerprint login keeps working
 - Fingerprint Manager: with Ubuntu's libfprint (libfprint-tod), e.g. after removing the driver, its helper no longer crashes when reading the sensor (libfprint-tod aborts if a program sets it up twice); and if the helper ever does crash, the Manager says so, with what it printed under **Details…**, instead of "Expecting value: line 1 column 1"
 
 ## 1.5.1 — 2026-10-27
