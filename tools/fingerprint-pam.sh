@@ -24,6 +24,9 @@ set -e
 HERE="$(cd "$(dirname "$0")" && pwd)"
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
+# Colours only on a terminal: the package install scripts and the Manager
+# show this output as plain text.
+[[ -t 1 ]] || RED='' GREEN='' YELLOW='' NC=''
 info()  { echo -e "${GREEN}[INFO]${NC} $*"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $*"; }
 error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }

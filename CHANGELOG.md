@@ -6,6 +6,9 @@
 
 ## Unreleased
 
+- The "Fingerprint Login Is Off" notification named a switch the Fingerprint Manager doesn't have ("Use fingerprint for login and sudo"); it now points to the switch at the top of the Manager, whatever your distro calls it
+- Turning fingerprint login on during a package install no longer prints colour codes like `[0;32m[INFO][0m` in the install output
+
 ## 2.0.0 — 2026-10-27
 
 - **Two packages:** the driver (`fingerprint-fix-sdcp`) and the Galaxy Book Fingerprint Manager (`galaxybook-fingerprint-manager`, with the monitor and the boot and login checks), built from one source with the same version. The driver needs the Manager of its own version; the Manager works without the driver, so once your distro's libfprint handles the reader with SDCP you can remove just the driver (`sudo dnf remove fingerprint-fix-sdcp`, `apt remove`, `pacman -R`, or `sudo bash uninstall.sh --driver-only`) and keep the Manager, its checks and fingerprint login. Each release has both packages for each distro (the Manager as `noarch` / `all`), and the Arch `PKGBUILD` builds both. To upgrade from 1.x, install both packages together, or use the Manager's **Update** (from 1.5.0): the units stay enabled and fingerprints are kept
