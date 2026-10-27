@@ -17,7 +17,9 @@
 # which does the root work. Needs fingerprint-fix-sdcp installed, PyGObject
 # with GTK 3, and libfprint's GObject introspection data.
 # =============================================================================
+import functools
 import glob
+import math
 import os
 import shutil
 import subprocess
@@ -478,17 +480,10 @@ import update_check  # noqa: E402
 
 
 # The fingerprint drawing (64×64 units): start point, then cubic segments.
-FP_PATHS = [
-    ((14, 22), [(19, 12, 32, 8, 42, 12), (47, 14, 51, 18, 53, 23)]),
-    ((12, 33), [(12, 23, 21, 17, 31, 17), (42, 17, 50, 24, 50, 33), (50, 37, 49.5, 40, 48.5, 43)]),
-    ((18, 47), [(16, 42, 17, 35, 19, 31), (22, 25, 28, 23, 33, 24.5), (38, 26, 41, 30, 41, 35),
-                (41, 40, 40, 45, 38, 49)]),
-    ((24, 50), [(22, 45, 22, 39, 24, 34), (25.5, 30.5, 28.5, 29, 31.5, 30), (34.5, 31, 35.5, 34, 35.5, 37),
-                (35.5, 42, 34, 47, 32, 51)]),
-    ((30, 36), [(30.5, 42, 29.5, 47, 27, 52)]),
-]
 FP_COLOURS = {"ok": (0.149, 0.635, 0.412), "dead": (0.878, 0.106, 0.141),
-              "unknown": (0.60, 0.60, 0.59), "other": (0.898, 0.647, 0.039), "empty": (0.74, 0.74, 0.73), "add": (0.208, 0.518, 0.894)}
+              "unknown": (0.60, 0.60, 0.59), "other": (0.898, 0.647, 0.039), "empty": (0.74, 0.74, 0.73),
+              "add": (0.208, 0.518, 0.894)}
+FP_BLUE = FP_COLOURS["add"]            # the fill while enrolling / testing
 
 
 try:                                  # drawing needs PyGObject's cairo support
@@ -498,28 +493,158 @@ except Exception:                     # (python3-gi-cairo on Debian/Ubuntu)
     HAVE_CAIRO = False
 
 
+# ── The fingerprint drawing ───────────────────────────────────────────────────
+# A fingertip outline (an oval whose lower right curves in a little); inside
+# it, ridges loop round a core (an arch over the top, legs running down and
+# leaning slightly left), cut off at the outline and broken in places so it
+# reads as a print. Units: the print spans about 52 × 56 around (0, 0).
+# Big icons get the full print; small ones (the cards and list rows) fewer,
+# wider-spaced ridges without breaks, so they stay clear.
+FP_OVAL = (0.0, 1.0, 24.0, 27.0)       # centre x, y, radius x, y
+FP_TAPER = 0.22                        # how far the lower right curves in
+FP_CORE = (1.0, 1.0)                   # where the innermost loop sits
+FP_ARCH = 0.88                         # arch height per radius (+ a little more for inner ones)
+FP_LEAN = 7.0                          # how far the bottom of the legs shifts left
+# Breaks: ridge index → [(from, to)] as fractions along the ridge (left leg's
+# foot, over the top, to the right leg's foot). Ridge 0 is the core: an
+# upside-down U whose right side stops short.
+FP_BREAKS = {0: [(0.00, 0.10), (0.84, 1.00)],
+             1: [(0.12, 0.16), (0.82, 1.0)],
+             2: [(0.66, 0.71)],
+             3: [(0.20, 0.24), (0.52, 0.56)],
+             4: [(0.36, 0.40), (0.86, 0.89)],
+             5: [(0.10, 0.14), (0.47, 0.51), (0.75, 0.78)],
+             6: [(0.24, 0.29), (0.58, 0.62)]}
+
+
+def _fp_inside(x, y):
+    cx, cy, rx, ry = FP_OVAL
+    x, y = x - cx, y - cy
+    if abs(y) >= ry:
+        return False
+    half = rx * (1 - (y / ry) ** 2) ** 0.5
+    if x > 0 and y > 0:
+        half *= 1 - FP_TAPER * (y / ry)
+    return abs(x) <= half
+
+
+@functools.lru_cache(maxsize=None)
+def fp_design(simple=False):
+    """The print as polylines, core first: the order it fills in."""
+    ridges, spacing = (5, 5.6) if simple else (7, 4.3)
+    cx, cy = FP_CORE
+    out = []
+    for i in range(ridges):
+        r = 2.2 + i * spacing
+        arch = FP_ARCH + 0.035 * (ridges - 1 - i)
+
+        def splay(k):                  # legs bow outwards towards the bottom, outer ones more
+            return (k / 40) ** 1.6 * (1.5 + 0.8 * i)
+
+        def lean(k):                   # ...and the lower part leans left
+            return -FP_LEAN * (k / 40) ** 1.8
+        pts = [(cx - r - splay(k) + lean(k), cy + 42 * k / 40) for k in range(40, 0, -1)]
+        pts += [(cx + r * math.cos(math.pi * (1 - k / 60)),
+                 cy - r * math.sin(math.pi * (1 - k / 60)) * arch) for k in range(61)]
+        pts += [(cx + r + splay(k) + lean(k), cy + 42 * k / 40) for k in range(1, 41)]
+        gaps = FP_BREAKS.get(i, []) if not simple or i == 0 else []
+        n, cur = len(pts), []
+        for j, p in enumerate(pts):
+            if _fp_inside(*p) and not any(g0 <= j / n <= g1 for g0, g1 in gaps):
+                cur.append(p)
+            elif cur:
+                if len(cur) > 2:
+                    out.append(tuple(cur))
+                cur = []
+        if len(cur) > 2:
+            out.append(tuple(cur))
+    return tuple(out)
+
+
+def _fp_length(pl):
+    return sum(math.dist(a, b) for a, b in zip(pl, pl[1:]))
+
+
 class FingerprintIcon(Gtk.DrawingArea):
+    """The fingerprint in one colour (kind: a key of FP_COLOURS), or for
+    enrolling / testing a grey print that fills with a colour from the core
+    outwards: set_fill(fraction), animated with fill_to()."""
+
     def __init__(self, kind, size):
         super().__init__()
         self.kind = kind
+        self.size = size
+        self.fill_colour = None
+        self.fraction = 0.0
+        self._anim = 0
         self.set_size_request(size, size)
         self.set_halign(Gtk.Align.CENTER)
         if HAVE_CAIRO:
             self.connect("draw", self._draw)
 
+    def set_kind(self, kind, fraction=0.0, fill=None):
+        self._stop()
+        self.kind, self.fraction, self.fill_colour = kind, fraction, fill
+        self.queue_draw()
+
+    def fill_to(self, fraction, ms=350, fill=FP_BLUE, then=None):
+        """Fill (in the fill colour) up to fraction over ms, then call then()."""
+        self._stop()
+        self.fill_colour = fill
+        start, t0 = self.fraction, GLib.get_monotonic_time()
+
+        def step():
+            t = min(1.0, (GLib.get_monotonic_time() - t0) / 1000 / max(ms, 1))
+            self.fraction = start + (fraction - start) * (1 - (1 - t) ** 2)    # ease out
+            self.queue_draw()
+            if t < 1.0:
+                return True
+            self._anim = 0
+            if then:
+                then()
+            return False
+        self._anim = GLib.timeout_add(16, step)
+
+    def _stop(self):
+        if self._anim:
+            GLib.source_remove(self._anim)
+            self._anim = 0
+
     def _draw(self, _w, cr):
         w, h = self.get_allocated_width(), self.get_allocated_height()
-        sc = min(w, h) / 46.0                       # the drawing spans about 46 units
-        cr.translate(w / 2 - 32.5 * sc, h / 2 - 30 * sc)
+        simple = min(w, h) < 56
+        design = fp_design(simple)
+        sc = min(w, h) / 58.0                       # the print spans about 52 × 56 units
+        cr.translate(w / 2, h / 2)
         cr.scale(sc, sc)
-        cr.set_source_rgb(*FP_COLOURS.get(self.kind, FP_COLOURS["unknown"]))
-        cr.set_line_width(3.2)
         cr.set_line_cap(1)                          # round
-        for (x, y), segs in FP_PATHS:
-            cr.move_to(x, y)
-            for seg in segs:
-                cr.curve_to(*seg)
+        cr.set_line_join(1)
+        cr.set_line_width(3.6 if simple else 3.0)
+
+        def stroke(pl, upto=None):
+            cr.move_to(*pl[0])
+            done = 0.0
+            for a, b in zip(pl, pl[1:]):
+                d = math.dist(a, b)
+                if upto is not None and done + d > upto:
+                    f = (upto - done) / d
+                    cr.line_to(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)
+                    break
+                cr.line_to(*b)
+                done += d
             cr.stroke()
+        cr.set_source_rgb(*FP_COLOURS.get(self.kind, FP_COLOURS["unknown"]))
+        for pl in design:
+            stroke(pl)
+        if self.fill_colour and self.fraction > 0:
+            left = sum(_fp_length(pl) for pl in design) * min(self.fraction, 1.0)
+            cr.set_source_rgb(*self.fill_colour)
+            for pl in design:
+                if left <= 0:
+                    break
+                n = _fp_length(pl)
+                stroke(pl, None if left >= n else left)
+                left -= n
         return False
 
 
@@ -1836,7 +1961,9 @@ class Manager(Gtk.Window):
         # buttons stay at the bottom whatever is shown.
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         area.pack_start(body, True, True, 0)
-        icon = Gtk.Label()
+        # Grey while waiting; on a result it fills blue, then turns green
+        # (match) or red (no match); amber when the touch couldn't be used.
+        icon = FingerprintIcon("empty", 96)
         head = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER)
         sub = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, selectable=True)
         for w in (icon, head, sub):
@@ -1845,8 +1972,13 @@ class Manager(Gtk.Window):
         AGAIN_IN = 2            # seconds before the next test, after a match or no match
 
         def show(symbol, colour, title, detail):
+            if symbol == "wait":
+                icon.set_kind("empty")
+            elif symbol in ("match", "no-match"):
+                icon.fill_to(1.0, then=lambda: icon.set_kind("ok" if symbol == "match" else "dead"))
+            else:
+                icon.set_kind("other")
             span = f' foreground="{colour}"' if colour else ""
-            icon.set_markup(f'<span size="48000"{span}>{symbol}</span>')
             head.set_markup(f'<span size="x-large" weight="bold"{span}>'
                             f'{GLib.markup_escape_text(title)}</span>')
             sub.set_text(detail)
@@ -1856,14 +1988,14 @@ class Manager(Gtk.Window):
         # it, e.g. with large fonts.
         no_match_detail = (f"Tested: {what}\nThat finger didn't match. Try again, "
                            "or test another finger.")
-        show("✗", None, "No match", f"{no_match_detail}\n\nTesting again in {AGAIN_IN}…")
+        show("warn", None, "No match", f"{no_match_detail}\n\nTesting again in {AGAIN_IN}…")
         body.show_all()
         tallest = body.get_preferred_height_for_width(WIDTH - 36)[1]
         body.set_size_request(WIDTH - 36, tallest)
         d.set_size_request(WIDTH, HEIGHT)
 
         def start():
-            show("☝", None, "Touch the fingerprint sensor", f"Testing: {what}")
+            show("wait", None, "Touch the fingerprint sensor", f"Testing: {what}")
             close_btn.set_label("Cancel")
             state["timer"] = 0
             state["running"] = True
@@ -1887,18 +2019,18 @@ class Manager(Gtk.Window):
                 return False
             result = (res or {}).get("result")
             if result == "match":
-                show("✓", "#26a269", f"Match — {long_finger(res['name'])}", f"Tested: {what}")
+                show("match", GREEN, f"Match — {long_finger(res['name'])}", f"Tested: {what}")
             elif result == "no-match":
-                show("✗", "#c01c28", "No match", no_match_detail)
+                show("no-match", RED, "No match", no_match_detail)
             elif result == "timeout":
-                show("!", "#e5a50a", "No touch", "Nothing touched the sensor within 60 seconds.")
+                show("warn", AMBER, "No touch", "Nothing touched the sensor within 60 seconds.")
             elif result == "retry":
-                show("!", "#e5a50a", "Couldn't read your finger",
+                show("warn", AMBER, "Couldn't read your finger",
                      f"{res.get('message') or ''}\nTouch the sensor flat and try again.".strip())
             elif result == "cancelled":
                 return False
             else:
-                show("!", "#e5a50a", "Test did not complete", err or "Unknown result")
+                show("warn", AMBER, "Test did not complete", err or "Unknown result")
             close_btn.set_label("Close")
             # After a finger was read (match, no match, unreadable), test again
             # by itself after a short pause, showing the result meanwhile; Close
@@ -1974,7 +2106,10 @@ class Manager(Gtk.Window):
         more.add(more_lbl)
         area.pack_start(more, False, False, 0)
 
-        icon = Gtk.Label()
+        # Grey to start; each accepted touch fills more of it blue, from the
+        # core outwards; green when done, red if it failed; an unreadable
+        # touch flashes it amber.
+        icon = FingerprintIcon("empty", 96)
         head = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER)
         sub = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER)
         bar = Gtk.ProgressBar(show_text=True)
@@ -1984,8 +2119,16 @@ class Manager(Gtk.Window):
         state = {"proc": None, "done": False, "count": 0, "finger": None}
 
         def show(symbol, colour, title, detail=""):
+            if symbol == "flash":           # the touch couldn't be used: amber for a moment
+                frac = icon.fraction
+                icon.set_kind("other", frac, FP_BLUE)
+                GLib.timeout_add(700, lambda: (not state["done"] and icon.set_kind("empty", frac, FP_BLUE))
+                                 and False)
+            elif symbol == "done":
+                icon.fill_to(1.0, then=lambda: icon.set_kind("ok"))
+            elif symbol in ("failed", "stopped"):
+                icon.set_kind("dead" if symbol == "failed" else "other")
             span = f' foreground="{colour}"' if colour else ""
-            icon.set_markup(f'<span size="40000"{span}>{symbol}</span>')
             head.set_markup(f'<span size="large" weight="bold"{span}>'
                             f'{GLib.markup_escape_text(title)}</span>')
             sub.set_text(detail)
@@ -1995,6 +2138,8 @@ class Manager(Gtk.Window):
         def progress():
             n = min(state["count"], total)
             bar.set_fraction(n / total if total > 1 else 0)
+            if not state["done"]:
+                icon.fill_to(n / total if total else 0)
             bar.set_text(f"{n} of {total} touches" if total > 1 else "")
             bar.show()
 
@@ -2013,7 +2158,8 @@ class Manager(Gtk.Window):
                 note.hide()
             more.hide()
             start_btn.hide()
-            show("☝", None, f"Touch the sensor with your {finger.replace('-', ' ')}",
+            icon.set_kind("empty")
+            show("touch", None, f"Touch the sensor with your {finger.replace('-', ' ')}",
                  "Lift your finger and touch again each time, moving it slightly.")
             progress()
             proc = subprocess.Popen(["fprintd-enroll", "-f", finger], stdout=subprocess.PIPE,
@@ -2031,7 +2177,7 @@ class Manager(Gtk.Window):
         def finish(symbol, colour, title, detail):
             state["done"] = True
             show(symbol, colour, title, detail)
-            if symbol != "✓":
+            if symbol != "done":
                 bar.hide()
             close_btn.set_label("Close")
 
@@ -2043,34 +2189,34 @@ class Manager(Gtk.Window):
             if res == "enroll-stage-passed":
                 state["count"] += 1
                 progress()
-                show("☝", None, "Lift and touch again", f"Enrolling: {long_finger(finger)}")
+                show("touch", None, "Lift and touch again", f"Enrolling: {long_finger(finger)}")
             elif res in ("enroll-retry-scan", "enroll-swipe-too-short",
                          "enroll-finger-not-centered", "enroll-remove-and-retry"):
-                show("☝", AMBER, "That touch didn't read — touch again",
+                show("flash", AMBER, "That touch didn't read — touch again",
                      "Place your finger flat in the middle of the sensor.")
             elif res == "enroll-completed":
                 state["count"] = total
                 progress()
-                finish("✓", GREEN, f"Enrolled — {long_finger(finger)}",
+                finish("done", GREEN, f"Enrolled — {long_finger(finger)}",
                        "If you share fingerprints with other installs, export again "
                        "so they get this finger too.")
             elif res == "enroll-duplicate":
-                finish("✗", RED, "Already enrolled here",
+                finish("failed", RED, "Already enrolled here",
                        "That finger is already enrolled on this install (as another finger "
                        "or for another user). Nothing was changed.")
             elif res == "enroll-data-full":
-                finish("✗", RED, "The sensor is full",
+                finish("failed", RED, "The sensor is full",
                        "Delete templates you no longer need on the Sensor tab (☰ → Show "
                        "the Sensor tab), then try again.")
             elif res:
-                finish("✗", RED, "Enrolment failed", res)
+                finish("failed", RED, "Enrolment failed", res)
             elif line.lower().startswith(("failed", "enrollstart failed", "impossible")):
-                finish("✗", RED, "Enrolment could not start", line)
+                finish("failed", RED, "Enrolment could not start", line)
             return False
 
         def on_exit(rc):
             if not state["done"] and not state.get("closed"):
-                finish("!", AMBER, "Enrolment stopped", f"fprintd-enroll exited ({rc}).")
+                finish("stopped", AMBER, "Enrolment stopped", f"fprintd-enroll exited ({rc}).")
             return False
 
         finger_given = finger in free
