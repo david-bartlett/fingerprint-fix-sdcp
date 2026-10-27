@@ -1,6 +1,6 @@
 # Fingerprint Fix (egismoc SDCP driver)
 
-Fingerprint login for **Samsung Galaxy Book 4 / Book 5 Pro** (and Book 3 / Book 4 with the `05a1` reader) on Linux.
+Fingerprint login for the **Samsung Galaxy Book4 and Book5** on Linux (both Egis readers: `1c7a:05a5` and `1c7a:05a1`). The Galaxy Book3 isn't supported: it can have the same `05a1` reader, but it hasn't been tested, so the installer and packages refuse to install there.
 
 Enables fingerprint authentication on Samsung Galaxy Book laptops with an EgisTec SDCP fingerprint sensor. It builds **only the egismoc driver** from [libfprint-egismoc-sdcp](https://github.com/david-bartlett/libfprint-egismoc-sdcp) (a fork of [Abdallah Alkanani's repo](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp)), and points fprintd at it. **The distro's libfprint is not replaced.**
 ## What's in This Repository
@@ -46,7 +46,9 @@ See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc
 | USB ID | Galaxy Book Model | Status |
 | --- | --- | --- |
 | `1c7a:05a5` | Galaxy Book 4 / Book 5 Pro | **Confirmed working** on Galaxy Book 5 Pro 14" (940XHA): Fedora 45, Linux Mint 27 (beta), Linux Mint 22.3 (OpenSSL 3.0.13 — needs commit 3b0ee1f or later), Ubuntu 26.04, MX Linux (Xfce) and CachyOS (KDE), 2026-10-24/25 |
-| `1c7a:05a1` | Galaxy Book 3 / Book 4 (ETU905A80-E) | **Confirmed working** on a Galaxy Book 4 by [@gabaritei88](https://github.com/gabaritei88) (firmware 9050.1.2.33): Zorin OS 18.1 (Ubuntu 24.04 base, OpenSSL 3.0.13 — needs commit 3b0ee1f or later), driver installed for fprintd only, enrol, verify and PAM login working; the 4 existing Windows Hello templates on the sensor were kept, 2026-10-26. Also tested upstream with this build (597 logins through `pam_fprintd`). On a Galaxy Book4 (960XGL) with Ubuntu 26.04 (libfprint 1.95.1+tod1), Ubuntu's own egismoc driver lists the reader but without SDCP, so it can't keep fingerprints — this fix is needed there too, 2026-10-27 |
+| `1c7a:05a1` | Galaxy Book 4 (ETU905A80-E) | **Confirmed working** on a Galaxy Book 4 by [@gabaritei88](https://github.com/gabaritei88) (firmware 9050.1.2.33): Zorin OS 18.1 (Ubuntu 24.04 base, OpenSSL 3.0.13 — needs commit 3b0ee1f or later), driver installed for fprintd only, enrol, verify and PAM login working; the 4 existing Windows Hello templates on the sensor were kept, 2026-10-26. Also tested upstream with this build (597 logins through `pam_fprintd`). On a Galaxy Book4 (960XGL) with Ubuntu 26.04 (libfprint 1.95.1+tod1), Ubuntu's own egismoc driver lists the reader but without SDCP, so it can't keep fingerprints — this fix is needed there too, 2026-10-27 |
+
+The **Galaxy Book3** can have the `05a1` reader too, but nobody has tested this fix on one, so `install.sh`, the `.rpm`, the `.deb` and the Arch `PKGBUILD` refuse to install there (a Book3 is recognised by its model name, or its model code: the letter after `X` or `Q` is `F` for the Book3, `G` for the Book4 and `H` for the Book5 — e.g. `940XFG`, `960XGL`, `940XHA`). To try it anyway: `FPRINT_SDCP_FORCE=1`. If it works on your Book3, please tell us with the form below.
 
 Find your reader's ID with `lsusb | grep 1c7a`.
 

@@ -42,8 +42,15 @@ prepare() {
     [[ "${FPRINT_SDCP_FORCE:-0}" == 1 ]] && return 0
     local vendor d why=""
     vendor=$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/board_vendor 2>/dev/null)
+    local family model
+    family=$(cat /sys/class/dmi/id/product_family 2>/dev/null)
+    model=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
     if [[ "${vendor,,}" != *samsung* ]]; then
         why="this computer is not a Samsung (vendor: $(head -n1 /sys/class/dmi/id/sys_vendor 2>/dev/null || echo unknown))"
+    # Galaxy Book3: can have the same 05a1 reader, but untested — refused. Model
+    # code generation letter after X/Q: F = Book3, G = Book4, H = Book5.
+    elif grep -Eqi 'galaxy ?book ?3($|[^0-9])' <<< "$family" || grep -Eqi '^(NP)?[0-9]{3}[XQ]F' <<< "$model"; then
+        why="this is a Galaxy Book3 (${family:-model $model}), which this fix isn't tested on"
     else
         why="that reader was not found on this computer"
         for d in /sys/bus/usb/devices/*; do
@@ -52,8 +59,8 @@ prepare() {
         done
     fi
     echo >&2
-    echo "fingerprint-fix-sdcp is only for Samsung Galaxy Books with the Egis fingerprint" >&2
-    echo "reader (USB 1c7a:05a5 or 1c7a:05a1), but $why." >&2
+    echo "fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5 with the" >&2
+    echo "Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1), but $why." >&2
     echo "Nothing was built: any other fingerprint reader works with your distro's own" >&2
     echo "driver. To build anyway (e.g. for a system image for a Galaxy Book):" >&2
     echo "  FPRINT_SDCP_FORCE=1 makepkg -si" >&2

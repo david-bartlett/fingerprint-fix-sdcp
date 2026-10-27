@@ -122,6 +122,20 @@ check_hardware() {
         echo "Unsupported hardware: vendor is '$(head -1 <<< "${_vendor:-unknown}")' — this script is for Samsung Galaxy Book laptops only"
         return 1
     fi
+    # Galaxy Book3: can have the same 1c7a:05a1 reader as the Book4, but this
+    # fix is only tested on the Book4 and Book5. Same rule as the packages:
+    # the family name, or the model code's generation letter after X (laptop)
+    # or Q (360) — F = Book3, G = Book4, H = Book5. FPRINT_SDCP_FORCE=1 overrides.
+    local _family _model
+    _family=$(cat /sys/class/dmi/id/product_family 2>/dev/null)
+    _model=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
+    if [[ "${FPRINT_SDCP_FORCE:-0}" != 1 ]] \
+            && { grep -Eqi 'galaxy ?book ?3($|[^0-9])' <<< "$_family" || grep -Eqi '^(NP)?[0-9]{3}[XQ]F' <<< "$_model"; }; then
+        echo "This is a Galaxy Book3 (${_family:-model $_model}). fingerprint-fix-sdcp is only tested on"
+        echo "the Galaxy Book4 and Book5, so it isn't installed here. To install anyway:"
+        echo "  sudo FPRINT_SDCP_FORCE=1 bash install.sh"
+        return 1
+    fi
     return 0
 }
 
@@ -164,7 +178,7 @@ info "fingerprint-fix-sdcp ${FIX_VERSION} — driver commit ${DRIVER_COMMIT:0:12
 # ── Step 1: Check sensor is present ──────────────────────────────────────────
 step "Fingerprint Step 1: Checking sensor is present"
 [[ -z "$SENSOR_ON_BUS" ]] && \
-    error "EgisTec SDCP fingerprint sensor not found on USB bus.\nExpected: 1c7a:05a5 (Galaxy Book 5) or 1c7a:05a1 (Galaxy Book 3/4)\nRun 'lsusb' to check what USB devices are present."
+    error "EgisTec SDCP fingerprint sensor not found on USB bus.\nExpected: 1c7a:05a5 (Galaxy Book4 / Book5) or 1c7a:05a1 (Galaxy Book4)\nRun 'lsusb' to check what USB devices are present."
 info "✓ Sensor found: $SENSOR_ON_BUS"
 
 # ── Step 2: Install dependencies ─────────────────────────────────────────────

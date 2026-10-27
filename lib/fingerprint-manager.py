@@ -154,7 +154,7 @@ def no_reader_dialog():
     dlg.set_icon_name(ICON_NAME)
     dlg.format_secondary_markup(
         "This app and fingerprint-fix-sdcp are only for the Egis fingerprint reader of "
-        "Samsung Galaxy Book 3, 4 and 5 laptops (USB <tt>1c7a:05a5</tt> or <tt>1c7a:05a1</tt>), "
+        "Samsung Galaxy Book4 and Book5 laptops (USB <tt>1c7a:05a5</tt> or <tt>1c7a:05a1</tt>), "
         "and it isn't on this computer.\n\n"
         "Without it, fprintd uses your distro's own driver, so any other fingerprint reader "
         "keeps working: set it up in your desktop's settings.\n\n"
