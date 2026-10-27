@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fingerprint Manager: testing fingerprints repeats by itself — after a match or no match, the result stays up for 3 seconds ("Testing again in 3…"), then it waits for the next touch, until you press **Close**. The **Test again** button is gone. After no touch for 60 seconds it stops
 - `install.sh` stopped without a word at Step 3 (checking the distro's libfprint) on most systems — whenever the check's answer wasn't `sdcp` — since 1.4.1. It now carries on with the install
 - **Two packages:** the driver (`fingerprint-fix-sdcp`) and the Galaxy Book Fingerprint Manager (`galaxybook-fingerprint-manager`, with the monitor and the boot and login checks), built from one source with the same version. The driver needs the Manager of its own version; the Manager works without the driver, so once your distro's libfprint handles the reader with SDCP you can remove just the driver (`sudo dnf remove fingerprint-fix-sdcp`, `apt remove`, `pacman -R`, or `sudo bash uninstall.sh --driver-only`) and keep the Manager, its checks and fingerprint login. Each release has both packages for each distro (the Manager as `noarch` / `all`), and the Arch `PKGBUILD` builds both. To upgrade from 1.x, install both packages together, or use the Manager's **Update** (from 1.5.0): the units stay enabled and fingerprints are kept
 - The Manager lives in `/usr/lib/galaxybook-fingerprint-manager/` (packages) or `/usr/local/lib/galaxybook-fingerprint-manager/` (`install.sh`), with its own install marker and cleanup script; the driver keeps its folder

@@ -1829,8 +1829,6 @@ class Manager(Gtk.Window):
         d = Gtk.Dialog(title="Test fingerprint", transient_for=self, modal=True)
         d.set_default_size(420, -1)
         close_btn = d.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        again_btn = d.add_button("Test again", 1)
-        again_btn.set_no_show_all(True)
         area = d.get_content_area()
         area.set_spacing(8)
         area.set_border_width(18)
@@ -1839,7 +1837,8 @@ class Manager(Gtk.Window):
         sub = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, selectable=True)
         for w in (icon, head, sub):
             area.pack_start(w, False, False, 0)
-        state = {"proc": None}
+        state = {"proc": None, "timer": 0}
+        AGAIN_IN = 3            # seconds before the next test, after a match or no match
 
         def show(symbol, colour, title, detail):
             span = f' foreground="{colour}"' if colour else ""
@@ -1851,7 +1850,7 @@ class Manager(Gtk.Window):
         def start():
             show("☝", None, "Touch the fingerprint sensor", f"Testing: {what}")
             close_btn.set_label("Cancel")
-            again_btn.hide()
+            state["timer"] = 0
             state["running"] = True
             self.busy = True
             self._update_buttons()
@@ -1887,18 +1886,32 @@ class Manager(Gtk.Window):
             else:
                 show("!", "#e5a50a", "Test did not complete", err or "Unknown result")
             close_btn.set_label("Close")
-            again_btn.show()
+            # After a finger was read (match, no match, unreadable), test again
+            # by itself after a short pause, showing the result meanwhile; Close
+            # stops it. Not after no touch or an error: that would just repeat.
+            if result in ("match", "no-match", "retry"):
+                base = sub.get_text()
+                left = [AGAIN_IN]
+
+                def tick():
+                    if state.get("closed"):
+                        return False
+                    if left[0] <= 0:
+                        start()
+                        return False
+                    sub.set_text(f"{base}\n\nTesting again in {left[0]}…")
+                    left[0] -= 1
+                    return True
+                tick()
+                state["timer"] = GLib.timeout_add_seconds(1, tick)
             return False
 
         d.show_all()
         start()
-        while True:
-            r = d.run()
-            if r == 1 and not state.get("running"):
-                start()
-                continue
-            break
+        d.run()
         state["closed"] = True
+        if state["timer"]:
+            GLib.source_remove(state["timer"])
         if state.get("running"):
             self.helper.cancel()
         d.destroy()
