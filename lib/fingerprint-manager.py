@@ -2038,6 +2038,44 @@ class Manager(Gtk.Window):
             self.helper.cancel()
         d.destroy()
 
+    def sensor_full_for(self, finger):
+        """True when all the sensor's slots are taken and enrolling this
+        finger can't free one (the sensor replaces only a template of the
+        same user and finger)."""
+        st = self.status or {}
+        templates = st.get("templates") or []
+        if len(templates) < SENSOR_SLOTS:
+            return False
+        me = st.get("user")
+        for t in templates:
+            removed = t.get("removed") or {}
+            if f"{me} {finger}" in t.get("used_by", []) or \
+                    (removed.get("user") == me and removed.get("name") == finger):
+                return False
+        return True
+
+    def sensor_full_dialog(self, parent=None):
+        """All slots taken: say so, with a button to the Sensor tab. True when
+        the user chose to open it."""
+        d = MessageDialog(transient_for=parent or self, modal=True, buttons=Gtk.ButtonsType.NONE,
+                          message_type=Gtk.MessageType.WARNING, text="The sensor is full")
+        d.format_secondary_text(f"All {SENSOR_SLOTS} of its slots are in use, so no new finger can be "
+                                "enrolled. Delete fingerprints you no longer need on the Sensor tab, "
+                                "then enrol again.")
+        add_details(d, "The sensor keeps every fingerprint enrolled on it, from this install, other "
+                       "Linux installs and Windows Hello, and has room for 10. Fingerprints shown "
+                       "in grey on the Sensor tab aren't used by this install; deleting one of yours "
+                       "stops it working here.")
+        d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        d.add_button("Open Sensor tab", 1).get_style_context().add_class("suggested-action")
+        d.set_default_response(1)
+        r = d.run()
+        d.destroy()
+        return r == 1
+
+    def open_sensor_tab(self):
+        self.stack.set_visible_child_name("sensor")
+
     def on_enrol(self, _btn, finger=None):
         """Enrol a new finger for the user with fprintd-enroll, with progress.
         With a finger (a grey card was clicked) it starts straight away."""
@@ -2049,6 +2087,10 @@ class Manager(Gtk.Window):
         others = [t for t in st["templates"] if not t["used_by"]]
         # fprintd's first touch is a duplicate check, then the driver's stages.
         total = (st.get("enroll_stages") or 0) + 1
+        if finger in free and self.sensor_full_for(finger):
+            if self.sensor_full_dialog():                 # before opening the enrol window
+                self.open_sensor_tab()
+            return
 
         d = Gtk.Dialog(title="Enrol a finger", transient_for=self, modal=True)
         d.set_default_size(440, -1)
@@ -2123,6 +2165,11 @@ class Manager(Gtk.Window):
             finger = combo.get_active_id()
             if not finger:
                 return
+            if self.sensor_full_for(finger):
+                # No slot for it: say so instead of a failed enrolment.
+                state["full"] = True
+                state["to_sensor"] = self.sensor_full_dialog(d)
+                return
             state.update(finger=finger, count=0)
             pick.hide()
             if finger_given and others:
@@ -2182,8 +2229,15 @@ class Manager(Gtk.Window):
                        "or for another user). Nothing was changed.")
             elif res == "enroll-data-full":
                 finish("failed", RED, "The sensor is full",
-                       "Delete templates you no longer need on the Sensor tab, then try "
+                       "Delete fingerprints you no longer need on the Sensor tab, then try "
                        "again.")
+
+                def offer():
+                    if self.sensor_full_dialog(d):
+                        state["to_sensor"] = True
+                        d.response(Gtk.ResponseType.CANCEL)
+                    return False
+                GLib.idle_add(offer)
             elif res:
                 finish("failed", RED, "Enrolment failed", res)
             elif line.lower().startswith(("failed", "enrollstart failed", "impossible")):
@@ -2200,13 +2254,15 @@ class Manager(Gtk.Window):
         if finger_given:
             d.set_title(f"Enrol — {long_finger(finger)}")
             start()
-        while True:
+        while not state.get("full"):
             r = d.run()
             if r == 1 and state["proc"] is None:
                 start()
                 continue
             break
         state["closed"] = True
+        if state.get("to_sensor"):
+            self.open_sensor_tab()
         p = state["proc"]
         if p and p.poll() is None:
             p.terminate()
