@@ -214,7 +214,9 @@ step "Fingerprint Step 3: Checking if the distro libfprint already supports the 
 if [[ -f "$FPRINT_DROPIN" || "${FORCE:-0}" == "1" ]]; then
     info "Skipped (reinstall or FORCE=1)"
 else
-    _check=$(env -u LD_LIBRARY_PATH python3 "$SCRIPT_DIR/lib/distro-driver-check.py" 2>/dev/null)
+    # Its exit code is part of its answer (non-zero for anything but sdcp):
+    # "|| true" keeps set -e from ending the install here.
+    _check=$(env -u LD_LIBRARY_PATH python3 "$SCRIPT_DIR/lib/distro-driver-check.py" 2>/dev/null) || true
     _detail=$(sed -n 2p <<< "$_check")
     case "$(head -n1 <<< "$_check")" in
         sdcp)
