@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 2.0.0 — 2026-10-27
 
 - Fingerprint Manager: testing fingerprints repeats by itself — after a match or no match, the result stays up for 2 seconds ("Testing again in 2…"), then it waits for the next touch, until you press **Close**. The **Test again** button is gone. After no touch for 60 seconds it stops. **Test all fingerprints** is now called **Test any fingerprint**, and a match names the finger as *Right ring finger*
