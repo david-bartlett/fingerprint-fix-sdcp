@@ -2,7 +2,10 @@
 
 <!-- Release pages (.github/release-notes.sh): lines that start with a bold
      headline, "- **Two packages:** …", are listed under What's new; the whole
-     section is under "Full changelog". Keep to a few per release. -->
+     section is under "Full changelog" (collapsed).
+     Bold lines: short, so What's new stays brief.
+     Plain lines: the full detail, shown only in Full changelog.
+     Every release, even a small one: at least one bold line. -->
 
 ## Unreleased
 
