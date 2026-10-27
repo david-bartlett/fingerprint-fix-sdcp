@@ -235,9 +235,10 @@ class Sensor:
         if last.startswith("No egismoc") and not fix_state()[0]:
             # Without the driver, the distro's own libfprint drives the reader.
             # The last line is the one the window shows; Details… has it all.
-            raise Fail("Your fingerprints are kept, and work again once the driver is back.\n"
-                       "Install the fingerprint-fix-sdcp package, or run sudo bash install.sh "
-                       "in the fingerprint-fix-sdcp folder.\n"
+            raise Fail("Your fingerprints have been kept safe, and will work once the driver "
+                       "has been installed.\n\n"
+                       "Install the fingerprint-fix-sdcp package, or run sudo ./install.sh if you "
+                       "installed from the fingerprint-fix-sdcp GitHub folder.\n"
                        "Your distro's driver can't use the reader — reinstall "
                        "fingerprint-fix-sdcp's driver.")
         raise Fail(f"Could not open the fingerprint sensor: {last}")
