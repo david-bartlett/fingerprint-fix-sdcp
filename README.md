@@ -59,6 +59,7 @@ Got it working on a model or distro not listed here? Please tell us with the [**
 3. Exits without changes if the distro libfprint already has an **SDCP** driver for the sensor (override with `FORCE=1`). The distro's older egismoc driver also claims `1c7a:05a1`, but without SDCP it can't keep prints on these readers, so it doesn't count
 4. Fetches the driver commit named in `DRIVER` (the one this release was tested with) from the fork and builds the egismoc driver only (`-Ddrivers=egismoc -Dtod=false`)
 5. Installs the library to `/usr/local/lib/libfprint-egismoc-sdcp/` and adds a systemd drop-in so **only fprintd** loads it (`LD_LIBRARY_PATH`), and only while the Galaxy Book's reader is present: each time fprintd starts, the drop-in checks for `1c7a:05a5` / `1c7a:05a1` on USB, so on other hardware fprintd keeps the distro libfprint and its drivers
+   - If another fingerprint fix's fprintd setup is found — most often a manual install of [Abdallah's libfprint-egismoc-sdcp](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp) from its README (`/etc/systemd/system/fprintd.service.d/egismoc-sdcp.conf` and `/usr/local/lib/libfprint-egismoc-sdcp/`), or any admin fprintd drop-in that sets `LD_LIBRARY_PATH` / `LD_PRELOAD` or replaces `ExecStart` — it is **moved aside** first, to `/var/lib/samsung-galaxybook/other-fingerprint-fix/<date>/` with a `RESTORE.txt` saying how to put it back. Fingerprints enrolled with Abdallah's build keep working (it's the same driver). The packages do the same when installed
 6. Turns on fingerprint for login and sudo with `fingerprint-pam.sh` (Fedora: authselect; Ubuntu/Debian/MX: pam-auth-update; Mint: its own `fingwit` profile; Arch-based: asks whether to add fingerprint to sudo and polkit — see below)
 7. Installs a login-time monitor and a boot-time sensor check (see below)
 8. Offers to import fingerprints exported from another install on this laptop, if `~/fingerprint-export.tgz` exists (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
@@ -188,7 +189,8 @@ A user timer fires 10 seconds after login and starts a root service (allowed by 
 
 - notifies you if the fix's library or drop-in has gone missing;
 - when the **distro libfprint changes**, checks whether it now has an SDCP driver for the sensor (`lib/distro-driver-check.py`: it lists USB devices with the distro library, as root — some libfprint builds open the reader while listing it — and fprintd keeps running), and where that library came from: only the distro's own, unmodified libfprint package counts. An SDCP build from another fix — copied over the distro's file (it no longer matches its package's checksum), not owned by any package, or from a COPR, PPA, the AUR or a local package — gets a warning to keep this fix instead, since the next distro update may replace it. If it's the distro's own, you are told once that the fix may no longer be needed, and to try **Test your distro's driver** in the Fingerprint Manager's menu first. That test switches fprintd to the distro library for a moment and checks one of your enrolled fingers with it, the way login would work without the fix; if it matches, the Manager gives the command to remove the fix. The fix never removes itself;
-- notifies you if fprintd cannot see the sensor at all.
+- notifies you if fprintd cannot see the sensor at all;
+- notifies you if fprintd isn't running this fix's driver, naming any other fingerprint fix's fprintd setting that overrides it (added after this fix was installed). Reinstalling the fix moves it aside.
 
 Notifications are written to `/run/samsung-galaxybook/fprint-sdcp-status` and shown by the user check script in your own session.
 
@@ -432,6 +434,8 @@ session include system-local-login
 - `/run/samsung-galaxybook/fprint-sdcp-other-driver` — fingers enrolled with another driver, found by the boot check
 - `/var/lib/samsung-galaxybook/removed-fingerprints/` — records cleared by the boot check (last 5 boots that cleared any)
 - `/var/lib/samsung-galaxybook/replaced-fingerprints/` — records moved aside by `import-fingerprint.sh --replace` (last 5)
+- `/usr/local/bin/samsung-galaxybook-fprint-sdcp-other-fix.sh` — finds another fingerprint fix's fprintd setup (for the installer and the monitor)
+- `/var/lib/samsung-galaxybook/other-fingerprint-fix/<date>/` — another fix's fprintd setup, moved aside at install (only if there was one), with `RESTORE.txt`
 - `~/.cache/samsung-galaxybook/fprint-sdcp-boot-shown` — remembers the boot check message was shown this boot
 - `~/.cache/samsung-galaxybook/fprint-sdcp-other-driver-shown` — remembers the "Fingerprints From Another Driver" message was shown
 

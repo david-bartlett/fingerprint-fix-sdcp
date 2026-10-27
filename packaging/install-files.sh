@@ -38,6 +38,9 @@ install -Dm755 "$SRC/build/sensor-check" "$D$FPRINT_SENSOR_CHECK"
 put dropin.conf.in "$FPRINT_DROPIN"
 # Run by the drop-in each time fprintd starts: the driver only with the reader.
 put fprintd-env.sh.in "$FPRINT_ENV_SCRIPT" 755
+# Moves another fingerprint fix's fprintd setup aside (run by the install
+# scripts), and lists it for the monitor.
+install -Dm755 "$REPO/lib/other-fix.sh" "$D$FPRINT_OTHER_FIX"
 
 # Install marker, in install.sh's format (the Manager shows it):
 # '<driver commit> <driver date> <source> … fingerprint-fix-sdcp <version>'

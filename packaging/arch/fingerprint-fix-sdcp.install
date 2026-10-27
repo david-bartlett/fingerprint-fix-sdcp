@@ -13,6 +13,9 @@ _state=/var/lib/samsung-galaxybook
 # changes fprintd's environment, so a daemon-reload must come first (pacman's
 # own reload hook runs after these scripts).
 _reload_fprintd() {
+    # Another fingerprint fix's fprintd setup (e.g. a manual install of Abdallah's
+    # libfprint-egismoc-sdcp): moved aside, with a backup and how to restore it.
+    bash /usr/lib/fingerprint-fix-sdcp/other-fix.sh takeover || true
     systemctl daemon-reload 2>/dev/null || true
     systemctl try-restart fprintd.service 2>/dev/null || true
 }

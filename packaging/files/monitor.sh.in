@@ -6,6 +6,8 @@ FPRINT_DROPIN="@FPRINT_DROPIN@"
 FPRINT_MARKER="@FPRINT_MARKER@"
 FPRINT_SYSLIB_HASH="/var/lib/samsung-galaxybook/libfprint-system.sha256"
 DISTRO_CHECK="@MGR_DIR@/lib/distro-driver-check.py"
+FPRINT_LIB_DIR="@FPRINT_LIB_DIR@"
+OTHER_FIX="@FPRINT_OTHER_FIX@"
 HARDWARE_USB_ID="1c7a:05a5|1c7a:05a1"
 FPRINT_STATUS_DIR="/run/samsung-galaxybook"
 FPRINT_STATUS_FILE="${FPRINT_STATUS_DIR}/fprint-sdcp-status"
@@ -88,4 +90,18 @@ if [[ -n "$SENSOR_ON_BUS" ]] && ! check_fprintd_functional; then
     notify_user "Samsung Galaxy Book — Fingerprint Sensor Not Working" \
         "fprintd cannot see your fingerprint sensor. Please reinstall the fingerprint fix." \
         "dialog-error"
+    exit 0
+fi
+
+# 4. fprintd must be running this fix's driver: another fix's fprintd setup,
+#    added after this one was installed, can override it.
+FPRINTD_PID=$(pidof fprintd 2>/dev/null | awk '{print $1}')
+if [[ -n "$SENSOR_ON_BUS" && -n "$FPRINTD_PID" ]] \
+        && ! grep -q "$FPRINT_LIB_DIR/" "/proc/$FPRINTD_PID/maps" 2>/dev/null; then
+    OTHERS=$(bash "$OTHER_FIX" list 2>/dev/null | awk '$1 ~ /dropin/ {print $2}' | paste -sd' ')
+    MSG="fprintd isn't using fingerprint-fix-sdcp's driver"
+    [[ -n "$OTHERS" ]] && MSG+=" — another fingerprint fix's setting overrides it: $OTHERS"
+    notify_user "Samsung Galaxy Book — Another Fingerprint Fix Is in the Way" \
+        "$MSG. Reinstall fingerprint-fix-sdcp to move it aside (it is kept as a backup)." \
+        "dialog-warning"
 fi

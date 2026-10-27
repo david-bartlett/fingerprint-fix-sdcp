@@ -134,6 +134,9 @@ fi
 %post
 %systemd_post %{boot_check}
 %systemd_user_post %{user_check}
+# Another fingerprint fix's fprintd setup (e.g. a manual install of Abdallah's
+# libfprint-egismoc-sdcp): moved aside, with a backup and how to restore it.
+%{scriptdir}/other-fix.sh takeover || :
 # fprintd picks up the drop-in now; the drop-in changes its environment, so
 # reload first (systemd's own reload runs at the end of the transaction).
 systemctl daemon-reload >/dev/null 2>&1 || :
