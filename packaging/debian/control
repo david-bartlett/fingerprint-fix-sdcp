@@ -34,7 +34,7 @@ Depends: ${shlibs:Depends},
          gir1.2-fprint-2.0
 Description: Egis fingerprint reader fix for Samsung Galaxy Book
  Makes the Egis match-on-chip fingerprint reader (1c7a:05a5 on Galaxy Book 4 /
- Book 5 Pro, 1c7a:05a1 on Book 3 / Book 4) work on Linux. Builds only the
+ Book 5 Pro, 1c7a:05a1 on Book 4) work on Linux. Builds only the
  egismoc SDCP driver of libfprint and points fprintd at it; the distro's
  libfprint is not replaced.
  .

@@ -61,7 +61,7 @@ Requires:       gtk3
 
 %description
 Makes the Egis match-on-chip fingerprint reader (1c7a:05a5 on Galaxy Book 4 /
-Book 5 Pro, 1c7a:05a1 on Book 3 / Book 4) work on Linux. Builds only the
+Book 5 Pro, 1c7a:05a1 on Book 4) work on Linux. Builds only the
 egismoc SDCP driver of libfprint and points fprintd at it; the distro's
 libfprint is not replaced. Includes a monitor and boot-time check that warn
 when the sensor loses a fingerprint (e.g. after booting Windows), sharing
@@ -84,7 +84,7 @@ echo "enable %{boot_check}" > %{buildroot}%{_presetdir}/80-fingerprint-fix-sdcp.
 echo "enable %{user_check}" > %{buildroot}%{_userpresetdir}/80-fingerprint-fix-sdcp.preset
 
 %pre
-# Only for a Samsung with the Galaxy Book's Egis reader (USB 1c7a:05a5 / 05a1):
+# Only for a Galaxy Book4 / Book5 with the Egis reader (USB 1c7a:05a5 / 05a1):
 # elsewhere fprintd needs the distro's drivers, which the fix's library lacks.
 # Same rule as packaging/files/fprintd-env.sh.in, install.sh and the Manager —
 # this script runs before the package's files exist, so it has its own copy.
@@ -96,6 +96,17 @@ fix_hardware_problem() {
         *) echo "this computer is not a Samsung (vendor: $(head -n1 /sys/class/dmi/id/sys_vendor 2>/dev/null || echo unknown))"
            return 1 ;;
     esac
+    # Galaxy Book3 laptops can have the same 1c7a:05a1 reader as the Book4, but
+    # this fix is only tested on the Book4 and Book5: refused there. Recognised
+    # by the family name, or the model code: NP / 3 digits / X (laptop) or Q
+    # (360) / generation letter, F = Book3 (G = Book4, H = Book5).
+    _family=$(cat /sys/class/dmi/id/product_family 2>/dev/null)
+    _model=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
+    if echo "$_family" | grep -Eqi 'galaxy ?book ?3($|[^0-9])' \
+            || echo "$_model" | grep -Eqi '^(NP)?[0-9]{3}[XQ]F'; then
+        echo "this is a Galaxy Book3 (${_family:-model $_model}), which this fix isn't tested on"
+        return 1
+    fi
     for _d in /sys/bus/usb/devices/*; do
         [ "$(cat "$_d/idVendor" 2>/dev/null)" = 1c7a ] || continue
         case "$(cat "$_d/idProduct" 2>/dev/null)" in 05a5|05a1) return 0 ;; esac
@@ -107,8 +118,8 @@ if [ "$1" -eq 1 ]; then
     if [ "${FPRINT_SDCP_FORCE:-0}" != 1 ] && ! _why=$(fix_hardware_problem); then
         cat >&2 <<EOF
 
-fingerprint-fix-sdcp is only for Samsung Galaxy Books with the Egis fingerprint
-reader (USB 1c7a:05a5 or 1c7a:05a1), but $_why.
+fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5 with the
+Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1), but $_why.
 Nothing was installed: any other fingerprint reader works with your distro's
 own driver. To install anyway (e.g. building a system image for a Galaxy Book):
   sudo FPRINT_SDCP_FORCE=1 dnf install ./fingerprint-fix-sdcp-*.rpm
