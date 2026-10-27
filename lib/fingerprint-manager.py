@@ -129,9 +129,24 @@ def reader_present():
     return False
 
 
-OTHER_FIX_TEXT = ("A libfprint with an SDCP driver from outside your distro is installed ({}). "
-                  "fprintd keeps using fingerprint-fix-sdcp's driver. The next distro update may "
-                  "replace the other copy, so keep this fix.")
+OTHER_FIX_TEXT = ("Another fingerprint fix's libfprint is installed. fingerprint-fix-sdcp keeps "
+                  "working; keep it, as the next distro update may replace the other one.")
+REMOVED_DETAILS = ("The template is deleted from the sensor, freeing its slot, and the record "
+                   "is moved to /var/lib/samsung-galaxybook/removed-fingerprints/.")
+
+
+def add_details(dialog, details):
+    """Put the finer points (paths, how it works, caveats) under a "More
+    details" expander, so the dialog itself can say what matters in a line or two."""
+    if not details:
+        return
+    exp = Gtk.Expander(label="More details")
+    lbl = Gtk.Label(label=details, wrap=True, xalign=0, selectable=True, max_width_chars=60)
+    lbl.get_style_context().add_class("fpm-soft")
+    lbl.set_margin_top(4)
+    exp.add(lbl)
+    dialog.get_message_area().pack_start(exp, False, False, 0)
+    exp.show_all()
 
 
 def remove_command():
@@ -152,15 +167,14 @@ def no_reader_dialog():
                             text="No Galaxy Book fingerprint reader found")
     dlg.set_title(TITLE)
     dlg.set_icon_name(ICON_NAME)
-    dlg.format_secondary_markup(
-        "This app and fingerprint-fix-sdcp are only for the Egis fingerprint reader of "
-        "Samsung Galaxy Book4 and Book5 laptops (USB <tt>1c7a:05a5</tt> or <tt>1c7a:05a1</tt>), "
-        "and it isn't on this computer.\n\n"
-        "Without it, fprintd uses your distro's own driver, so any other fingerprint reader "
-        "keeps working: set it up in your desktop's settings.\n\n"
-        "If this is a Galaxy Book, the reader may be switched off in the BIOS — check, then "
-        "restart. Otherwise you can remove the fix:\n"
-        f"<tt>{GLib.markup_escape_text(remove_command())}</tt>")
+    dlg.format_secondary_text(
+        "This app is for the fingerprint reader in the Samsung Galaxy Book4 and Book5, and "
+        "this computer doesn't have one.\n\n"
+        "Any other fingerprint reader works with your distro's own driver: set it up in your "
+        "desktop's settings.")
+    add_details(dlg, "Looked for the Egis reader, USB 1c7a:05a5 or 1c7a:05a1. On a Galaxy "
+                     "Book, it may be switched off in the BIOS.\n\n"
+                     f"To remove fingerprint-fix-sdcp:\n{remove_command()}")
     dlg.run()
     dlg.destroy()
 
@@ -1248,10 +1262,10 @@ class Manager(Gtk.Window):
         """Replace one of your fingers: delete its template, then enrol it afresh."""
         name = long_finger(rec["name"]).lower()
         if not self.confirm(f"Enrol your {name} again?",
-                            f"Its template is deleted from the sensor and you enrol the "
-                            f"finger afresh. Any other distro sharing this finger stops "
-                            f"matching it until you export from here and import there again.",
-                            "Enrol again"):
+                            "The old one is deleted from the sensor and you enrol the finger afresh.",
+                            "Enrol again",
+                            details="Any other Linux install sharing this finger stops matching "
+                                    "it until you export it from here and import it there again."):
             return
         if not rec.get("template"):
             return self.reenrol(rec)
@@ -1292,11 +1306,8 @@ class Manager(Gtk.Window):
         """A finger enrolled with another driver: delete it (template and
         record), then optionally enrol that finger again."""
         if not self.confirm(f"Delete {long_finger(rec['name']).lower()} ({rec['user']})?",
-                            "It was enrolled with a different fingerprint driver, so it can't be "
-                            "used here. Its template is deleted from the sensor (freeing the slot) "
-                            "and the record is moved to "
-                            "/var/lib/samsung-galaxybook/removed-fingerprints/.",
-                            "Delete"):
+                            "It was enrolled with a different driver and can't be used here.",
+                            "Delete", details=REMOVED_DETAILS):
             return
         if not enrol:
             return self.run_job("delete_other_driver", self.after_job("Deleted"),
@@ -1313,10 +1324,8 @@ class Manager(Gtk.Window):
         """Delete every finger enrolled with another driver (the message's button)."""
         names = "\n".join(f"  • {long_finger(r['name'])} ({r['user']})" for r in recs)
         if self.confirm("Delete fingerprints from another driver?",
-                        f"{names}\n\nThey can't be used with this driver. Their templates are "
-                        "deleted from the sensor (freeing the slots) and the records are moved to "
-                        "/var/lib/samsung-galaxybook/removed-fingerprints/. Enrol the fingers again "
-                        "afterwards.", "Delete"):
+                        f"{names}\n\nThey can't be used here. Enrol the fingers again afterwards.",
+                        "Delete", details=REMOVED_DETAILS):
             self.run_job("delete_other_driver", self.after_job("Deleted"),
                          records=[{"user": r["user"], "finger": r["finger"]} for r in recs])
 
@@ -1500,17 +1509,19 @@ class Manager(Gtk.Window):
 
     def _on_msg_response(self, _bar, resp):
         if resp == 1 and self._msg_details:
-            self.show_output("Details", self._msg_details)
+            self.show_output(self.msg_label.get_text(), self._msg_details,
+                             self.msg_bar.get_message_type())
         elif resp == 2 and self._msg_action:
             self._msg_action[1]()
         else:
             self._hide_message()
 
-    def confirm(self, title, text, ok_label, destructive=True):
+    def confirm(self, title, text, ok_label, destructive=True, details=None):
         d = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE, text=title,
                               message_type=Gtk.MessageType.WARNING if destructive
                               else Gtk.MessageType.QUESTION)
         d.format_secondary_text(text)
+        add_details(d, details)
         d.add_button("Cancel", Gtk.ResponseType.CANCEL)
         ok = d.add_button(ok_label, Gtk.ResponseType.OK)
         if destructive:
@@ -1520,10 +1531,11 @@ class Manager(Gtk.Window):
         d.destroy()
         return r == Gtk.ResponseType.OK
 
-    def show_output(self, title, text, kind=Gtk.MessageType.INFO):
+    def show_output(self, title, text, kind=Gtk.MessageType.INFO, details=None):
         d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=kind,
                               buttons=Gtk.ButtonsType.CLOSE, text=title)
         d.format_secondary_text(text)
+        add_details(d, details)
         d.run()
         d.destroy()
 
@@ -1628,19 +1640,16 @@ class Manager(Gtk.Window):
             names = ", ".join(f"{long_finger(r['name'])} ({r['user']})" for r in other)
             mine = [r for r in other if r["user"] == st["user"]]
             self.message(f"Enrolled with another driver: {names}.", Gtk.MessageType.WARNING,
-                         details="These fingerprints were enrolled with a different fingerprint "
-                                 "driver (for example your distro's own, before this fix), so they "
-                                 "can never match with this one. Delete them — this also frees "
-                                 "their slots on the sensor — and enrol the fingers again "
-                                 "(right-click a finger → Delete and enrol again).",
+                         details="They were enrolled with a different fingerprint driver (e.g. your "
+                                 "distro's own, before this fix) and can never match here. Delete "
+                                 "them, then enrol the fingers again.",
                          action=("Delete them", lambda: self.delete_others(other)) if mine else None)
         elif dead:
             names = ", ".join(f"{long_finger(r['name'])} ({r['user']})" for r in dead)
             self.message(f"No longer on the sensor: {names}.", Gtk.MessageType.WARNING,
-                         details="These records point at templates the sensor no longer has "
-                                 "(re-enrolled elsewhere, or removed by Windows), so they can "
-                                 "never match. Remove them, then import a current export or "
-                                 "enrol again.",
+                         details="Their templates are gone from the sensor (usually removed by "
+                                 "Windows, or the finger was enrolled again on another install), "
+                                 "so they can never match. Remove them, then enrol again.",
                          action=("Remove dead records", lambda: self.on_remove_dead(None)))
 
     def _set_pam_title(self, method):
@@ -1850,17 +1859,19 @@ class Manager(Gtk.Window):
         pick.pack_start(combo, True, True, 0)
         area.pack_start(pick, False, False, 0)
 
-        warn = ("If this finger is already enrolled on another Linux install or in Windows "
-                "Hello, enrolling it here deletes it from the sensor, so it stops working "
-                "there. To use the same finger on several installs, enrol it once and use "
-                "Export / Import.")
+        warn = ("If this finger is already set up on another Linux install or in Windows "
+                "Hello, it stops working there.")
         if others:
-            warn = (f"The sensor has {len(others)} template(s) not used by this install — "
-                    "possibly another install or Windows Hello.\n\n" + warn)
-        else:
-            warn += "\n\nThere are no other templates on the sensor right now."
+            warn += f"\nThe sensor has {len(others)} fingerprint(s) from elsewhere."
         note = Gtk.Label(label=warn, wrap=True, xalign=0, max_width_chars=55)
         area.pack_start(note, False, False, 0)
+        more = Gtk.Expander(label="More details")
+        more_lbl = Gtk.Label(label="Enrolling deletes the same finger's template from the sensor. "
+                                   "To use one finger on several installs, enrol it once and use "
+                                   "Export / Import.", wrap=True, xalign=0, max_width_chars=55)
+        more_lbl.get_style_context().add_class("fpm-soft")
+        more.add(more_lbl)
+        area.pack_start(more, False, False, 0)
 
         icon = Gtk.Label()
         head = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER)
@@ -1894,12 +1905,12 @@ class Manager(Gtk.Window):
             pick.hide()
             if finger_given and others:
                 # Started without the choice screen: keep a short warning.
-                note.set_text(f"The sensor has {len(others)} template(s) not used by this "
-                              "install. If this finger is one of them (another install or "
-                              "Windows Hello), enrolling it here deletes it from there.")
+                note.set_text(f"The sensor has {len(others)} fingerprint(s) from elsewhere. If "
+                              "this finger is one of them, it stops working there.")
                 note.get_style_context().add_class("dim-label")
             else:
                 note.hide()
+            more.hide()
             start_btn.hide()
             show("☝", None, f"Touch the sensor with your {finger.replace('-', ' ')}",
                  "Lift your finger and touch again each time, moving it slightly.")
@@ -2055,10 +2066,10 @@ class Manager(Gtk.Window):
                     if r["on_sensor"] is False and rec_kind(r)[0] != "other"]
         names = "\n".join(f"  • {long_finger(r['name'])} ({r['user']})" for r in dead)
         if self.confirm("Remove dead record?" if len(dead) == 1 else "Remove dead records?",
-                        f"Their templates are no longer on the sensor, so they can never match:\n"
-                        f"{names}\n\nThe records are moved to "
-                        "/var/lib/samsung-galaxybook/removed-fingerprints/. "
-                        "Nothing on the sensor changes.", "Remove", destructive=False):
+                        f"{names}\n\nTheir templates are gone from the sensor, so they can never match.",
+                        "Remove", destructive=False,
+                        details="The records are moved to /var/lib/samsung-galaxybook/"
+                                "removed-fingerprints/. Nothing on the sensor changes."):
             self.run_job("remove_records", self.after_job("Removed dead records"),
                          records=[{"user": r["user"], "finger": r["finger"]} for r in dead])
 
@@ -2069,10 +2080,11 @@ class Manager(Gtk.Window):
             return self.on_remove_dead(None, sel)
         names = "\n".join(f"  • {r[1]} ({r[0]})" for r in rows)
         if self.confirm(f"Remove from {OS_NAME} only?",
-                        f"{names}\n\nThese fingerprints stop working on {OS_NAME}. Their templates "
-                        "stay on the sensor, so other installs sharing them keep working. The records "
-                        "are moved to /var/lib/samsung-galaxybook/removed-fingerprints/.",
-                        "Remove"):
+                        f"{names}\n\nThey stop working on {OS_NAME}. Other installs sharing them "
+                        "keep working.", "Remove",
+                        details="Their templates stay on the sensor. The records are moved to "
+                                "/var/lib/samsung-galaxybook/removed-fingerprints/; ☰ → Restore "
+                                "removed records… puts them back."):
             self.run_job("remove_records", self.after_job(f"Removed from {OS_NAME}", undo=True),
                          records=[{"user": r[0], "finger": r[4]} for r in rows])
 
@@ -2082,15 +2094,15 @@ class Manager(Gtk.Window):
         unused = [r for r in rows if not r[2]]
         text = []
         if used:
-            text.append("Used by this install: " + "; ".join(r[1] for r in used) + ".\n"
-                        "They stop working here and on every other install sharing them. "
-                        "Their records here are moved aside.")
+            text.append("Used here: " + "; ".join(r[1] for r in used) + ".")
         if unused:
-            text.append(f"{len(unused)} template(s) not used by {OS_NAME}. They may belong to "
-                        "another distro or to Windows Hello (or be left over from a reinstall) — "
-                        "fingerprint login stops working there until you enrol again.")
+            text.append(f"{len(unused)} not used here: probably another install or Windows Hello.")
         if self.confirm(f"Delete {len(rows)} template(s) from the sensor?",
-                        "\n\n".join(text) + "\n\nThis can't be undone.", "Delete"):
+                        "\n".join(text) + "\n\nThey stop working everywhere. This can't be undone.",
+                        "Delete",
+                        details="Records here that used them are moved aside. Templates not used "
+                                "here may also be left over from a reinstall; fingerprint login "
+                                "wherever they were used stops working until you enrol again."):
             self.run_job("delete_templates", self.after_job("Deleted from the sensor"),
                          ids=[r[0] for r in rows])
 
@@ -2098,9 +2110,10 @@ class Manager(Gtk.Window):
         d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
                               buttons=Gtk.ButtonsType.NONE, text="Wipe the whole sensor?")
         d.format_secondary_text(
-            "This deletes EVERY template on the sensor — the fingerprints of every Linux install "
-            "and of Windows Hello. Every record on this install is moved aside. Everyone has to "
-            "enrol again, and exports made before this stop working.\n\nType WIPE to confirm.")
+            "Deletes every fingerprint on the sensor: every Linux install's and Windows "
+            "Hello's. Everyone has to enrol again.\n\nType WIPE to confirm.")
+        add_details(d, "Every record on this install is moved aside. Exports made before "
+                       "this stop working.")
         entry = Gtk.Entry(activates_default=True)
         d.get_message_area().pack_start(entry, False, False, 0)
         d.add_button("Cancel", Gtk.ResponseType.CANCEL)
@@ -2156,11 +2169,9 @@ class Manager(Gtk.Window):
                                   text="You already have fingerprints on this install")
             d.format_secondary_text(
                 f"You have {names} here.\n\n"
-                "Add the missing ones: imports only the fingers you don't have here yet, "
-                "and keeps yours as they are.\n\n"
-                "Replace all: replaces yours with the ones in this file. Your records are "
-                "moved to /var/lib/samsung-galaxybook/replaced-fingerprints/ — nothing is "
-                "deleted from the sensor.")
+                "Add the missing ones keeps yours. Replace all swaps them for the ones in the file.")
+            add_details(d, "Replaced records are moved to /var/lib/samsung-galaxybook/"
+                           "replaced-fingerprints/. Nothing is deleted from the sensor.")
             d.add_button("Cancel", Gtk.ResponseType.CANCEL)
             rb = d.add_button("Replace all", 2)
             rb.get_style_context().add_class("destructive-action")
@@ -2185,9 +2196,8 @@ class Manager(Gtk.Window):
         n = len(offer["fingers"])
         short = offer["file"].replace(os.path.expanduser("~") + "/", "~/")
         if self.confirm(f"Import {n} fingerprint{'s' if n > 1 else ''} from another install?",
-                        f"{short} has {names}, which {'are' if n > 1 else 'is'} not on this "
-                        "install yet and still stored on the sensor. Your fingerprints here "
-                        "stay as they are.", "Import", destructive=False):
+                        f"{short} has {names}, not on this install yet. Yours stay as they are.",
+                        "Import", destructive=False):
             self.run_job("import", self.after_job("Imported"), file=offer["file"],
                          fingers=[f["finger"] for f in offer["fingers"]])
         return False
@@ -2229,7 +2239,7 @@ class Manager(Gtk.Window):
 
     def _other_fix(self, detail):
         self.message("Another fingerprint fix's libfprint is installed — keep this fix.",
-                     Gtk.MessageType.WARNING, details=OTHER_FIX_TEXT.format(detail))
+                     Gtk.MessageType.WARNING, details=OTHER_FIX_TEXT + (f"\n\n{detail}" if detail else ""))
         return False
 
     def _distro_supports(self):
@@ -2255,8 +2265,8 @@ class Manager(Gtk.Window):
 
     def _test_distro_after_check(self, kind, detail):
         if kind in ("modified", "foreign"):
-            self.show_output("Keep fingerprint-fix-sdcp", OTHER_FIX_TEXT.format(detail),
-                             Gtk.MessageType.WARNING)
+            self.show_output("Keep fingerprint-fix-sdcp", OTHER_FIX_TEXT,
+                             Gtk.MessageType.WARNING, details=detail or None)
             return
         if kind != "sdcp":
             what = {"plain": "has a driver for this reader, but without SDCP, so it can't keep "
@@ -2269,10 +2279,12 @@ class Manager(Gtk.Window):
                              f"Your distro's libfprint {what}. The fix is still needed.")
             return
         if not self.confirm("Test your distro's driver?",
-                            "For this test fprintd uses your distro's libfprint instead of the "
-                            "fix's driver. When asked, touch the sensor with one of your enrolled "
-                            "fingers (within a minute). The fix is switched back on straight "
-                            "afterwards.", "Test", destructive=False):
+                            "When asked, touch the sensor with one of your enrolled fingers.",
+                            "Test", destructive=False,
+                            details="For the test, fprintd uses your distro's libfprint instead "
+                                    "of the fix's driver, the way login would work after removing "
+                                    "the fix. You have a minute; the fix is switched back on "
+                                    "straight afterwards."):
             return
         self.message("Touch the sensor with one of your enrolled fingers…", Gtk.MessageType.OTHER)
 
@@ -2286,17 +2298,16 @@ class Manager(Gtk.Window):
                 return self._offer_removal()
             elif r == "no-match":
                 self.show_output("Your distro's driver didn't recognise that finger",
-                                 "It works with the reader, but not with your current enrolments, "
-                                 "so keep the fix for now.\n\n"
-                                 "To switch to your distro's driver anyway, delete your fingers "
-                                 "here first — ☰ → Show the Sensor tab, select your templates and "
-                                 "click Delete… — so they don't stay on the sensor taking up its "
-                                 "10 slots (your distro's driver may not be able to delete them). "
-                                 "Then remove the fix and enrol again in your desktop's settings:"
-                                 f"\n\n    {remove_command()}", Gtk.MessageType.WARNING)
+                                 "It works with the reader, but not with your current "
+                                 "fingerprints. Keep the fix for now.", Gtk.MessageType.WARNING,
+                                 details="To switch to your distro's driver anyway: first delete "
+                                         "your fingers here (☰ → Show the Sensor tab, select your "
+                                         "templates, Delete…), so they don't stay on the sensor "
+                                         "taking up its 10 slots. Then remove the fix and enrol "
+                                         f"again in your desktop's settings:\n{remove_command()}")
             elif r == "unsupported" and res.get("driver") in ("modified", "foreign"):
                 self.show_output("Keep fingerprint-fix-sdcp",
-                                 OTHER_FIX_TEXT.format(res.get("detail", "")),
+                                 OTHER_FIX_TEXT,
                                  Gtk.MessageType.WARNING)
             elif r == "unsupported":
                 self.show_output("Keep fingerprint-fix-sdcp",
@@ -2316,16 +2327,14 @@ class Manager(Gtk.Window):
         d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE,
                               text="Your fingerprints work with your distro's driver")
-        tt = lambda t: f"<tt>{GLib.markup_escape_text(t)}</tt>"
-        d.format_secondary_markup(
-            "fingerprint-fix-sdcp is no longer needed. Removing it switches fprintd to your "
-            "distro's driver; your enrolled fingerprints are kept and keep working. This "
-            "Fingerprint Manager is removed with it — afterwards, manage fingers in your "
-            "desktop's settings."
-            + ("\n\nOn Arch-based distros, removing it also turns off fingerprint for sudo and "
-               "admin prompts: add pam_fprintd to /etc/pam.d/sudo again if you want it."
-               if arch else "")
-            + f"\n\nOr remove it yourself:\n{tt(cmd)}")
+        d.format_secondary_text("You can remove fingerprint-fix-sdcp now. Your fingerprints are "
+                                "kept and keep working.")
+        add_details(d, "fprintd switches to your distro's driver. This Fingerprint Manager is "
+                       "removed too; manage fingers in your desktop's settings afterwards."
+                       + ("\n\nOn Arch-based distros it also turns off fingerprint for sudo and "
+                          "admin prompts: add pam_fprintd to /etc/pam.d/sudo again to keep it."
+                          if arch else "")
+                       + f"\n\nTo remove it yourself:\n{cmd}")
         d.add_button("Keep it", Gtk.ResponseType.CLOSE)
         d.add_button("Copy command", 2)
         remove = d.add_button("Remove fingerprint-fix-sdcp", 1)
@@ -2347,9 +2356,8 @@ class Manager(Gtk.Window):
             if err:
                 return self.error(f"fingerprint-fix-sdcp was not removed:\n{err}")
             self.show_output("fingerprint-fix-sdcp removed",
-                             "fprintd now uses your distro's driver, with your fingerprints. "
-                             "The Fingerprint Manager closes now; manage fingers in your desktop's "
-                             "settings.")
+                             "Your fingerprints now use your distro's driver. Manage them in your "
+                             "desktop's settings; the Fingerprint Manager closes now.")
             self.close()
         self.message("Removing fingerprint-fix-sdcp…", Gtk.MessageType.OTHER)
         self.run_job("remove_fix", done)
@@ -2483,25 +2491,22 @@ class Manager(Gtk.Window):
                               buttons=Gtk.ButtonsType.NONE, text="Downloaded")
         tt = lambda t: f"<tt>{GLib.markup_escape_text(t)}</tt>"
         if fmt == "pacman":
-            text = ("- <b>Open folder</b> — opens the folder with the " + tt("PKGBUILD") + " and "
-                    "copies the build command to the clipboard.\n\n"
-                    "- <b>To build and install</b> — open a terminal and paste the command, or run:\n"
-                    + tt(cmd) + "\n"
-                    "It builds the driver (a few seconds), then asks for your password to install.")
+            text = "To build and install it, paste this into a terminal:\n" + tt(cmd)
+            more = ("It builds the driver (a few seconds), then asks for your password. "
+                    "Open folder opens the folder with the PKGBUILD.")
             opened = path
         elif os.path.isdir(path):
-            text = ("- <b>Open folder</b> — opens the folder with the packages and copies the "
-                    "install command to the clipboard.\n\n"
-                    "- <b>To install</b> — open a terminal and paste the install command, or run:\n"
-                    + tt(cmd))
+            text = "To install them, paste this into a terminal:\n" + tt(cmd)
+            more = "Open folder opens the folder with the packages."
             opened = path
         else:
-            text = ("- <b>Open folder</b> — opens your " + tt("~/Downloads") + " folder and copies "
-                    "the install command to the clipboard.\n\n"
-                    "- <b>To install</b> — open a terminal and paste the install command, or run:\n"
-                    + tt(cmd))
+            text = "To install it, paste this into a terminal:\n" + tt(cmd)
+            more = "Open folder opens your Downloads folder."
             opened = os.path.dirname(path)
+        more += (" Open folder and Quit Manager also copy the command and close the Manager, "
+                 "ready for the new version to be installed.")
         d.format_secondary_markup(text)
+        add_details(d, more)
         d.add_button("Open folder", 1)
         d.add_button("Copy command", 2)
         d.add_button("Quit Manager", 3)
