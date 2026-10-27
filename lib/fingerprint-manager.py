@@ -1511,8 +1511,9 @@ class Manager(Gtk.Window):
             row.key = key
             row.add(hb)
             self.rows.add(row)
-        if self.enrol_ok:
-            # "Enrol a finger" row (in the cards view the grey fingers do this)
+        if self.enrol_ok and me is not None:
+            # "Enrol a finger" row (in the cards view the grey fingers do this);
+            # not while the sensor can't be read, like the grey cards.
             hb = Gtk.Box(spacing=10)
             for c in ("fpm-lcard", "fpm-add"):
                 hb.get_style_context().add_class(c)
