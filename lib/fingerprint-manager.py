@@ -1832,13 +1832,16 @@ class Manager(Gtk.Window):
         d.set_resizable(False)          # its size is set below, the same in every state
         close_btn = d.add_button("Cancel", Gtk.ResponseType.CANCEL)
         area = d.get_content_area()
-        area.set_spacing(8)
         area.set_border_width(18)
+        # The text in a box of its own that takes the dialog's height, so the
+        # buttons stay at the bottom whatever is shown.
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        area.pack_start(body, True, True, 0)
         icon = Gtk.Label()
         head = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER)
         sub = Gtk.Label(wrap=True, justify=Gtk.Justification.CENTER, selectable=True)
         for w in (icon, head, sub):
-            area.pack_start(w, False, False, 0)
+            body.pack_start(w, False, False, 0)
         state = {"proc": None, "timer": 0}
         AGAIN_IN = 2            # seconds before the next test, after a match or no match
 
@@ -1850,13 +1853,14 @@ class Manager(Gtk.Window):
             sub.set_text(detail)
 
         # One size for every state (touch prompt, result, countdown): the
-        # tallest — no match, with its countdown — plus a little room below.
+        # tallest — no match, with its countdown — plus a little room below
+        # the text.
         no_match_detail = (f"Tested: {what}\nThat finger didn't match. Try again, "
                            "or test another finger.")
         show("✗", None, "No match", f"{no_match_detail}\n\nTesting again in {AGAIN_IN}…")
-        area.show_all()
-        tallest = area.get_preferred_height_for_width(WIDTH)[1]
-        area.set_size_request(WIDTH, tallest + 50)
+        body.show_all()
+        tallest = body.get_preferred_height_for_width(WIDTH - 36)[1]
+        body.set_size_request(WIDTH - 36, tallest + 25)
 
         def start():
             show("☝", None, "Touch the fingerprint sensor", f"Testing: {what}")
