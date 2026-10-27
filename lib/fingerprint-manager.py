@@ -447,7 +447,7 @@ SETTINGS = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser(
 
 
 def load_settings():
-    """key=value lines: view (icons/list), sensor_tab (1 = shown)."""
+    """key=value lines: view (icons/list), update_check, windows_hint, …"""
     try:
         with open(SETTINGS) as f:
             return dict(l.strip().split("=", 1) for l in f if "=" in l)
@@ -778,14 +778,9 @@ class Manager(Gtk.Window):
         self.set_titlebar(hb)
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         # every page as tall as the tallest, so the window never changes height
-        # The tabs; with the Sensor tab hidden (the default) just a title.
+        # The tabs, always both: Fingerprints (this install) and Sensor (its 10 slots)
         self.switcher = Gtk.StackSwitcher(stack=self.stack)
-        self.title_lbl = Gtk.Label(label="Fingerprints")
-        self.title_lbl.get_style_context().add_class("title")
-        title_box = Gtk.Box()
-        title_box.pack_start(self.switcher, False, False, 0)
-        title_box.pack_start(self.title_lbl, False, False, 0)
-        hb.set_custom_title(title_box)
+        hb.set_custom_title(self.switcher)
         self.refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.BUTTON)
         self.refresh_btn.set_tooltip_text("Read the sensor again")
         self.refresh_btn.connect("clicked", lambda *_: self.refresh())
@@ -799,12 +794,6 @@ class Manager(Gtk.Window):
         menu.append(Gtk.SeparatorMenuItem())
         self.restore_item = self._menu_item(menu, "Restore removed records…", self.on_restore)
         menu.append(Gtk.SeparatorMenuItem())
-        self.sensor_item = Gtk.CheckMenuItem(label="Show the Sensor tab (advanced)")
-        self.sensor_item.set_tooltip_text("Every template stored on the sensor — including other "
-                                          "installs' and Windows Hello's — with delete and wipe")
-        self.sensor_item.set_active(load_settings().get("sensor_tab") == "1")
-        self.sensor_item.connect("toggled", lambda i: self._show_sensor_tab(i.get_active()))
-        menu.append(self.sensor_item)
         self.update_item = Gtk.CheckMenuItem(label="Check for new versions")
         self.update_item.set_tooltip_text("Asks GitHub each time the Manager starts whether "
                                           "a newer fingerprint-fix-sdcp has been released")
@@ -1054,7 +1043,6 @@ class Manager(Gtk.Window):
         self._set_view(load_view(), save=False)
         self.connect("destroy", self.on_quit)
         self.show_all()
-        self._show_sensor_tab(self.sensor_item.get_active(), save=False)
         self.message("Measuring the message area: ",
                      Gtk.MessageType.WARNING,
                      details="x", action=("Undo", lambda: None))
@@ -1143,17 +1131,6 @@ class Manager(Gtk.Window):
         icons.connect("toggled", lambda b: self._set_view("icons" if b.get_active() else "list"))
         self.view_switches.append((icons, lst))
         return box, icons, lst
-
-    def _show_sensor_tab(self, show, save=True):
-        """The Sensor tab is for troubleshooting, so it's hidden unless chosen."""
-        if not show and self.stack.get_visible_child_name() == "sensor":
-            self.stack.set_visible_child_name("fingers")
-        # The page stays (unreachable) so the window keeps the Sensor tab's
-        # height either way; only the tab buttons are hidden.
-        self.switcher.set_visible(show)
-        self.title_lbl.set_visible(not show)
-        if save:
-            save_setting("sensor_tab", 1 if show else 0)
 
     def _set_view(self, view, save=True):
         if getattr(self, "_setting_view", False):
@@ -1391,7 +1368,7 @@ class Manager(Gtk.Window):
                     item("Enrol again…", lambda: self.enrol_again(rec),
                          tip="Replace this finger with a fresh enrolment — "
                              "useful if it doesn't match reliably")
-                if self.sensor_item.get_active() and rec.get("template"):
+                if rec.get("template"):
                     item("Show on sensor", lambda: self.show_template(rec["template"]))
                 item(f"Remove from {OS_NAME}", lambda: self.on_remove_selected(None))
             else:
@@ -1819,7 +1796,6 @@ class Manager(Gtk.Window):
         for name, n in (("fingers", len(st["records"])), ("sensor", len(st["templates"]))):
             self.stack.child_set_property(self.stack.get_child_by_name(name), "title",
                                           f"{self.pages[name]} ({n})")
-        self.title_lbl.set_text(f"Fingerprints ({len(st['records'])})")
         marker = st.get("marker")
         _version, driver, _date = parse_marker(marker)
         self.info.set_text(f"Sensor: {st['usb_id']} · Serial: {st['serial']} · "
@@ -2206,8 +2182,8 @@ class Manager(Gtk.Window):
                        "or for another user). Nothing was changed.")
             elif res == "enroll-data-full":
                 finish("failed", RED, "The sensor is full",
-                       "Delete templates you no longer need on the Sensor tab (☰ → Show "
-                       "the Sensor tab), then try again.")
+                       "Delete templates you no longer need on the Sensor tab, then try "
+                       "again.")
             elif res:
                 finish("failed", RED, "Enrolment failed", res)
             elif line.lower().startswith(("failed", "enrollstart failed", "impossible")):
@@ -2555,7 +2531,7 @@ class Manager(Gtk.Window):
                                  "It works with the reader, but not with your current "
                                  "fingerprints. Keep the fix for now.", Gtk.MessageType.WARNING,
                                  details="To switch to your distro's driver anyway: first delete "
-                                         "your fingers here (☰ → Show the Sensor tab, select your "
+                                         "your fingers here (on the Sensor tab, select your "
                                          "templates, Delete…), so they don't stay on the sensor "
                                          "taking up its 10 slots. Then remove the driver and enrol "
                                          f"again in your desktop's settings:\n{remove_command()}")
