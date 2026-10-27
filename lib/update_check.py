@@ -21,7 +21,6 @@
 # files from the SHA256SUMS file attached to each release.
 # =============================================================================
 import hashlib
-import json
 import os
 import platform
 import re
