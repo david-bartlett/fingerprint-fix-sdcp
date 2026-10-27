@@ -1,10 +1,10 @@
 # Arch package (CachyOS, Arch, EndeavourOS, …)
 
-`PKGBUILD` packages this repository's working tree (local changes included) and builds the driver commit named in `DRIVER` from the public fork. `VERSION` and `DRIVER` are read from the repository, so nothing here needs editing for a new release.
+`PKGBUILD` packages this repository's working tree (local changes included) as two packages — `fingerprint-fix-sdcp` (the driver) and `galaxybook-fingerprint-manager` (the Manager, monitor and checks) — and builds the driver commit named in `DRIVER` from the public fork. `VERSION` and `DRIVER` are read from the repository, so nothing here needs editing for a new release.
 
 ```bash
 cd packaging/arch
-makepkg -si                      # build, then install with pacman
+makepkg -si                      # build, then install both with pacman
 ```
 
 Rebuilding the same version: raise `pkgrel` or use `makepkg -sif`.
@@ -13,14 +13,15 @@ Rebuilding the same version: raise `pkgrel` or use `makepkg -sif`.
 
 | Path | What |
 | --- | --- |
-| `/usr/lib/fingerprint-fix-sdcp/` | driver library, `sensor-check`, monitor / boot / login check scripts, `installed` marker, `manager/` |
+| `/usr/lib/fingerprint-fix-sdcp/` | driver: library, `fprintd-env.sh`, `other-fix.sh`, `installed` marker |
+| `/usr/lib/galaxybook-fingerprint-manager/` | Manager: the app, `lib/sensor-check.py`, monitor / boot / login check scripts, `tools/`, `installed` marker |
 | `/usr/lib/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf` | points fprintd at the driver while the reader is present (`fprintd-env.sh` decides each time fprintd starts) |
 | `/usr/lib/systemd/system/`, `/usr/lib/systemd/user/` | monitor and boot-check services, login-check timer, session target |
 | `/usr/share/polkit-1/` | monitor rule, Manager policy |
 | `/usr/bin/galaxybook-fingerprint-manager`, `/usr/share/applications/`, `/usr/share/icons/` | the Manager |
 | `/etc/xdg/autostart/fingerprint-fix-sdcp-session.desktop` | starts `graphical-session.target` on desktops that don't |
 
-Install enables the boot check and the per-user login check (they start at the next boot / login) and restarts fprintd. Fingerprint login (PAM) is not touched: turn it on in the Manager. Removal keeps enrolled fingerprints and undoes the sudo / polkit-1 lines the Manager added.
+Install enables the boot check and the per-user login check (they start at the next boot / login) and restarts fprintd. Fingerprint login (PAM) is not touched: turn it on in the Manager. Removal keeps enrolled fingerprints; removing the Manager undoes the sudo / polkit-1 lines it added.
 
 ## Testing on CachyOS
 
@@ -34,8 +35,9 @@ Install enables the boot check and the per-user login check (they start at the n
 6. `systemctl is-enabled samsung-galaxybook-fprint-sdcp-boot-check.service` and `systemctl --user is-enabled samsung-galaxybook-fprint-sdcp-user-check.timer` both say `enabled`.
 7. Reboot: `journalctl -b -u samsung-galaxybook-fprint-sdcp-boot-check` shows the check ran; with no fingers enrolled, a notification points to the Manager about 10 s after login.
 8. Upgrade: raise `pkgrel`, `makepkg -si` — fingerprints still verify.
-9. Remove: `sudo pacman -R fingerprint-fix-sdcp` — `/var/lib/fprint` is still there, fprintd no longer maps the driver. Reinstall and verify again.
+9. Remove the driver alone: `sudo pacman -R fingerprint-fix-sdcp` — fprintd no longer maps the driver; the Manager still opens and the fingerprint-login lines stay.
+10. Remove both: `sudo pacman -R galaxybook-fingerprint-manager` — `/var/lib/fprint` is still there; the sudo / polkit-1 lines are removed. Reinstall and verify again.
 
 ## The release PKGBUILD
 
-Each GitHub release gets a `PKGBUILD` (from `PKGBUILD.release.in`) that builds that release from its tarball. No built `.pkg.tar.zst` is attached: Arch is rolling, so a package built on CI could break after an Arch library update until the next release, while a PKGBUILD is built against each system's current libraries. Its `prepare()` stops on hardware without the Galaxy Book's reader (`FPRINT_SDCP_FORCE=1` builds anyway); `PKGBUILD` here has no such check, because CI builds it to check the package still builds. The same file can go to the AUR later, with a `.SRCINFO` (`makepkg --printsrcinfo > .SRCINFO`). Both PKGBUILDs use the shared `packaging/build-driver.sh` and `packaging/install-files.sh`; see `packaging/README.md`.
+Each GitHub release gets a `PKGBUILD` (from `PKGBUILD.release.in`, with both `.install` files) that builds that release from its tarball. No built `.pkg.tar.zst` is attached: Arch is rolling, so a package built on CI could break after an Arch library update until the next release, while a PKGBUILD is built against each system's current libraries. Its `prepare()` stops on hardware without the Galaxy Book's reader (`FPRINT_SDCP_FORCE=1` builds anyway); `PKGBUILD` here has no such check, because CI builds it to check the package still builds. The same file can go to the AUR later, with a `.SRCINFO` (`makepkg --printsrcinfo > .SRCINFO`). Both PKGBUILDs use the shared `packaging/build-driver.sh` and `packaging/install-files.sh`; see `packaging/README.md`.

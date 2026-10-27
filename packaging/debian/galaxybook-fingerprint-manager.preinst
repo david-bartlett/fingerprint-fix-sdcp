@@ -1,0 +1,70 @@
+#!/bin/sh
+set -e
+# Only for a Galaxy Book4 / Book5 with the Egis reader (USB 1c7a:05a5 / 05a1):
+# elsewhere fprintd needs the distro's drivers, which the fix's library lacks.
+# Same rule as packaging/files/fprintd-env.sh.in, install.sh and the Manager —
+# this script runs before the package's files exist, so it has its own copy.
+# Prints why not, and fails, on other hardware.
+fix_hardware_problem() {
+    _vendor=$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/board_vendor 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    case "$_vendor" in
+        *samsung*) ;;
+        *) echo "this computer is not a Samsung (vendor: $(head -n1 /sys/class/dmi/id/sys_vendor 2>/dev/null || echo unknown))"
+           return 1 ;;
+    esac
+    # Galaxy Book3 laptops can have the same 1c7a:05a1 reader as the Book4, but
+    # this fix is only tested on the Book4 and Book5: refused there. Recognised
+    # by the family name, or the model code: NP / 3 digits / X (laptop) or Q
+    # (360) / generation letter, F = Book3 (G = Book4, H = Book5).
+    _family=$(cat /sys/class/dmi/id/product_family 2>/dev/null)
+    _model=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
+    if echo "$_family" | grep -Eqi 'galaxy ?book ?3($|[^0-9])' \
+            || echo "$_model" | grep -Eqi '^(NP)?[0-9]{3}[XQ]F'; then
+        echo "this is a Galaxy Book3 (${_family:-model $_model}), which this fix isn't tested on"
+        return 1
+    fi
+    for _d in /sys/bus/usb/devices/*; do
+        [ "$(cat "$_d/idVendor" 2>/dev/null)" = 1c7a ] || continue
+        case "$(cat "$_d/idProduct" 2>/dev/null)" in 05a5|05a1) return 0 ;; esac
+    done
+    echo "that reader was not found on this computer"
+    return 1
+}
+
+if [ "$1" = install ]; then
+    if [ "${FPRINT_SDCP_FORCE:-0}" != 1 ] && ! _why=$(fix_hardware_problem); then
+        cat >&2 <<EOF
+
+fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5 with the
+Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1), but $_why.
+Nothing was installed: any other fingerprint reader works with your distro's
+own driver. To install anyway (e.g. building a system image for a Galaxy Book):
+  sudo FPRINT_SDCP_FORCE=1 apt install ./fingerprint-fix-sdcp_*.deb ./galaxybook-fingerprint-manager_*.deb
+
+EOF
+        exit 1
+    fi
+fi
+
+# First install over a copy made by install.sh: remove that copy with its own
+# cleanups (driver, then Manager; enrolled fingerprints are kept), or its
+# drop-in in /etc would override this package's. Before 2.0.0 one cleanup
+# removed everything. Both packages' preinst have this: whichever runs first
+# does it.
+if [ "$1" = install ]; then
+    for c in /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh \
+             /usr/local/bin/galaxybook-fingerprint-manager-cleanup.sh; do
+        if [ -x "$c" ]; then
+            echo "Removing the copy of fingerprint-fix-sdcp installed with install.sh (fingerprints are kept)"
+            "$c" || true
+        fi
+    done
+    # Its cleanup (before 1.3.1) removed the Manager's icon from /usr/local but
+    # left that folder's icon cache listing it, so GTK showed a broken image
+    # instead of this package's icon: refresh that cache.
+    [ -f /usr/local/share/icons/hicolor/icon-theme.cache ] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
+        && gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor 2>/dev/null || true
+fi
+
+#DEBHELPER#
+exit 0

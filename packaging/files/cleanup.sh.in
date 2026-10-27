@@ -1,32 +1,12 @@
 #!/bin/bash
-# Samsung Galaxy Book — remove egismoc SDCP fingerprint fix and its monitor (runs as root)
-rm -f "@FPRINT_DROPIN@" "@FPRINT_ENV_SCRIPT@" "@FPRINT_ENV_FILE@" "@FPRINT_OTHER_FIX@"
+# Samsung Galaxy Book — remove the egismoc SDCP driver installed by install.sh
+# (runs as root). Leaves the Fingerprint Manager, its monitor and checks, and
+# enrolled fingerprints: fprintd goes back to the distro's libfprint. Used by
+# the Manager's "Remove", and with the Manager's own cleanup by the packages
+# when they replace an install.sh copy.
+rm -f "@FPRINT_DROPIN@" "@FPRINT_DROPIN@.testing" "@FPRINT_ENV_SCRIPT@" "@FPRINT_ENV_FILE@" "@FPRINT_OTHER_FIX@"
 rmdir "@FPRINT_DROPIN_DIR@" 2>/dev/null || true
 rm -rf "@FPRINT_LIB_DIR@"
-rm -f "@MGR_BIN@" "@MGR_DESKTOP@" "@MGR_ICON@" "@MGR_POLICY@"
-# Refresh the icon cache the icon was in, if it has one: a cache that still
-# lists the removed icon makes GTK show a broken image instead of finding the
-# icon a package installs under /usr/share (as uninstall.sh does).
-_icons="$(dirname "$(dirname "$(dirname "@MGR_ICON@")")")"
-[[ -f "$_icons/icon-theme.cache" ]] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
-    && gtk-update-icon-cache -q -t -f "$_icons" 2>/dev/null || true
-rm -f "/var/lib/samsung-galaxybook/libfprint-system.sha256" "@FPRINT_MARKER@"
-rm -rf "/var/lib/samsung-galaxybook/removed-fingerprints"
-rmdir "/var/lib/samsung-galaxybook" 2>/dev/null || true
-systemctl disable "samsung-galaxybook-fprint-sdcp-boot-check.service" 2>/dev/null || true
-rm -f "@FPRINT_UNIT_DIR@/samsung-galaxybook-fprint-sdcp-monitor.service" "@FPRINT_UNIT_DIR@/samsung-galaxybook-fprint-sdcp-boot-check.service" \
-      "@FPRINT_POLKIT_RULE@" "/run/samsung-galaxybook/fprint-sdcp-boot-status" \
-      "/run/samsung-galaxybook/fprint-sdcp-other-driver"
+rm -f "@FPRINT_MARKER@" "@FPRINT_CLEANUP@"
 systemctl daemon-reload 2>/dev/null || true
-for _home in /home/*/; do
-    _udir="${_home}.config/systemd/user"
-    rm -f "${_udir}/samsung-galaxybook-fprint-sdcp-user-check.timer" "${_udir}/samsung-galaxybook-fprint-sdcp-user-check.service" \
-          "${_udir}/graphical-session.target.wants/samsung-galaxybook-fprint-sdcp-user-check.timer" \
-          "${_home}.cache/samsung-galaxybook/fprint-sdcp-boot-shown" \
-          "${_home}.cache/samsung-galaxybook/fprint-sdcp-welcome-shown" \
-          "${_home}.cache/samsung-galaxybook/fprint-sdcp-pam-hint-shown" \
-          "${_home}.cache/samsung-galaxybook/fprint-sdcp-other-driver-shown"
-done
-rm -f /etc/samsung-galaxybook/session-helper.d/fingerprint-fix-sdcp
-# /run/samsung-galaxybook/fprint-sdcp-status is left for the user check script.
-rm -f "@FPRINT_CHECK_SCRIPT@" "@FPRINT_USER_CHECK_SCRIPT@" "@FPRINT_BOOT_CHECK_SCRIPT@" "@FPRINT_CLEANUP@"
+systemctl try-restart fprintd 2>/dev/null || true

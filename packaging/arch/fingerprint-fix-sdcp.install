@@ -1,33 +1,22 @@
-# fingerprint-fix-sdcp — pacman install scripts (run as root, never interactive)
+# fingerprint-fix-sdcp (the driver) — pacman install scripts (run as root,
+# never interactive)
 #
 # Only fprintd needs to change at once, so fingerprints work without a reboot.
-# The boot check and the login check are enabled and start at the next boot or
-# login. Fingerprint login (PAM), enrolling and importing are left to the
-# Galaxy Book Fingerprint Manager.
-
-_boot_check=samsung-galaxybook-fprint-sdcp-boot-check.service
-_user_check=samsung-galaxybook-fprint-sdcp-user-check.timer
-_state=/var/lib/samsung-galaxybook
+# The boot and login checks, fingerprint login (PAM), enrolling and importing
+# belong to galaxybook-fingerprint-manager, which this package requires.
 
 # fprintd picks up the drop-in that points it at the driver. The drop-in
 # changes fprintd's environment, so a daemon-reload must come first (pacman's
 # own reload hook runs after these scripts).
 _reload_fprintd() {
-    # Another fingerprint fix's fprintd setup (e.g. a manual install of Abdallah's
-    # libfprint-egismoc-sdcp): moved aside, with a backup and how to restore it.
-    bash /usr/lib/fingerprint-fix-sdcp/other-fix.sh takeover || true
     systemctl daemon-reload 2>/dev/null || true
     systemctl try-restart fprintd.service 2>/dev/null || true
 }
 
-# What the distro libfprint looked like at install, so the monitor tests it
-# again only once it changes.
-_store_libfprint_hash() {
-    local lib
-    lib=$(ldconfig -p 2>/dev/null | grep 'libfprint-2\.so\.2 ' | awk '{print $NF}' | head -1)
-    [[ -n "$lib" ]] || return 0
-    mkdir -p "$_state"
-    sha256sum "$lib" | awk '{print $1}' > "$_state/libfprint-system.sha256"
+# Another fingerprint fix's fprintd setup (e.g. a manual install of Abdallah's
+# libfprint-egismoc-sdcp): moved aside, with a backup and how to restore it.
+_takeover() {
+    bash /usr/lib/fingerprint-fix-sdcp/other-fix.sh takeover || true
 }
 
 # Only for a Galaxy Book4 / Book5 with the Egis reader (USB 1c7a:05a5 / 05a1):
@@ -70,52 +59,31 @@ pre_install() {
     echo "==> WARNING: fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5"
     echo "    with the Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1), but $why."
     echo "    fprintd keeps using the distro's libfprint here, so any other fingerprint"
-    echo "    reader still works. Remove the package: sudo pacman -R fingerprint-fix-sdcp"
+    echo "    reader still works. Remove the packages:"
+    echo "      sudo pacman -R fingerprint-fix-sdcp galaxybook-fingerprint-manager"
 }
 
 post_install() {
+    _takeover
     _reload_fprintd
-    systemctl enable "$_boot_check" >/dev/null 2>&1 || true
-    systemctl --global enable "$_user_check" >/dev/null 2>&1 || true
-    [[ -f "$_state/libfprint-system.sha256" ]] || _store_libfprint_hash
-
-    if [[ -f /etc/samsung-galaxybook-egismoc-sdcp.installed ]]; then
+    if [[ -f /etc/samsung-galaxybook-egismoc-sdcp.installed || -f /etc/galaxybook-fingerprint-manager.installed ]]; then
         echo "==> WARNING: a copy of fingerprint-fix-sdcp installed with install.sh is still here,"
         echo "    and its fprintd drop-in in /etc takes priority over this package."
         echo "    Remove it, keeping your fingerprints, from the fingerprint-fix-sdcp folder:"
         echo "      sudo bash uninstall.sh"
     fi
-
-    echo "==> Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger"
-    echo "    and turn on fingerprint for sudo and admin prompts."
-    # The same hint as a notification now, for anyone logged into a desktop.
-    bash /usr/lib/fingerprint-fix-sdcp/notify-users.sh || true
 }
 
 post_upgrade() {
+    _takeover
     _reload_fprintd
-    # Bring the sudo / polkit-1 lines the Manager added up to date (e.g. the
-    # polkit-1 fingerprint timeout); changes nothing if fingerprint login is off.
-    bash /usr/lib/fingerprint-fix-sdcp/manager/tools/arch-pam.sh update >/dev/null 2>&1 || true
-}
-
-pre_remove() {
-    systemctl disable "$_boot_check" >/dev/null 2>&1 || true
-    systemctl --global disable "$_user_check" >/dev/null 2>&1 || true
-    # Arch has no PAM tool of its own, so undo the sudo / polkit-1 lines the
-    # Manager added (arch-pam.sh removes only lines it marked itself): without
-    # this fix, pam_fprintd can't use the sensor anyway.
-    if grep -qsF "fingerprint-fix-sdcp (arch-pam.sh)" /etc/pam.d/sudo /etc/pam.d/polkit-1 \
-            || [[ -f "$_state/pam-polkit-1-created" ]]; then
-        bash /usr/lib/fingerprint-fix-sdcp/manager/tools/arch-pam.sh disable \
-            || echo "==> WARNING: check /etc/pam.d/sudo and /etc/pam.d/polkit-1 for pam_fprintd lines"
-    fi
 }
 
 post_remove() {
     rm -f /run/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf \
           /run/samsung-galaxybook/fprintd-sdcp.env
     _reload_fprintd
-    echo "==> fprintd uses the distro libfprint again. Enrolled fingerprints are kept"
-    echo "    (/var/lib/fprint and on the sensor); reinstalling the package uses them again."
+    echo "==> fprintd uses the distro libfprint again. The Fingerprint Manager and enrolled"
+    echo "    fingerprints are kept (/var/lib/fprint and on the sensor); reinstalling the"
+    echo "    driver uses them again."
 }

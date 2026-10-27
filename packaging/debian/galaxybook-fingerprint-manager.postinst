@@ -3,26 +3,21 @@ set -e
 BOOT_CHECK=samsung-galaxybook-fprint-sdcp-boot-check.service
 USER_CHECK=samsung-galaxybook-fprint-sdcp-user-check.timer
 STATE=/var/lib/samsung-galaxybook
+REMOVED="$STATE/galaxybook-fingerprint-manager.removed"
 
 if [ "$1" = configure ]; then
-    # Another fingerprint fix's fprintd setup (e.g. a manual install of Abdallah's
-    # libfprint-egismoc-sdcp): moved aside, with a backup and how to restore it.
-    /usr/lib/fingerprint-fix-sdcp/other-fix.sh takeover || true
-    # fprintd picks up the drop-in that points it at the driver.
-    systemctl daemon-reload >/dev/null 2>&1 || true
-    systemctl try-restart fprintd.service >/dev/null 2>&1 || true
-
-    # First install, or installing again after a removal: enable the boot
-    # check and every user's login check (they start at the next boot /
-    # login). Upgrades keep the admin's choice.
-    if [ -z "$2" ] || [ -e "$STATE/fingerprint-fix-sdcp.removed" ]; then
-        rm -f "$STATE/fingerprint-fix-sdcp.removed"
+    # First install (including the move from fingerprint-fix-sdcp 1.x, which
+    # had these units), or installing again after a removal: enable the boot
+    # check and every user's login check. Upgrades keep the admin's choice.
+    if [ -z "$2" ] || [ -e "$REMOVED" ]; then
+        rm -f "$REMOVED" "$STATE/fingerprint-fix-sdcp.removed"
         systemctl enable "$BOOT_CHECK" >/dev/null 2>&1 || true
         systemctl --global enable "$USER_CHECK" >/dev/null 2>&1 || true
         echo "Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger"
         echo "and turn on fingerprint login."
-        # The same hint as a notification now, for anyone logged into a desktop.
-        /usr/lib/fingerprint-fix-sdcp/notify-users.sh || true
+        # The same hint as a notification now, for anyone logged into a desktop
+        # (shown once per user, so a move from 1.x shows nothing new).
+        /usr/lib/galaxybook-fingerprint-manager/notify-users.sh || true
     fi
 
     # What the distro libfprint looked like, so the monitor tests it again

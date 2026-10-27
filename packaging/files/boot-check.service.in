@@ -4,12 +4,12 @@ Description=Samsung Galaxy Book — check enrolled fingerprints are still on the
 # nothing else can use the sensor while it is being checked.
 Before=fprintd.service
 After=systemd-udevd.service local-fs.target
-ConditionPathExists=@FPRINT_MARKER@
+ConditionPathExists=@MGR_MARKER@
 
 [Service]
 Type=oneshot
 ExecStart=@FPRINT_BOOT_CHECK_SCRIPT@
-TimeoutStartSec=15
+TimeoutStartSec=25
 StandardOutput=journal
 StandardError=journal
 

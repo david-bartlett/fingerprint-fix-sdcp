@@ -5,7 +5,8 @@
 #   bash packaging/debian/build.sh [REVISION]    (REVISION: Debian revision, default 1)
 #
 # Packages the checkout as it is now (tracked and new files) with the driver
-# commit named in DRIVER. The .deb is written to packaging/out/.
+# commit named in DRIVER. The two .debs (fingerprint-fix-sdcp, the driver, and
+# galaxybook-fingerprint-manager) are written to packaging/out/.
 #
 # A .deb is for the release it was built on: its library dependencies are
 # taken from that system, and Debian / Ubuntu rename library packages between
@@ -51,7 +52,8 @@ tar -xzf "$WORK/fingerprint-fix-sdcp-$VERSION.tar.gz" -C "$WORK"
 mkdir -p "$TREE/driver"
 tar -xzf "$WORK/libfprint-egismoc-sdcp-$DRIVER.tar.gz" -C "$TREE/driver" --strip-components=1
 mkdir -p "$TREE/debian"
-cp -a "$HERE"/{control,rules,copyright,docs,preinst,postinst,prerm,postrm,source} "$TREE/debian/"
+cp -a "$HERE"/{control,rules,copyright,source} "$HERE"/fingerprint-fix-sdcp.* \
+      "$HERE"/galaxybook-fingerprint-manager.* "$TREE/debian/"
 cat > "$TREE/debian/changelog" <<EOF
 fingerprint-fix-sdcp ($DEBVER) unstable; urgency=medium
 

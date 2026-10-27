@@ -98,8 +98,8 @@ command -v fprintd-list >/dev/null 2>&1 && systemctl cat fprintd.service >/dev/n
     || error "fprintd is not installed. Install the fix first (it installs fprintd):\n  sudo bash install.sh"
 ldconfig -p 2>/dev/null | grep -q 'libfprint-2\.so\.2 ' \
     || error "libfprint is not installed. Install the fix first:\n  sudo bash install.sh"
-fix_installed \
-    || error "fingerprint-fix-sdcp is not installed (or incomplete) here. Install it first:\n  sudo bash install.sh"
+sdcp_available \
+    || error "fingerprint-fix-sdcp's driver is not installed (or incomplete) here, and your\n  distro's libfprint has no SDCP driver for the reader. Install fingerprint-fix-sdcp first."
 
 SERIAL=$(sensor_serial) || error "EgisTec fingerprint sensor (1c7a:05a5 / 1c7a:05a1) not found."
 

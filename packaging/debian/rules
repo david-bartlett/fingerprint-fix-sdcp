@@ -5,6 +5,7 @@
 include /usr/share/dpkg/pkg-info.mk
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 PKGDIR := $(CURDIR)/debian/fingerprint-fix-sdcp
+MGRDIR := $(CURDIR)/debian/galaxybook-fingerprint-manager
 
 %:
 	dh $@
@@ -17,7 +18,8 @@ override_dh_auto_build:
 override_dh_auto_test:
 
 override_dh_auto_install:
-	bash packaging/install-files.sh $(PKGDIR) driver $(DEB_VERSION) deb
+	bash packaging/install-files.sh $(PKGDIR) driver $(DEB_VERSION) deb driver
+	bash packaging/install-files.sh $(MGRDIR) driver $(DEB_VERSION) deb manager
 
 # The maintainer scripts enable the units themselves, only on first install.
 override_dh_installsystemd:
@@ -25,8 +27,8 @@ override_dh_installsystemd:
 override_dh_installsystemduser:
 
 # The driver is a private library, loaded by fprintd through its drop-in:
-# no shlibs file, no ldconfig trigger, and sensor-check's libfprint-2.so.2 is
-# the one in this package.
+# no shlibs file, no ldconfig trigger, and its own libfprint-2.so.2 is the
+# one in this package.
 override_dh_makeshlibs:
 
 override_dh_shlibdeps:

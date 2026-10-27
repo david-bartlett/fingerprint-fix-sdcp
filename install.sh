@@ -16,11 +16,11 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # The installer needs its tools/ and lib/ folders — run it from the whole
 # fingerprint-fix-sdcp folder, not on its own.
-for _f in lib/sensor-check.c lib/fingerprint-manager.py lib/fingerprint-manager-helper.py \
+for _f in lib/sensor-check.py lib/fingerprint-manager.py lib/fingerprint-manager-helper.py \
           lib/galaxybook-fingerprint-manager.svg fingerprint-manager.sh \
           tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh \
           lib/fixpaths.sh lib/update_check.py lib/notify-open-manager.sh lib/distro-driver-check.py \
-          packaging/render.sh packaging/files/monitor.sh.in \
+          packaging/render.sh packaging/files/monitor.sh.in packaging/files/mgr-cleanup.sh.in \
           packaging/files/fprintd-env.sh.in packaging/files/dropin.conf.in lib/other-fix.sh \
           VERSION DRIVER; do
     [[ -f "$SCRIPT_DIR/$_f" ]] || { echo "Missing $SCRIPT_DIR/$_f — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
@@ -297,22 +297,6 @@ meson compile -C build || error "Build failed"
 [[ -f build/libfprint/libfprint-2.so.2.0.0 ]] || error "Build finished but libfprint-2.so.2.0.0 was not produced"
 info "Build complete"
 
-# The boot-time sensor check helper, linked against this build. The runpath
-# makes it load the library from FPRINT_LIB_DIR, never the distro libfprint.
-SENSOR_CHECK_BUILT=false
-# shellcheck disable=SC2046  # pkg-config output must be word-split
-if gcc -O2 -Wall -o build/sensor-check "$SCRIPT_DIR/lib/sensor-check.c" \
-        -Ilibfprint -Ibuild/libfprint \
-        $(pkg-config --cflags glib-2.0 gio-2.0 gobject-2.0 gusb) \
-        -Lbuild/libfprint -lfprint-2 \
-        $(pkg-config --libs glib-2.0 gio-2.0 gobject-2.0) \
-        -Wl,-rpath,"$FPRINT_LIB_DIR"; then
-    SENSOR_CHECK_BUILT=true
-    info "Sensor check helper built"
-else
-    warn "Could not build the sensor check helper — the fix works, but you won't be told\n       if fingerprints are removed from the sensor (e.g. by Windows)."
-fi
-
 # ── Step 6: Install the library and the fprintd drop-in ───────────────────────
 step "Fingerprint Step 6: Installing the library for fprintd only"
 # Another fix's fprintd setup (e.g. a manual install of Abdallah's
@@ -320,7 +304,9 @@ step "Fingerprint Step 6: Installing the library for fprintd only"
 # aside first, so this install can't overwrite it and uninstall.sh can't delete it.
 bash "$SCRIPT_DIR/lib/other-fix.sh" takeover
 install -Dm755 build/libfprint/libfprint-2.so.2.0.0 "$FPRINT_LIB"
-$SENSOR_CHECK_BUILT && install -m755 build/sensor-check "$FPRINT_SENSOR_CHECK"
+# Before 2.0.0 the Manager and a compiled sensor check lived in this folder:
+# the Manager has its own folder now (Step 13), the check is Python.
+rm -rf "$FPRINT_LIB_DIR/manager" "$FPRINT_LIB_DIR/sensor-check"
 command -v restorecon >/dev/null 2>&1 && restorecon -R "$FPRINT_LIB_DIR" 2>/dev/null || true
 cd /
 rm -rf "$FPRINT_BUILD_DIR"
@@ -355,16 +341,22 @@ if [[ -n "$SYSLIB" ]]; then
     chmod 644 "$FPRINT_SYSLIB_HASH"
 fi
 echo "${SDCP_COMMIT:0:12} ${SDCP_DATE} ${SDCP_SOURCE}${SDCP_FIXES[*]:+ +${SDCP_FIXES[*]}} (installed $(date '+%Y-%m-%d')) fingerprint-fix-sdcp ${FIX_VERSION}" > "$FPRINT_MARKER"
-info "✓ Marker and distro libfprint hash stored"
+# The Manager's own marker: it, its monitor and its checks are installed.
+echo "(installed $(date '+%Y-%m-%d')) galaxybook-fingerprint-manager ${FIX_VERSION}" > "$MGR_MARKER"
+info "✓ Markers and distro libfprint hash stored"
 
 # ── Step 9: Monitor — cleanup helper, scripts, polkit rule, services ─────────
 step "Fingerprint Step 9: Installing the fingerprint monitor"
 
-# Cleanup helper — removes the whole fix (used by the monitor once the distro
-# libfprint supports the sensor). PAM fingerprint auth is left enabled.
+# Cleanup helpers, used when a package replaces this copy: the driver's (also
+# the Manager's "Remove the driver") and the Manager's. Both keep fingerprints;
+# PAM fingerprint auth is left enabled.
 render cleanup.sh.in > "$FPRINT_CLEANUP"
 chown root:root "$FPRINT_CLEANUP"
 chmod 750 "$FPRINT_CLEANUP"
+render mgr-cleanup.sh.in > "$MGR_CLEANUP"
+chown root:root "$MGR_CLEANUP"
+chmod 750 "$MGR_CLEANUP"
 
 # System monitor — runs as root when the user check script starts it.
 render monitor.sh.in > "$FPRINT_CHECK_SCRIPT"
@@ -388,11 +380,9 @@ chown root:root "$FPRINT_BOOT_CHECK_SCRIPT"; chmod 755 "$FPRINT_BOOT_CHECK_SCRIP
 
 render boot-check.service.in > "${FPRINT_UNIT_DIR}/${FPRINT_BOOT_CHECK_SVC}"
 systemctl daemon-reload
-if $SENSOR_CHECK_BUILT; then
-    systemctl enable "$FPRINT_BOOT_CHECK_SVC" >/dev/null 2>&1 \
-        && info "✓ Boot-time sensor check enabled" \
-        || warn "Could not enable ${FPRINT_BOOT_CHECK_SVC}"
-fi
+systemctl enable "$FPRINT_BOOT_CHECK_SVC" >/dev/null 2>&1 \
+    && info "✓ Boot-time sensor check enabled" \
+    || warn "Could not enable ${FPRINT_BOOT_CHECK_SVC}"
 
 FPRINT_USER=$(loginctl list-sessions --no-legend 2>/dev/null | awk '$4 == "seat0" {print $3}' | head -1)
 FPRINT_USER_ID=$(id -u "$FPRINT_USER" 2>/dev/null || true)
@@ -528,11 +518,12 @@ else
 fi
 
 # ── Step 13: Galaxy Book Fingerprint Manager ──────────────────────────────────
-# A root-owned copy of the Manager (window + helper + tools), so the helper that
-# pkexec runs as root can't be changed by anything running as the user. It
-# lives inside FPRINT_LIB_DIR, so uninstalling the fix (or the monitor's
-# cleanup) removes it with the library. Its GUI packages are installed here,
-# separately: if they fail, the fix itself is still fine.
+# A root-owned copy of the Manager (window + helper + tools + boot check), so
+# the helper that pkexec runs as root can't be changed by anything running as
+# the user. It has its own folder (MGR_DIR), apart from the driver's, so the
+# driver can be removed alone (uninstall.sh --driver-only) once the distro's
+# libfprint has SDCP. Its GUI packages are installed here, separately: if they
+# fail, the fix itself is still fine.
 step "Fingerprint Step 13: Installing the Galaxy Book Fingerprint Manager"
 case "$DISTRO" in
     fedora) dnf install -y python3-gobject python3-cairo gtk3 polkit ;;
@@ -549,7 +540,7 @@ install -m 755 -o root -g root "$SCRIPT_DIR/lib/fingerprint-manager.py" \
     "$SCRIPT_DIR/lib/fingerprint-manager-helper.py" "$MGR_DIR/lib/"
 install -m 644 -o root -g root "$SCRIPT_DIR/lib/fixpaths.sh" "$MGR_DIR/lib/"
 install -m 755 -o root -g root "$SCRIPT_DIR/lib/update_check.py" "$SCRIPT_DIR/lib/notify-open-manager.sh" \
-    "$SCRIPT_DIR/lib/distro-driver-check.py" "$MGR_DIR/lib/"
+    "$SCRIPT_DIR/lib/distro-driver-check.py" "$SCRIPT_DIR/lib/sensor-check.py" "$MGR_DIR/lib/"
 install -m 755 -o root -g root "$SCRIPT_DIR"/tools/*.sh "$MGR_DIR/tools/"
 mkdir -p "$(dirname "$MGR_BIN")"
 ln -sfn "$MGR_DIR/fingerprint-manager.sh" "$MGR_BIN"

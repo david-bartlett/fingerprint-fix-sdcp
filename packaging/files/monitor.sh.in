@@ -3,7 +3,8 @@
 # Writes any notification to FPRINT_STATUS_FILE; the user check script shows it.
 FPRINT_LIB="@FPRINT_LIB@"
 FPRINT_DROPIN="@FPRINT_DROPIN@"
-FPRINT_MARKER="@FPRINT_MARKER@"
+FPRINT_MARKER="@FPRINT_MARKER@"          # the driver's (fingerprint-fix-sdcp)
+MGR_MARKER="@MGR_MARKER@"                # the Manager's, which this monitor is part of
 FPRINT_SYSLIB_HASH="/var/lib/samsung-galaxybook/libfprint-system.sha256"
 DISTRO_CHECK="@MGR_DIR@/lib/distro-driver-check.py"
 FPRINT_LIB_DIR="@FPRINT_LIB_DIR@"
@@ -44,11 +45,15 @@ check_fprintd_functional() {
     return 1
 }
 
-[[ -f "$FPRINT_MARKER" ]] || exit 0
+[[ -f "$MGR_MARKER" ]] || exit 0
 SENSOR_ON_BUS=$(lsusb 2>/dev/null | grep -Ei "$HARDWARE_USB_ID" || true)
+# Steps 1, 2 and 4 are about the driver (fingerprint-fix-sdcp): skipped once it
+# has been removed and fprintd uses the distro's own libfprint.
+DRIVER=false
+[[ -f "$FPRINT_MARKER" ]] && DRIVER=true
 
-# 1. Our files must still be there.
-if [[ ! -f "$FPRINT_LIB" || ! -f "$FPRINT_DROPIN" ]]; then
+# 1. The driver's files must still be there.
+if $DRIVER && [[ ! -f "$FPRINT_LIB" || ! -f "$FPRINT_DROPIN" ]]; then
     notify_user "Samsung Galaxy Book — Fingerprint Fix Incomplete" \
         "Files of the fingerprint fix are missing, so fprintd is using the distro libfprint. Please reinstall the fingerprint fix." \
         "dialog-error"
@@ -61,7 +66,7 @@ fi
 #    removed from here (only the Manager's test can show their fingerprints
 #    still work with the distro's driver).
 SYSLIB=$(ldconfig -p | grep 'libfprint-2\.so\.2 ' | awk '{print $NF}' | head -1)
-if [[ -n "$SYSLIB" ]]; then
+if $DRIVER && [[ -n "$SYSLIB" ]]; then
     CURRENT_HASH=$(sha256sum "$SYSLIB" | awk '{print $1}')
     STORED_HASH=$(cat "$FPRINT_SYSLIB_HASH" 2>/dev/null || true)
     if [[ "$CURRENT_HASH" != "$STORED_HASH" ]]; then
@@ -87,18 +92,24 @@ if [[ -n "$SYSLIB" ]]; then
     fi
 fi
 
-# 3. The fix should be working.
+# 3. fprintd should see the reader.
 if [[ -n "$SENSOR_ON_BUS" ]] && ! check_fprintd_functional; then
-    notify_user "Samsung Galaxy Book — Fingerprint Sensor Not Working" \
-        "fprintd cannot see your fingerprint sensor. Please reinstall the fingerprint fix." \
-        "dialog-error"
+    if $DRIVER; then
+        notify_user "Samsung Galaxy Book — Fingerprint Sensor Not Working" \
+            "fprintd cannot see your fingerprint sensor. Please reinstall fingerprint-fix-sdcp." \
+            "dialog-error"
+    else
+        notify_user "Samsung Galaxy Book — Fingerprint Sensor Not Working" \
+            "fprintd cannot see your fingerprint sensor with your distro's libfprint. If a distro update changed it, install fingerprint-fix-sdcp again." \
+            "dialog-error"
+    fi
     exit 0
 fi
 
 # 4. fprintd must be running this fix's driver: another fix's fprintd setup,
 #    added after this one was installed, can override it.
 FPRINTD_PID=$(pidof fprintd 2>/dev/null | awk '{print $1}')
-if [[ -n "$SENSOR_ON_BUS" && -n "$FPRINTD_PID" ]] \
+if $DRIVER && [[ -n "$SENSOR_ON_BUS" && -n "$FPRINTD_PID" ]] \
         && ! grep -q "$FPRINT_LIB_DIR/" "/proc/$FPRINTD_PID/maps" 2>/dev/null; then
     OTHERS=$(bash "$OTHER_FIX" list 2>/dev/null | awk '$1 ~ /dropin/ {print $2}' | paste -sd' ')
     MSG="fprintd isn't using fingerprint-fix-sdcp's driver"

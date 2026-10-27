@@ -10,24 +10,19 @@
 # and the source a release tarball.
 
 _repo="$(cd "$startdir/../.." && pwd)"
-pkgname=fingerprint-fix-sdcp
+# Two packages from one build: the driver (fingerprint-fix-sdcp) and the
+# Manager (galaxybook-fingerprint-manager). The driver requires the same
+# version of the Manager; the Manager works without the driver.
+pkgbase=fingerprint-fix-sdcp
+pkgname=(fingerprint-fix-sdcp galaxybook-fingerprint-manager)
 pkgver=$(tr -d '[:space:]' < "$_repo/VERSION")
 pkgrel=1
 _driver=$(grep -v '^#' "$_repo/DRIVER" | tr -d '[:space:]')
-pkgdesc="Egis match-on-chip fingerprint reader fix for Samsung Galaxy Book (egismoc SDCP driver for fprintd), with the Galaxy Book Fingerprint Manager"
+pkgdesc="Egis fingerprint reader driver for Samsung Galaxy Book (egismoc SDCP, for fprintd), with the Galaxy Book Fingerprint Manager"
 arch=('x86_64')
 url="https://github.com/david-bartlett/fingerprint-fix-sdcp"
 license=('GPL-2.0-or-later' 'LGPL-2.1-or-later')   # the fix; the driver (libfprint)
-depends=(
-    # the driver library and the fprintd it is loaded into
-    'fprintd' 'libfprint' 'glib2' 'libgusb' 'openssl'
-    # monitor, boot check and login notifications
-    'bash' 'systemd' 'usbutils' 'libnotify' 'polkit'
-    # Galaxy Book Fingerprint Manager
-    'python' 'python-gobject' 'python-cairo' 'gtk3'
-)
 makedepends=('git' 'meson' 'ninja' 'pkgconf' 'glib2-devel' 'patch')
-install=fingerprint-fix-sdcp.install
 options=('!debug')            # no separate -debug package in the release downloads
 source=("libfprint-egismoc-sdcp::git+https://github.com/david-bartlett/libfprint-egismoc-sdcp.git#commit=${_driver}")
 sha256sums=('SKIP')            # a git source is pinned by its commit id
@@ -38,8 +33,31 @@ build() {
     bash "$_repo/packaging/build-driver.sh" "$srcdir/libfprint-egismoc-sdcp"
 }
 
-package() {
-    bash "$_repo/packaging/install-files.sh" "$pkgdir" "$srcdir/libfprint-egismoc-sdcp" \
-        "$pkgver-$pkgrel" pacman
-    install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" "$_repo/README.md" "$_repo/CHANGELOG.md"
+package_fingerprint-fix-sdcp() {
+    pkgdesc="Egis fingerprint reader driver for Samsung Galaxy Book (egismoc SDCP, for fprintd)"
+    depends=(
+        "galaxybook-fingerprint-manager=$pkgver-$pkgrel"
+        # the driver library and the fprintd it is loaded into
+        'fprintd' 'libfprint' 'glib2' 'libgusb' 'openssl' 'bash' 'systemd' 'usbutils'
+    )
+    install=fingerprint-fix-sdcp.install
+    bash "$_repo"/packaging/install-files.sh "$pkgdir" "$srcdir/libfprint-egismoc-sdcp" \
+        "$pkgver-$pkgrel" pacman driver
+}
+
+package_galaxybook-fingerprint-manager() {
+    pkgdesc="Galaxy Book Fingerprint Manager, with boot-time and login checks (Samsung Galaxy Book Egis reader)"
+    arch=('any')
+    license=('GPL-2.0-or-later')
+    depends=(
+        'fprintd' 'libfprint'
+        # monitor, boot check and login notifications
+        'bash' 'systemd' 'usbutils' 'libnotify' 'polkit'
+        # the window
+        'python' 'python-gobject' 'python-cairo' 'gtk3'
+    )
+    install=galaxybook-fingerprint-manager.install
+    bash "$_repo"/packaging/install-files.sh "$pkgdir" "$srcdir/libfprint-egismoc-sdcp" \
+        "$pkgver-$pkgrel" pacman manager
+    install -Dm644 -t "$pkgdir/usr/share/doc/$pkgname" "$_repo"/README.md "$_repo"/CHANGELOG.md
 }
