@@ -73,15 +73,15 @@ It does **not** delete `/var/lib/fprint`. Deleting fprintd's records by hand lea
 
 ### From a package (recommended)
 
-Download the two files for your distro from the [**latest release**](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest) into an empty folder, then install both from that folder:
+Download the two files for your distro from the [**latest release**](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest), then install both from the folder you saved them in (only those two files are installed, whatever else is there; keep one version of them in that folder):
 
 | Distro | File ends in | Install |
 | --- | --- | --- |
-| Fedora 45 | `.fc45.x86_64.rpm`, `.fc45.noarch.rpm` | `sudo dnf install ./*.fc45.*.rpm` |
-| Fedora 44 | `.fc44.x86_64.rpm`, `.fc44.noarch.rpm` | `sudo dnf install ./*.fc44.*.rpm` |
-| Ubuntu 26.04, Linux Mint 27 | `ubuntu26.04_amd64.deb`, `ubuntu26.04_all.deb` | `sudo apt install ./*ubuntu26.04_*.deb` |
-| Ubuntu 24.04, Linux Mint 22, Zorin OS 18 | `ubuntu24.04_amd64.deb`, `ubuntu24.04_all.deb` | `sudo apt install ./*ubuntu24.04_*.deb` |
-| Debian 13, MX Linux 25 | `debian13_amd64.deb`, `debian13_all.deb` | `sudo apt install ./*debian13_*.deb` |
+| Fedora 45 | `.fc45.x86_64.rpm`, `.fc45.noarch.rpm` | `sudo dnf install ./fingerprint-fix-sdcp-*.fc45.x86_64.rpm ./galaxybook-fingerprint-manager-*.fc45.noarch.rpm` |
+| Fedora 44 | `.fc44.x86_64.rpm`, `.fc44.noarch.rpm` | `sudo dnf install ./fingerprint-fix-sdcp-*.fc44.x86_64.rpm ./galaxybook-fingerprint-manager-*.fc44.noarch.rpm` |
+| Ubuntu 26.04, Linux Mint 27 | `ubuntu26.04_amd64.deb`, `ubuntu26.04_all.deb` | `sudo apt install ./fingerprint-fix-sdcp_*ubuntu26.04_amd64.deb ./galaxybook-fingerprint-manager_*ubuntu26.04_all.deb` |
+| Ubuntu 24.04, Linux Mint 22, Zorin OS 18 | `ubuntu24.04_amd64.deb`, `ubuntu24.04_all.deb` | `sudo apt install ./fingerprint-fix-sdcp_*ubuntu24.04_amd64.deb ./galaxybook-fingerprint-manager_*ubuntu24.04_all.deb` |
+| Debian 13, MX Linux 25 | `debian13_amd64.deb`, `debian13_all.deb` | `sudo apt install ./fingerprint-fix-sdcp_*debian13_amd64.deb ./galaxybook-fingerprint-manager_*debian13_all.deb` |
 | Arch, CachyOS, EndeavourOS | `PKGBUILD` and the two `.install` files | see [Arch-based distros](#arch-based-distros) below |
 
 The packages are only for a Samsung with the Egis reader (`1c7a:05a5` / `1c7a:05a1`, see `lsusb | grep 1c7a`): on other hardware the packages and the Arch `PKGBUILD` stop before installing anything (`sudo FPRINT_SDCP_FORCE=1 dnf install …` / `apt install …`, or `FPRINT_SDCP_FORCE=1 makepkg -si`, installs anyway, e.g. for a system image). Either way, fprintd only uses the fix's driver while the reader is present, so another laptop's fingerprint reader keeps working.
