@@ -6,6 +6,7 @@
 - The Manager lives in `/usr/lib/galaxybook-fingerprint-manager/` (packages) or `/usr/local/lib/galaxybook-fingerprint-manager/` (`install.sh`), with its own install marker and cleanup script; the driver keeps its folder
 - Boot-time sensor check: rewritten in Python (`lib/sensor-check.py`, replacing the C program), using whichever libfprint drives the reader, so it keeps working with your distro's driver
 - Fingerprint Manager: without the driver, the info line says *Driver: your distro's libfprint* and *Test your distro's driver* is hidden; **Remove the driver** keeps the Manager open
+- Fingerprint Manager: with Ubuntu's libfprint (libfprint-tod), e.g. after removing the driver, its helper no longer crashes when reading the sensor (libfprint-tod aborts if a program sets it up twice); and if the helper ever does crash, the Manager says so, with what it printed under **Details…**, instead of "Expecting value: line 1 column 1"
 
 ## 1.5.1 — 2026-10-27
 

@@ -192,13 +192,32 @@ def read_records(serial):
 
 
 # ── The sensor (fprintd stopped meanwhile) ────────────────────────────────────
+_CONTEXT = None
+
+
+def fp_context():
+    """The one libfprint context of this process. libfprint-tod (Ubuntu's
+    libfprint) aborts the whole program when a second context is created, and
+    this helper serves many requests: so it is made once and kept. Later calls
+    first handle pending USB events, so a sensor that went away and came back
+    (fprintd stopping, a USB reset) is listed afresh."""
+    global _CONTEXT
+    if _CONTEXT is None:
+        _CONTEXT = FPrint.Context()
+        _CONTEXT.enumerate()
+    else:
+        main = GLib.MainContext.default()
+        while main.pending():
+            main.iteration(False)
+    return _CONTEXT
+
+
 class Sensor:
     def __enter__(self):
         subprocess.run(["systemctl", "stop", "fprintd"], capture_output=True)
         last = None
         for _ in range(3):
-            ctx = FPrint.Context()
-            ctx.enumerate()
+            ctx = fp_context()
             devs = [d for d in ctx.get_devices() if d.get_driver() == "egismoc"]
             if not devs:
                 last = "No egismoc sensor found by libfprint."

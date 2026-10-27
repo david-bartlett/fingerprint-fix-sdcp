@@ -266,11 +266,22 @@ class Helper:
             self.proc.stdin.write(json.dumps(dict(kw, action=action)) + "\n")
             self.proc.stdin.flush()
             line = self.proc.stdout.readline()
-            if not line:
-                err = (self.proc.stderr.read() or "").strip()
-                self.proc = None
-                raise RuntimeError(err or "The helper stopped unexpectedly.")
-            reply = json.loads(line)
+            try:
+                reply = json.loads(line) if line else None
+            except ValueError:
+                reply = None
+            if not isinstance(reply, dict):
+                # It died (or a library printed instead of answering, then
+                # aborted): show what it said, and start a new one next time.
+                proc, self.proc = self.proc, None
+                try:
+                    out, err = proc.communicate(timeout=5)
+                except Exception:
+                    proc.kill()
+                    out, err = "", ""
+                said = "\n".join(t.strip() for t in (line, out, err) if t and t.strip())
+                raise RuntimeError((said + "\n" if said else "")
+                                   + "The Manager's helper crashed — see Details… for what it said.")
             if not reply.get("ok"):
                 raise RuntimeError(reply.get("error") or "Unknown error")
             return reply["result"]
