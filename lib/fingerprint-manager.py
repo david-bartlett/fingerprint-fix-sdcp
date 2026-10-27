@@ -129,24 +129,6 @@ def reader_present():
     return False
 
 
-def distro_driver():
-    """(word, detail): what the distro's own libfprint can do with the reader —
-    'sdcp' (the distro's own package: the fix may no longer be needed),
-    'modified' / 'foreign' (an SDCP build from another fix), 'plain', 'none'
-    or 'error'; detail says where the library came from. Only lists USB
-    devices with the distro's library: no password, fprintd keeps running."""
-    try:
-        out = subprocess.run([sys.executable or "python3",
-                              os.path.join(HERE, "distro-driver-check.py")],
-                             capture_output=True, text=True, timeout=60).stdout.splitlines()
-    except (OSError, subprocess.SubprocessError):
-        return "error", ""
-    word = out[0].strip() if out else ""
-    detail = out[1].strip() if len(out) > 1 else ""
-    return (word, detail) if word in ("sdcp", "modified", "foreign", "plain", "none") \
-        else ("error", detail)
-
-
 OTHER_FIX_TEXT = ("A libfprint with an SDCP driver from outside your distro is installed ({}). "
                   "fprintd keeps using fingerprint-fix-sdcp's driver. The next distro update may "
                   "replace the other copy, so keep this fix.")
@@ -881,9 +863,10 @@ class Manager(Gtk.Window):
         self._hide_message()
         self._set_view(load_view(), save=False)
         self._update_buttons()
-        GLib.idle_add(self.refresh)
+        # The distro-driver check runs in the root helper, once the first
+        # sensor read has finished (the helper does one job at a time).
+        GLib.idle_add(lambda: self.refresh(after=self._check_distro))
         GLib.idle_add(self._check_windows)
-        GLib.idle_add(self._check_distro)
         if self.update_item.get_active():
             self.check_for_update(max_age=0)        # once, at start-up
         self._watch_install()
@@ -2228,14 +2211,20 @@ class Manager(Gtk.Window):
     # ── the distro's own libfprint ──
     def _check_distro(self):
         """At start: if the distro's libfprint now has an SDCP driver for the
-        reader, say so and offer the test (once per run)."""
-        def work():
-            kind, detail = distro_driver()
-            if kind == "sdcp":
-                GLib.idle_add(self._distro_supports)
-            elif kind in ("modified", "foreign"):
-                GLib.idle_add(self._other_fix, detail)
-        threading.Thread(target=work, daemon=True).start()
+        reader, say so and offer the test. Asked of the root helper: some
+        libfprint builds open the reader while listing it, which needs root.
+        Its messages don't replace one already shown (e.g. dead records)."""
+        if self.status is None or self.msg_bar.get_visible():
+            return False
+
+        def done(res, err):
+            if err or not res:
+                return
+            if res.get("kind") == "sdcp":
+                self._distro_supports()
+            elif res.get("kind") in ("modified", "foreign"):
+                self._other_fix(res.get("detail", ""))
+        self.run_job("distro_check", done)
         return False
 
     def _other_fix(self, detail):
@@ -2257,7 +2246,14 @@ class Manager(Gtk.Window):
         fingers with it through fprintd, as login would without the fix."""
         if self.busy or self.status is None:
             return
-        kind, detail = distro_driver()
+
+        def checked(res, err):
+            if err:
+                return self.error(err)
+            self._test_distro_after_check(res.get("kind", "error"), res.get("detail", ""))
+        self.run_job("distro_check", checked)
+
+    def _test_distro_after_check(self, kind, detail):
         if kind in ("modified", "foreign"):
             self.show_output("Keep fingerprint-fix-sdcp", OTHER_FIX_TEXT.format(detail),
                              Gtk.MessageType.WARNING)
@@ -2266,7 +2262,9 @@ class Manager(Gtk.Window):
             what = {"plain": "has a driver for this reader, but without SDCP, so it can't keep "
                              "your fingerprints",
                     "none": "has no driver for this reader",
-                    "error": "couldn't be checked (its Python bindings didn't load)"}[kind]
+                    "unknown": "couldn't be checked (libfprint didn't list the reader)",
+                    "error": "couldn't be checked (its Python bindings didn't load)"}.get(
+                        kind, "couldn't be checked")
             self.show_output("Keep fingerprint-fix-sdcp",
                              f"Your distro's libfprint {what}. The fix is still needed.")
             return

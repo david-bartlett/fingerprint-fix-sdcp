@@ -18,10 +18,13 @@
 #     none     1  no driver for the reader in the distro's libfprint, or the
 #                 reader isn't on USB
 #     error    3  libfprint's Python bindings couldn't be loaded
+#     unknown  4  the reader is on USB, but libfprint didn't list it — some
+#                 builds open the device while listing, which needs root
 #
 # Always runs on the distro's libfprint: started with the fix's LD_LIBRARY_PATH,
-# it starts itself again without it. Only lists the USB devices (nothing is
-# opened), so it needs no root and fprintd can keep running.
+# it starts itself again without it. Lists the USB devices; fprintd can keep
+# running. Run it as root for a definite answer: some libfprint builds open the
+# reader while listing it (the monitor, install.sh and the Manager's helper do).
 #
 # Used by install.sh (Step 3), the monitor (after a distro libfprint update)
 # and the Fingerprint Manager. For testing, CHECK_DRIVER=<driver id> looks for
@@ -87,16 +90,38 @@ def loaded_library():
     return None
 
 
+def owner_of(path):
+    """(package manager, package) that owns the file, asking each installed
+    package manager in turn: having a tool installed (e.g. dpkg on Fedora, to
+    build .debs) doesn't make it the one that installed libfprint."""
+    if shutil.which("rpm"):
+        rc, out = run("rpm", "-qf", "--qf", "%{NAME}\n", path)
+        name = out.split("\n")[0].strip()
+        if rc == 0 and name and " " not in name:
+            return "rpm", name
+    if shutil.which("dpkg"):
+        for p in (path, path.replace("/usr/lib/", "/lib/", 1)):      # usrmerge
+            rc, out = run("dpkg", "-S", p)
+            if rc == 0 and ":" in out:
+                return "dpkg", out.split(":")[0].strip()
+    if shutil.which("pacman"):
+        rc, out = run("pacman", "-Qqo", path)
+        if rc == 0 and out.strip():
+            return "pacman", out.strip()
+    return None, None
+
+
 def provenance(path):
     """('distro' | 'modified' | 'foreign', detail) for a library file, from the
     package manager that owns it (rpm, dpkg or pacman)."""
     if not path:
         return "foreign", "couldn't tell which libfprint was loaded"
-    if shutil.which("rpm") and not shutil.which("dpkg"):
-        rc, owner = run("rpm", "-qf", "--qf", "%{NAME}\n", path)
-        owner = owner.split("\n")[0].strip()
-        if rc != 0 or not owner:
-            return "foreign", f"{path} isn't part of any package"
+    tool, owner = owner_of(path)
+    if tool is None:
+        if not any(shutil.which(t) for t in ("rpm", "dpkg", "pacman")):
+            return "foreign", "couldn't check where libfprint came from (no rpm, dpkg or pacman)"
+        return "foreign", f"{path} isn't part of any package"
+    if tool == "rpm":
         _, changed = run("rpm", "-V", owner)
         if any(l.split()[-1] == path and l[2:3] == "5" for l in changed.splitlines() if l.strip()):
             return "modified", f"{path} was changed after the {owner} package installed it"
@@ -104,15 +129,7 @@ def provenance(path):
         if vendor.strip() != "Fedora Project":
             return "foreign", f"{owner} is from {vendor.strip() or 'an unknown source'}, not Fedora"
         return "distro", f"{owner} from Fedora"
-    if shutil.which("dpkg"):
-        rc, out = run("dpkg", "-S", path)
-        if rc != 0:
-            # usrmerge: dpkg may know the file under /lib
-            alt = path.replace("/usr/lib/", "/lib/", 1)
-            rc, out = run("dpkg", "-S", alt)
-        owner = out.split(":")[0].strip() if rc == 0 else ""
-        if not owner:
-            return "foreign", f"{path} isn't part of any package"
+    if tool == "dpkg":
         _, changed = run("dpkg", "--verify", owner)
         name = os.path.basename(path)
         if any(l[2:3] == "5" and os.path.basename(l.split()[-1]) == name
@@ -135,11 +152,7 @@ def provenance(path):
         if third and len(third) == len(repos):
             return "foreign", f"{owner} is from a PPA ({third[0]})"
         return "distro", f"{owner} from {repos[0]}"
-    if shutil.which("pacman"):
-        rc, owner = run("pacman", "-Qqo", path)
-        owner = owner.strip()
-        if rc != 0 or not owner:
-            return "foreign", f"{path} isn't part of any package"
+    if tool == "pacman":
         _, changed = run("pacman", "-Qkk", owner)
         if any(path in l and "checksum mismatch" in l.lower() for l in changed.splitlines()):
             return "modified", f"{path} was changed after the {owner} package installed it"
@@ -147,7 +160,21 @@ def provenance(path):
         if owner in foreign.split():
             return "foreign", f"{owner} is from the AUR or a local package, not a repository"
         return "distro", f"{owner} from the distro's repositories"
-    return "foreign", "couldn't check where libfprint came from (no rpm, dpkg or pacman)"
+    return "foreign", f"couldn't check where {path} came from"
+
+
+def reader_on_usb():
+    for d in os.listdir("/sys/bus/usb/devices"):
+        try:
+            with open(f"/sys/bus/usb/devices/{d}/idVendor") as f:
+                if f.read().strip() != "1c7a":
+                    continue
+            with open(f"/sys/bus/usb/devices/{d}/idProduct") as f:
+                if f.read().strip() in ("05a5", "05a1"):
+                    return True
+        except OSError:
+            continue
+    return False
 
 
 ctx = FPrint.Context()
@@ -162,4 +189,9 @@ for dev in ctx.get_devices():
             answer("sdcp", 0, detail)
         answer(where, 2, detail)
     answer("plain", 1, " → ".join(names))
+# The reader is there but libfprint didn't list it: either no driver claims
+# it, or a driver failed to open it (no permission) and libfprint skipped it.
+# Only root can tell those apart.
+if DRIVER == "egismoc" and reader_on_usb() and os.geteuid() != 0:
+    answer("unknown", 4, "the reader is on USB but libfprint didn't list it — run as root to be sure")
 answer("none", 1)

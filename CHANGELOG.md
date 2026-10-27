@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Distro-driver check: finds which package manager owns libfprint by asking each one, instead of guessing from which are installed — on Fedora with `dpkg` also installed (e.g. for building `.deb`s) it asked `dpkg`, and called Fedora's own libfprint "not part of any package"
+- Distro-driver check: when the reader is on USB but libfprint doesn't list it, it says `unknown` instead of `none` — some libfprint builds open the reader while listing it, which needs root. The Fingerprint Manager now asks its root helper for the check instead of running it as you
+
 - README: the Fingerprint Manager section covers the **Other driver** fingers, the Windows reminder, *Test your distro's driver* and the no-reader message; *Files Installed* lists the new status files and says what the cleanup script is for now
 
 ## 1.4.1 — 2026-10-26
