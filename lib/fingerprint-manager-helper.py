@@ -466,8 +466,9 @@ RUN_DROPIN = "/run/systemd/system/fprintd.service.d/" + os.path.basename(DROPIN)
 def distro_driver():
     """(word, detail): what the distro's libfprint can do with the reader —
     'sdcp' (from the distro), 'modified' / 'foreign' (an SDCP build from
-    another fix), 'plain', 'none' or 'error' — from distro-driver-check.py,
-    which drops our LD_LIBRARY_PATH."""
+    another fix), 'plain', 'none', 'unknown' or 'error' — from
+    distro-driver-check.py, which drops our LD_LIBRARY_PATH. Run here, as
+    root: some libfprint builds open the reader while listing it."""
     try:
         out = subprocess.run([sys.executable, DISTRO_CHECK], capture_output=True, text=True,
                              timeout=60).stdout.splitlines()
@@ -475,8 +476,13 @@ def distro_driver():
         return "error", ""
     word = out[0].strip() if out else ""
     detail = out[1].strip() if len(out) > 1 else ""
-    return (word, detail) if word in ("sdcp", "modified", "foreign", "plain", "none") \
+    return (word, detail) if word in ("sdcp", "modified", "foreign", "plain", "none", "unknown") \
         else ("error", detail)
+
+
+def do_distro_check(_req):
+    kind, detail = distro_driver()
+    return {"kind": kind, "detail": detail}
 
 
 def _dropin_off():
@@ -679,7 +685,7 @@ def do_import(req):
 
 
 ACTIONS = {"status": do_status, "remove_records": do_remove_records,
-           "test_distro": do_test_distro,
+           "test_distro": do_test_distro, "distro_check": do_distro_check,
            "delete_other_driver": do_delete_other_driver,
            "delete_templates": do_delete_templates, "wipe": do_wipe,
            "export": do_export, "import": do_import, "test": do_test,
