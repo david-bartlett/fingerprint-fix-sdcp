@@ -21,7 +21,7 @@ for _f in lib/sensor-check.c lib/fingerprint-manager.py lib/fingerprint-manager-
           tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh \
           lib/fixpaths.sh lib/update_check.py lib/notify-open-manager.sh lib/distro-driver-check.py \
           packaging/render.sh packaging/files/monitor.sh.in \
-          packaging/files/fprintd-env.sh.in packaging/files/dropin.conf.in \
+          packaging/files/fprintd-env.sh.in packaging/files/dropin.conf.in lib/other-fix.sh \
           VERSION DRIVER; do
     [[ -f "$SCRIPT_DIR/$_f" ]] || { echo "Missing $SCRIPT_DIR/$_f — run install.sh from the complete fingerprint-fix-sdcp folder."; exit 1; }
 done
@@ -301,6 +301,10 @@ fi
 
 # ── Step 6: Install the library and the fprintd drop-in ───────────────────────
 step "Fingerprint Step 6: Installing the library for fprintd only"
+# Another fix's fprintd setup (e.g. a manual install of Abdallah's
+# libfprint-egismoc-sdcp, which uses the same folder as this copy): moved
+# aside first, so this install can't overwrite it and uninstall.sh can't delete it.
+bash "$SCRIPT_DIR/lib/other-fix.sh" takeover
 install -Dm755 build/libfprint/libfprint-2.so.2.0.0 "$FPRINT_LIB"
 $SENSOR_CHECK_BUILT && install -m755 build/sensor-check "$FPRINT_SENSOR_CHECK"
 command -v restorecon >/dev/null 2>&1 && restorecon -R "$FPRINT_LIB_DIR" 2>/dev/null || true
@@ -309,6 +313,7 @@ rm -rf "$FPRINT_BUILD_DIR"
 # The drop-in runs this each time fprintd starts: it points fprintd at the
 # library only while the Galaxy Book's reader is present.
 render fprintd-env.sh.in > "$FPRINT_ENV_SCRIPT"
+install -m755 -o root -g root "$SCRIPT_DIR/lib/other-fix.sh" "$FPRINT_OTHER_FIX"
 chown root:root "$FPRINT_ENV_SCRIPT"; chmod 755 "$FPRINT_ENV_SCRIPT"
 command -v restorecon >/dev/null 2>&1 && restorecon "$FPRINT_ENV_SCRIPT" 2>/dev/null || true
 mkdir -p "$FPRINT_DROPIN_DIR"

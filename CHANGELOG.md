@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Another fingerprint fix's fprintd setup is moved aside when installing — most often a manual install of Abdallah's libfprint-egismoc-sdcp from its README, which uses the same `/usr/local/lib/libfprint-egismoc-sdcp/` folder as `install.sh` (so `install.sh` overwrote its library and `uninstall.sh` deleted it, leaving its drop-in pointing at nothing), or any admin fprintd drop-in that sets `LD_LIBRARY_PATH` / `LD_PRELOAD` or replaces `ExecStart`. It goes to `/var/lib/samsung-galaxybook/other-fingerprint-fix/<date>/` with `RESTORE.txt`; fingerprints are kept. `install.sh`, the `.rpm`, `.deb` and Arch package all do this; another package's drop-in is only reported
+- Monitor: notifies when fprintd isn't running this fix's driver, naming any other fix's setting that overrides it
+
 - Distro-driver check: finds which package manager owns libfprint by asking each one, instead of guessing from which are installed — on Fedora with `dpkg` also installed (e.g. for building `.deb`s) it asked `dpkg`, and called Fedora's own libfprint "not part of any package"
 - Distro-driver check: when the reader is on USB but libfprint doesn't list it, it says `unknown` instead of `none` — some libfprint builds open the reader while listing it, which needs root. The Fingerprint Manager now asks its root helper for the check instead of running it as you
 

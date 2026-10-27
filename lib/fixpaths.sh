@@ -33,6 +33,7 @@ fix_layout() {
         FPRINT_BOOT_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-boot-check.sh"
         FPRINT_CLEANUP="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-cleanup.sh"
         FPRINT_ENV_SCRIPT="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-fprintd-env.sh"
+        FPRINT_OTHER_FIX="${FPRINT_SCRIPT_DIR}/samsung-galaxybook-fprint-sdcp-other-fix.sh"
         FPRINT_POLKIT_RULE="/etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
         MGR_BIN="/usr/local/bin/galaxybook-fingerprint-manager"
         # In /usr/share like the menu entry (below): Cinnamon's menu doesn't pick
@@ -56,6 +57,7 @@ fix_layout() {
         FPRINT_BOOT_CHECK_SCRIPT="${FPRINT_SCRIPT_DIR}/boot-check.sh"
         FPRINT_CLEANUP=""                       # the package manager removes a package
         FPRINT_ENV_SCRIPT="${FPRINT_SCRIPT_DIR}/fprintd-env.sh"
+        FPRINT_OTHER_FIX="${FPRINT_SCRIPT_DIR}/other-fix.sh"
         FPRINT_POLKIT_RULE="/usr/share/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules"
         MGR_BIN="/usr/bin/galaxybook-fingerprint-manager"
         MGR_ICON="/usr/share/icons/hicolor/scalable/apps/galaxybook-fingerprint-manager.svg"
