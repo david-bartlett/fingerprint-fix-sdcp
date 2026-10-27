@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fingerprint Manager: the text in its dialogs is aligned left instead of centred, so lists of fingers and paragraphs line up
+
 - Fingerprint Manager: shorter dialogs — each says what matters in a line or two, with paths, how it works and caveats under **More details**; *Details…* on a message is titled with that message
 
 ## 1.5.0 — 2026-10-27

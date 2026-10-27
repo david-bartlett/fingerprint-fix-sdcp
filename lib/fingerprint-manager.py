@@ -135,6 +135,25 @@ REMOVED_DETAILS = ("The template is deleted from the sensor, freeing its slot, a
                    "is moved to /var/lib/samsung-galaxybook/removed-fingerprints/.")
 
 
+class MessageDialog(Gtk.MessageDialog):
+    """Gtk.MessageDialog with its text aligned left: GTK centres each line,
+    which leaves bulleted lists and paragraphs of different lengths ragged."""
+
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        self.connect("map", lambda d: _left_align(d.get_message_area()))
+
+
+def _left_align(widget):
+    if isinstance(widget, Gtk.Label):
+        widget.set_xalign(0)
+        widget.set_justify(Gtk.Justification.LEFT)
+        widget.set_halign(Gtk.Align.FILL)
+    elif isinstance(widget, Gtk.Container) and not isinstance(widget, Gtk.Expander):
+        for child in widget.get_children():
+            _left_align(child)
+
+
 def add_details(dialog, details):
     """Put the finer points (paths, how it works, caveats) under a "More
     details" expander, so the dialog itself can say what matters in a line or two."""
@@ -163,7 +182,7 @@ def remove_command():
 def no_reader_dialog():
     """Explain, without asking for a password, that this computer doesn't have
     the reader this app is for."""
-    dlg = Gtk.MessageDialog(message_type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.CLOSE,
+    dlg = MessageDialog(message_type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.CLOSE,
                             text="No Galaxy Book fingerprint reader found")
     dlg.set_title(TITLE)
     dlg.set_icon_name(ICON_NAME)
@@ -1517,7 +1536,7 @@ class Manager(Gtk.Window):
             self._hide_message()
 
     def confirm(self, title, text, ok_label, destructive=True, details=None):
-        d = Gtk.MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE, text=title,
+        d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE, text=title,
                               message_type=Gtk.MessageType.WARNING if destructive
                               else Gtk.MessageType.QUESTION)
         d.format_secondary_text(text)
@@ -1532,7 +1551,7 @@ class Manager(Gtk.Window):
         return r == Gtk.ResponseType.OK
 
     def show_output(self, title, text, kind=Gtk.MessageType.INFO, details=None):
-        d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=kind,
+        d = MessageDialog(transient_for=self, modal=True, message_type=kind,
                               buttons=Gtk.ButtonsType.CLOSE, text=title)
         d.format_secondary_text(text)
         add_details(d, details)
@@ -1575,7 +1594,7 @@ class Manager(Gtk.Window):
     def _no_access(self, why):
         """Without administrator access the window can't do anything, so offer
         to try again or close it."""
-        d = Gtk.MessageDialog(transient_for=self, modal=True,
+        d = MessageDialog(transient_for=self, modal=True,
                               message_type=Gtk.MessageType.WARNING, buttons=Gtk.ButtonsType.NONE,
                               text="The Fingerprint Manager needs administrator access")
         d.format_secondary_text(why + "\n\nIt reads and manages the fingerprint sensor, "
@@ -2107,7 +2126,7 @@ class Manager(Gtk.Window):
                          ids=[r[0] for r in rows])
 
     def on_wipe(self, _btn):
-        d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
+        d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
                               buttons=Gtk.ButtonsType.NONE, text="Wipe the whole sensor?")
         d.format_secondary_text(
             "Deletes every fingerprint on the sensor: every Linux install's and Windows "
@@ -2164,7 +2183,7 @@ class Manager(Gtk.Window):
         replace = False
         if mine:
             names = ", ".join(long_finger(r["name"]).lower() for r in mine)
-            d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.QUESTION,
+            d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.QUESTION,
                                   buttons=Gtk.ButtonsType.NONE,
                                   text="You already have fingerprints on this install")
             d.format_secondary_text(
@@ -2324,7 +2343,7 @@ class Manager(Gtk.Window):
         copy the command."""
         cmd = remove_command()
         arch = shutil.which("pacman") and os.path.isfile("/usr/lib/fingerprint-fix-sdcp/installed")
-        d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
+        d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE,
                               text="Your fingerprints work with your distro's driver")
         d.format_secondary_text("You can remove fingerprint-fix-sdcp now. Your fingerprints are "
@@ -2426,7 +2445,7 @@ class Manager(Gtk.Window):
         else:
             how = ("No package fits this system. In your fingerprint-fix-sdcp folder, run:\n"
                    f"    {tt('git pull')}\n    {tt('sudo bash install.sh')}")
-        d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
+        d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE,
                               text=f"fingerprint-fix-sdcp {new} is available")
         d.format_secondary_markup(how)
@@ -2487,7 +2506,7 @@ class Manager(Gtk.Window):
         # it themselves, from the package's install script.
         if fmt == "pacman" and replace_local and os.path.exists(LOCAL_CLEANUP):
             cmd = f"sudo {LOCAL_CLEANUP} && {cmd}"
-        d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
+        d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE, text="Downloaded")
         tt = lambda t: f"<tt>{GLib.markup_escape_text(t)}</tt>"
         if fmt == "pacman":
