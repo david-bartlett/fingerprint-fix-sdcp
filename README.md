@@ -3,6 +3,22 @@
 Fingerprint login for the **Samsung Galaxy Book4 and Book5** on Linux (both Egis readers: `1c7a:05a5` and `1c7a:05a1`). The Galaxy Book3 isn't supported: it can have the same `05a1` reader, but it hasn't been tested, so the installer and packages refuse to install there.
 
 Enables fingerprint authentication on Samsung Galaxy Book laptops with an EgisTec SDCP fingerprint sensor. It builds **only the egismoc driver** from [libfprint-egismoc-sdcp](https://github.com/david-bartlett/libfprint-egismoc-sdcp) (a fork of [Abdallah Alkanani's repo](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp)), and points fprintd at it. **The distro's libfprint is not replaced.**
+
+## Download
+
+> [!IMPORTANT]
+> **Each distro needs two files**: the driver (`fingerprint-fix-sdcp`) and the Fingerprint Manager (`galaxybook-fingerprint-manager`). Download both from the [**latest release**](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest) and install them together, as described in [Install](#install). One file on its own isn't enough: the driver won't install without the Manager.
+> Already installed? The Manager's **Update** button downloads both for you.
+
+| Distro | The two files (`<version>` is the release, e.g. `2.0.1-1`) |
+| --- | --- |
+| **Fedora 45** | `fingerprint-fix-sdcp-<version>.fc45.x86_64.rpm`<br>`galaxybook-fingerprint-manager-<version>.fc45.noarch.rpm` |
+| **Fedora 44** | `fingerprint-fix-sdcp-<version>.fc44.x86_64.rpm`<br>`galaxybook-fingerprint-manager-<version>.fc44.noarch.rpm` |
+| **Ubuntu 26.04, Linux Mint 27** | `fingerprint-fix-sdcp_<version>.ubuntu26.04_amd64.deb`<br>`galaxybook-fingerprint-manager_<version>.ubuntu26.04_all.deb` |
+| **Ubuntu 24.04, Linux Mint 22, Zorin OS 18** | `fingerprint-fix-sdcp_<version>.ubuntu24.04_amd64.deb`<br>`galaxybook-fingerprint-manager_<version>.ubuntu24.04_all.deb` |
+| **Debian 13, MX Linux 25** | `fingerprint-fix-sdcp_<version>.debian13_amd64.deb`<br>`galaxybook-fingerprint-manager_<version>.debian13_all.deb` |
+| **Arch, CachyOS, EndeavourOS** | `PKGBUILD`, `fingerprint-fix-sdcp.install` and `galaxybook-fingerprint-manager.install` (three files, built on your laptop: see [Arch-based distros](#arch-based-distros)) |
+
 ## What's in This Repository
 
 <details>
