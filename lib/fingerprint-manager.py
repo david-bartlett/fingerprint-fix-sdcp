@@ -1566,8 +1566,11 @@ class Manager(Gtk.Window):
 
     def _on_msg_response(self, _bar, resp):
         if resp == 1 and self._msg_details:
-            self.show_output(self.msg_label.get_text(), self._msg_details,
-                             self.msg_bar.get_message_type())
+            # The dialog's title is the message itself: don't repeat it below.
+            title = self.msg_label.get_text()
+            body = "\n".join(l for l in self._msg_details.splitlines()
+                             if l.strip() != title.strip()).strip()
+            self.show_output(title, body or self._msg_details, self.msg_bar.get_message_type())
         elif resp == 2 and self._msg_action:
             self._msg_action[1]()
         else:
