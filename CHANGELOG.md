@@ -4,15 +4,19 @@
 
 ## 2.0.0 — 2026-10-27
 
-- Fingerprint Manager: testing fingerprints repeats by itself — after a match or no match, the result stays up for 2 seconds ("Testing again in 2…"), then it waits for the next touch, until you press **Close**. The **Test again** button is gone. After no touch for 60 seconds it stops. **Test all fingerprints** is now called **Test any fingerprint**, and a match names the finger as *Right ring finger*
-- `install.sh` stopped without a word at Step 3 (checking the distro's libfprint) on most systems — whenever the check's answer wasn't `sdcp` — since 1.4.1. It now carries on with the install
 - **Two packages:** the driver (`fingerprint-fix-sdcp`) and the Galaxy Book Fingerprint Manager (`galaxybook-fingerprint-manager`, with the monitor and the boot and login checks), built from one source with the same version. The driver needs the Manager of its own version; the Manager works without the driver, so once your distro's libfprint handles the reader with SDCP you can remove just the driver (`sudo dnf remove fingerprint-fix-sdcp`, `apt remove`, `pacman -R`, or `sudo bash uninstall.sh --driver-only`) and keep the Manager, its checks and fingerprint login. Each release has both packages for each distro (the Manager as `noarch` / `all`), and the Arch `PKGBUILD` builds both. To upgrade from 1.x, install both packages together, or use the Manager's **Update** (from 1.5.0): the units stay enabled and fingerprints are kept
 - The Manager lives in `/usr/lib/galaxybook-fingerprint-manager/` (packages) or `/usr/local/lib/galaxybook-fingerprint-manager/` (`install.sh`), with its own install marker and cleanup script; the driver keeps its folder
-- Boot-time sensor check: rewritten in Python (`lib/sensor-check.py`, replacing the C program), using whichever libfprint drives the reader, so it keeps working with your distro's driver
-- Fingerprint Manager: without the driver, the info line says *Driver: your distro's libfprint* and *Test your distro's driver* is hidden; **Remove the driver** keeps the Manager open
 - Packages turn fingerprint login on (lock screen, sudo, admin prompts) on the first install on a system, as `install.sh` does — on Arch too, where `install.sh` asks. `FPRINT_PAM=0` skips it. Upgrades and reinstalls keep what you set in the Manager
 - Removing the fix never turns fingerprint login off, on any distro: the Arch package and `uninstall.sh` no longer take out the sudo / polkit-1 lines. Once your distro's libfprint has SDCP and you switch to it, fingerprint login keeps working
+
+- Boot-time sensor check: rewritten in Python (`lib/sensor-check.py`, replacing the C program), using whichever libfprint drives the reader, so it keeps working with your distro's driver
+- Fingerprint Manager: without the driver, the info line says *Driver: your distro's libfprint* and *Test your distro's driver* is hidden; **Remove the driver** keeps the Manager open
 - Fingerprint Manager: with Ubuntu's libfprint (libfprint-tod), e.g. after removing the driver, its helper no longer crashes when reading the sensor (libfprint-tod aborts if a program sets it up twice); and if the helper ever does crash, the Manager says so, with what it printed under **Details…**, instead of "Expecting value: line 1 column 1"
+
+- Fingerprint Manager: testing fingerprints repeats by itself — after a match or no match, the result stays up for 2 seconds ("Testing again in 2…"), then it waits for the next touch, until you press **Close**. The **Test again** button is gone. After no touch for 60 seconds it stops. **Test all fingerprints** is now called **Test any fingerprint**, and a match names the finger as *Right ring finger*
+- Fingerprint Manager: the test window keeps one size (440 × 320) while it waits for a touch, shows the result and counts down, so its button doesn't move
+
+- `install.sh` stopped without a word at Step 3 (checking the distro's libfprint) on most systems — whenever the check's answer wasn't `sdcp` — since 1.4.1. It now carries on with the install
 
 ## 1.5.1 — 2026-10-27
 
