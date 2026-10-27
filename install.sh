@@ -117,6 +117,11 @@ detect_distro() {
 # board_vendor), with the Egis reader 1c7a:05a5 / 05a1 (checked in Step 1).
 check_hardware() {
     local _vendor
+    # 64-bit Intel/AMD only: not ARM, e.g. the Snapdragon Galaxy Book4 Edge.
+    if [[ "$(uname -m)" != x86_64 && "${FPRINT_SDCP_FORCE:-0}" != 1 ]]; then
+        echo "Unsupported processor: $(uname -m) — fingerprint-fix-sdcp is only for 64-bit Intel/AMD (x86_64) Galaxy Book4 and Book5 laptops"
+        return 1
+    fi
     _vendor=$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/board_vendor 2>/dev/null)
     if ! grep -qi "samsung" <<< "$_vendor"; then
         echo "Unsupported hardware: vendor is '$(head -1 <<< "${_vendor:-unknown}")' — this script is for Samsung Galaxy Book laptops only"
