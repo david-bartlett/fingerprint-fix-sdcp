@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.1.0 — 2026-10-27
 
 - **Sensor tab always shown:** see how full the sensor's 10 slots are, next to your fingerprints
