@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Distro-driver check: when libfprint's Python bindings are missing (e.g. Ubuntu without `gir1.2-fprint-2.0`), the `error` answer says what to install; its description no longer suggests it's purely read-only (libfprint opens the reader while listing it, and may set its USB power "persist" setting). Confirmed on a Galaxy Book4 (`1c7a:05a1`, Ubuntu 26.04, libfprint 1.95.1+tod1): Ubuntu's own driver answers `plain` — it handles the reader without SDCP — thanks to Andy
+
 - Another fingerprint fix's fprintd setup is moved aside when installing — most often a manual install of Abdallah's libfprint-egismoc-sdcp from its README, which uses the same `/usr/local/lib/libfprint-egismoc-sdcp/` folder as `install.sh` (so `install.sh` overwrote its library and `uninstall.sh` deleted it, leaving its drop-in pointing at nothing), or any admin fprintd drop-in that sets `LD_LIBRARY_PATH` / `LD_PRELOAD` or replaces `ExecStart`. It goes to `/var/lib/samsung-galaxybook/other-fingerprint-fix/<date>/` with `RESTORE.txt`; fingerprints are kept. `install.sh`, the `.rpm`, `.deb` and Arch package all do this; another package's drop-in is only reported
 - Monitor: notifies when fprintd isn't running this fix's driver, naming any other fix's setting that overrides it
 
