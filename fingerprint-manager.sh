@@ -42,14 +42,15 @@ if [[ -z "${WAYLAND_DISPLAY:-}" && -z "${DISPLAY:-}" ]]; then
     exit 1
 fi
 
-# ── The fix must be installed (the same checks the helper makes) ──────────────
+# ── The Manager must be installed (its helper, monitor and checks) ────────────
 # lib/fixpaths.sh knows both layouts: a package (/usr) or install.sh (/usr/local).
+# The driver isn't needed: without it fprintd uses the distro's libfprint.
 # shellcheck source=lib/fixpaths.sh
 . "$HERE/lib/fixpaths.sh" 2>/dev/null \
     || { say "Missing $HERE/lib/fixpaths.sh — keep the whole fingerprint-fix-sdcp folder together."; exit 1; }
 fix_detect
-if ! fix_installed; then
-    say "fingerprint-fix-sdcp is not installed (or is incomplete). Install it first:\n  the fingerprint-fix-sdcp package, or: sudo bash install.sh   (in the fingerprint-fix-sdcp folder)"
+if ! mgr_installed; then
+    say "The $NAME is not installed. Install it first:\n  the galaxybook-fingerprint-manager package (with fingerprint-fix-sdcp), or: sudo bash install.sh   (in the fingerprint-fix-sdcp folder)"
     exit 1
 fi
 
@@ -59,7 +60,7 @@ if [[ "$HERE" != "$INSTALLED" && -d "$INSTALLED/lib" ]] \
         && ! diff -rq "$HERE/lib" "$INSTALLED/lib" >/dev/null 2>&1; then
     echo "Note: running the Manager from $HERE, which differs from the installed copy." >&2
     if [[ "$FIX_LAYOUT" == package ]]; then
-        echo "      The installed one is updated with the fingerprint-fix-sdcp package." >&2
+        echo "      The installed one is updated with the galaxybook-fingerprint-manager package." >&2
     else
         echo "      Run 'sudo bash install.sh' there to update the installed one." >&2
     fi
