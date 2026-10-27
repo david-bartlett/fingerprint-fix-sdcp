@@ -44,7 +44,10 @@ prepare() {
     local family model
     family=$(cat /sys/class/dmi/id/product_family 2>/dev/null)
     model=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
-    if [[ "${vendor,,}" != *samsung* ]]; then
+    if [[ "$(uname -m)" != x86_64 ]]; then
+        # 64-bit Intel/AMD only: not ARM, e.g. the Snapdragon Galaxy Book4 Edge
+        why="this computer's processor is $(uname -m), not 64-bit Intel/AMD (x86_64)"
+    elif [[ "${vendor,,}" != *samsung* ]]; then
         why="this computer is not a Samsung (vendor: $(head -n1 /sys/class/dmi/id/sys_vendor 2>/dev/null || echo unknown))"
     # Galaxy Book3: can have the same 05a1 reader, but untested — refused. Model
     # code generation letter after X/Q: F = Book3, G = Book4, H = Book5.
@@ -58,8 +61,9 @@ prepare() {
         done
     fi
     echo >&2
-    echo "fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5 with the" >&2
-    echo "Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1), but $why." >&2
+    echo "fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5 (64-bit" >&2
+    echo "Intel/AMD) with the Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1)," >&2
+    echo "but $why." >&2
     echo "Nothing was built: any other fingerprint reader works with your distro's own" >&2
     echo "driver. To build anyway (e.g. for a system image for a Galaxy Book):" >&2
     echo "  FPRINT_SDCP_FORCE=1 makepkg -si" >&2

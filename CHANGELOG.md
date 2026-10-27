@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Intel/AMD only:** nothing installs on ARM laptops such as the Galaxy Book4 Edge
+- `install.sh`, the `.rpm`, the `.deb` and the Arch release `PKGBUILD` refuse to install on a computer whose processor isn't 64-bit Intel/AMD (`x86_64`), saying so — e.g. the Snapdragon (ARM) Galaxy Book4 Edge, which this fix has never been tested on. The Fingerprint Manager package is architecture-independent, so it could install there before; the driver package never could. `FPRINT_SDCP_FORCE=1` installs anyway
+
 ## 2.0.1 — 2026-10-27
 
 - The "Fingerprint Login Is Off" notification named a switch the Fingerprint Manager doesn't have ("Use fingerprint for login and sudo"); it now points to the switch at the top of the Manager, whatever your distro calls it

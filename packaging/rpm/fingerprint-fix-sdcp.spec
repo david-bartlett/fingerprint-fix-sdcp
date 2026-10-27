@@ -114,6 +114,12 @@ echo "enable %{user_check}" > %{buildroot}%{_userpresetdir}/80-%{mgrname}.preset
 # elsewhere fprintd needs the distro's drivers. Same rule as fprintd-env.sh.in,
 # install.sh and the Manager. Prints why not, and fails, on other hardware.
 fix_hardware_problem() {
+    # 64-bit Intel/AMD only: not ARM, e.g. the Snapdragon Galaxy Book4 Edge.
+    case "$(uname -m)" in
+        x86_64) ;;
+        *) echo "this computer's processor is $(uname -m), not 64-bit Intel/AMD (x86_64)"
+           return 1 ;;
+    esac
     _vendor=$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/board_vendor 2>/dev/null | tr '[:upper:]' '[:lower:]')
     case "$_vendor" in
         *samsung*) ;;
@@ -142,8 +148,9 @@ if [ "$1" -eq 1 ]; then
     if [ "${FPRINT_SDCP_FORCE:-0}" != 1 ] && ! _why=$(fix_hardware_problem); then
         cat >&2 <<EOF
 
-fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5 with the
-Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1), but $_why.
+fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5 (64-bit
+Intel/AMD) with the Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1),
+but $_why.
 Nothing was installed: any other fingerprint reader works with your distro's
 own driver. To install anyway (e.g. building a system image for a Galaxy Book):
   sudo FPRINT_SDCP_FORCE=1 dnf install ./fingerprint-fix-sdcp-*.rpm ./galaxybook-fingerprint-manager-*.rpm
@@ -180,6 +187,12 @@ fi
 # elsewhere fprintd needs the distro's drivers. Same rule as fprintd-env.sh.in,
 # install.sh and the Manager. Prints why not, and fails, on other hardware.
 fix_hardware_problem() {
+    # 64-bit Intel/AMD only: not ARM, e.g. the Snapdragon Galaxy Book4 Edge.
+    case "$(uname -m)" in
+        x86_64) ;;
+        *) echo "this computer's processor is $(uname -m), not 64-bit Intel/AMD (x86_64)"
+           return 1 ;;
+    esac
     _vendor=$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/board_vendor 2>/dev/null | tr '[:upper:]' '[:lower:]')
     case "$_vendor" in
         *samsung*) ;;
@@ -208,8 +221,9 @@ if [ "$1" -eq 1 ]; then
     if [ "${FPRINT_SDCP_FORCE:-0}" != 1 ] && ! _why=$(fix_hardware_problem); then
         cat >&2 <<EOF
 
-fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5 with the
-Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1), but $_why.
+fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5 (64-bit
+Intel/AMD) with the Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1),
+but $_why.
 Nothing was installed: any other fingerprint reader works with your distro's
 own driver. To install anyway (e.g. building a system image for a Galaxy Book):
   sudo FPRINT_SDCP_FORCE=1 dnf install ./fingerprint-fix-sdcp-*.rpm ./galaxybook-fingerprint-manager-*.rpm

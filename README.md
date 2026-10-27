@@ -66,6 +66,8 @@ See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc
 
 The **Galaxy Book3** can have the `05a1` reader too, but nobody has tested this fix on one, so `install.sh`, the `.rpm`, the `.deb` and the Arch `PKGBUILD` refuse to install there (a Book3 is recognised by its model name, or its model code: the letter after `X` or `Q` is `F` for the Book3, `G` for the Book4 and `H` for the Book5 — e.g. `940XFG`, `960XGL`, `940XHA`). To try it anyway: `FPRINT_SDCP_FORCE=1`. If it works on your Book3, please tell us with the form below.
 
+Only 64-bit Intel/AMD (`x86_64`) Galaxy Books are supported. The ARM-based **Galaxy Book4 Edge** (Snapdragon) isn't: every install method refuses on an ARM processor.
+
 Find your reader's ID with `lsusb | grep 1c7a`.
 
 Got it working on a model or distro not listed here? Please tell us with the [**It works on my laptop / distro**](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues/new?template=works_on.yml) form — that's how this list grows.
