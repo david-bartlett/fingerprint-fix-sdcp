@@ -71,7 +71,7 @@ if LIST=$(timeout 15 fprintd-list "$USER" 2>/dev/null); then
         PAM=$(bash "@MGR_DIR@/tools/fingerprint-pam.sh" status --short 2>/dev/null)
         if [[ "${PAM%%|*}" == disabled || "${PAM%%|*}" == partial ]]; then
             hint fprint-sdcp-pam-hint-shown "Samsung Galaxy Book — Fingerprint Login Is Off" \
-                "Your fingerprint is set up, but login and sudo still ask for your password. Turn on \"Use fingerprint for login and sudo\" in Galaxy Book Fingerprint Manager."
+                "Your fingerprint is set up, but fingerprint login is off, so you still type your password. Turn it on with the switch at the top of Galaxy Book Fingerprint Manager."
         fi
     fi
 fi

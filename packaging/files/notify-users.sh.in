@@ -1,7 +1,7 @@
 #!/bin/bash
 # Samsung Galaxy Book — run the login check now for everyone logged into a
 # desktop (run as root by the packages right after a first install), so the
-# "enrol a finger" / "turn on fingerprint login" hint appears without logging
+# "enrol a finger" hint appears without logging
 # out and in. Never fails the install.
 users=()
 for s in $(loginctl list-sessions --no-legend 2>/dev/null | awk '{print $1}'); do
