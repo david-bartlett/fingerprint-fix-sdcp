@@ -1,0 +1,13 @@
+#!/bin/sh
+set -e
+if [ "$1" = configure ]; then
+    # Another fingerprint fix's fprintd setup (e.g. a manual install of Abdallah's
+    # libfprint-egismoc-sdcp): moved aside, with a backup and how to restore it.
+    /usr/lib/fingerprint-fix-sdcp/other-fix.sh takeover || true
+    # fprintd picks up the drop-in that points it at the driver.
+    systemctl daemon-reload >/dev/null 2>&1 || true
+    systemctl try-restart fprintd.service >/dev/null 2>&1 || true
+fi
+
+#DEBHELPER#
+exit 0

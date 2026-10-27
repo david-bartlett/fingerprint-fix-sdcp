@@ -1,6 +1,8 @@
 # Builds the .rpm and .deb for a release and attaches them, with a PKGBUILD
 # that builds the release from source on Arch-based systems, to the GitHub
-# release. The Arch package is built too, as a check that it still builds, but
+# release. From 2.0.0 each format has two packages: the driver
+# (fingerprint-fix-sdcp) and the Manager (galaxybook-fingerprint-manager, which
+# the driver requires at the same version); the PKGBUILD builds both. The Arch package is built too, as a check that it still builds, but
 # not attached: Arch is rolling, so users build it against their own libraries.
 #
 # Runs when a tag v<VERSION> is pushed (fingerprint-repo-gui's Release does
@@ -127,7 +129,7 @@ jobs:
           useradd -m builder
           chown -R builder "$GITHUB_WORKSPACE"
           su builder -c "cd '$GITHUB_WORKSPACE/packaging/arch' && makepkg --nodeps --noconfirm"
-          ls packaging/arch/*.pkg.tar.zst
+          ls packaging/arch/fingerprint-fix-sdcp-*.pkg.tar.zst packaging/arch/galaxybook-fingerprint-manager-*.pkg.tar.zst
           mkdir -p dist
       - name: Write the release PKGBUILD
         run: |
@@ -142,7 +144,7 @@ jobs:
           fi
           sed -e "s/@VERSION@/$version/g" -e "s/@DRIVER@/$driver/g" -e "s/@SHA256@/$sha/g" \
             packaging/arch/PKGBUILD.release.in > dist/PKGBUILD
-          cp packaging/arch/fingerprint-fix-sdcp.install dist/
+          cp packaging/arch/fingerprint-fix-sdcp.install packaging/arch/galaxybook-fingerprint-manager.install dist/
       - uses: actions/upload-artifact@v4
         with:
           name: arch

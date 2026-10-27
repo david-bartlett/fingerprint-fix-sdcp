@@ -1,0 +1,17 @@
+#!/bin/sh
+set -e
+if [ "$1" = remove ] || [ "$1" = purge ]; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+if [ "$1" = purge ]; then
+    # The Manager's own state; never fprintd's records.
+    rm -f /var/lib/samsung-galaxybook/libfprint-system.sha256 \
+          /var/lib/samsung-galaxybook/galaxybook-fingerprint-manager.removed \
+          /var/lib/samsung-galaxybook/fingerprint-fix-sdcp.removed
+    rm -rf /var/lib/samsung-galaxybook/removed-fingerprints \
+           /var/lib/samsung-galaxybook/replaced-fingerprints
+    rmdir /var/lib/samsung-galaxybook 2>/dev/null || true
+fi
+
+#DEBHELPER#
+exit 0

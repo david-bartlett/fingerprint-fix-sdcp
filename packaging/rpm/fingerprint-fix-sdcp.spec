@@ -1,4 +1,10 @@
-# fingerprint-fix-sdcp for Fedora
+# fingerprint-fix-sdcp for Fedora — two packages from one spec:
+#   fingerprint-fix-sdcp            the egismoc SDCP driver for fprintd (x86_64)
+#   galaxybook-fingerprint-manager  the Fingerprint Manager, its monitor and
+#                                   boot / login checks (noarch)
+# The driver requires the same version of the Manager; the Manager works
+# without the driver (with the distro's libfprint, once it has SDCP), so the
+# driver can be removed alone: sudo dnf remove fingerprint-fix-sdcp
 #
 # Build with packaging/rpm/build.sh, which makes the two source tarballs and
 # passes VERSION and DRIVER from the repository:
@@ -8,17 +14,20 @@
 %{!?driver: %global driver 0}
 %{!?rel:    %global rel 1}
 
-%global pkglibdir  %{_prefix}/lib/fingerprint-fix-sdcp
-%global scriptdir  %{_libexecdir}/fingerprint-fix-sdcp
-%global boot_check samsung-galaxybook-fprint-sdcp-boot-check.service
-%global user_check samsung-galaxybook-fprint-sdcp-user-check.timer
+%global pkglibdir    %{_prefix}/lib/fingerprint-fix-sdcp
+%global scriptdir    %{_libexecdir}/fingerprint-fix-sdcp
+%global mgrname      galaxybook-fingerprint-manager
+%global mgrdir       %{_prefix}/lib/%{mgrname}
+%global mgrscriptdir %{_libexecdir}/%{mgrname}
+%global boot_check   samsung-galaxybook-fprint-sdcp-boot-check.service
+%global user_check   samsung-galaxybook-fprint-sdcp-user-check.timer
 %{!?_unitdir:       %global _unitdir       %{_prefix}/lib/systemd/system}
 %{!?_userunitdir:   %global _userunitdir   %{_prefix}/lib/systemd/user}
 %{!?_presetdir:     %global _presetdir     %{_prefix}/lib/systemd/system-preset}
 %{!?_userpresetdir: %global _userpresetdir %{_prefix}/lib/systemd/user-preset}
 
 # A private copy of libfprint, loaded by fprintd only: it must not provide
-# libfprint-2.so.2 to other packages, nor make sensor-check depend on it.
+# libfprint-2.so.2 to other packages.
 %global __provides_exclude_from ^%{pkglibdir}/.*$
 %global __requires_exclude ^libfprint-2\\.so\\.2.*$
 %global debug_package %{nil}
@@ -26,7 +35,7 @@
 Name:           fingerprint-fix-sdcp
 Version:        %{fixver}
 Release:        %{rel}%{?dist}
-Summary:        Egis fingerprint reader fix for Samsung Galaxy Book, with a Fingerprint Manager
+Summary:        Egis fingerprint reader driver for Samsung Galaxy Book (egismoc SDCP, for fprintd)
 License:        GPL-2.0-or-later AND LGPL-2.1-or-later
 URL:            https://github.com/david-bartlett/fingerprint-fix-sdcp
 Source0:        %{name}-%{version}.tar.gz
@@ -45,11 +54,26 @@ BuildRequires:  pkgconfig(openssl)
 BuildRequires:  systemd-rpm-macros
 
 # The distro's fprintd and libfprint stay installed: fprintd is only pointed at
-# this driver with a drop-in.
+# this driver with a drop-in. The Manager, its monitor and checks come with it.
+Requires:       %{mgrname} = %{version}-%{release}
+Requires:       fprintd
+Requires:       libfprint
+Requires:       glib2
+Requires:       usbutils
+%{?systemd_requires}
+
+%description
+Makes the Egis match-on-chip fingerprint reader (1c7a:05a5 on Galaxy Book4 /
+Book5 Pro, 1c7a:05a1 on Book4) work on Linux. Builds only the egismoc SDCP
+driver of libfprint and points fprintd at it; the distro's libfprint is not
+replaced. Comes with the Galaxy Book Fingerprint Manager (galaxybook-fingerprint-manager).
+
+%package -n %{mgrname}
+Summary:        Galaxy Book Fingerprint Manager, with boot-time and login checks
+BuildArch:      noarch
 Requires:       fprintd
 Requires:       fprintd-pam
 Requires:       libfprint
-Requires:       glib2
 Requires:       libnotify
 Requires:       usbutils
 Requires:       polkit
@@ -59,13 +83,12 @@ Requires:       python3-cairo
 Requires:       gtk3
 %{?systemd_requires}
 
-%description
-Makes the Egis match-on-chip fingerprint reader (1c7a:05a5 on Galaxy Book 4 /
-Book 5 Pro, 1c7a:05a1 on Book 4) work on Linux. Builds only the
-egismoc SDCP driver of libfprint and points fprintd at it; the distro's
-libfprint is not replaced. Includes a monitor and boot-time check that warn
-when the sensor loses a fingerprint (e.g. after booting Windows), sharing
-enrolments between installs, and the Galaxy Book Fingerprint Manager.
+%description -n %{mgrname}
+Test, enrol, export / import and tidy fingerprints on the Samsung Galaxy Book's
+Egis fingerprint reader, with a monitor and boot-time check that warn when the
+sensor loses a fingerprint (e.g. after booting Windows). Works with
+fingerprint-fix-sdcp's driver, or with the distro's own libfprint once it has
+SDCP support.
 
 %prep
 %setup -q -a 1
@@ -75,20 +98,21 @@ enrolments between installs, and the Galaxy Book Fingerprint Manager.
 bash packaging/build-driver.sh libfprint-egismoc-sdcp-%{driver}
 
 %install
-FIX_PACKAGE_SCRIPT_DIR=%{scriptdir} \
+FIX_PACKAGE_SCRIPT_DIR=%{scriptdir} MGR_PACKAGE_SCRIPT_DIR=%{mgrscriptdir} \
     bash packaging/install-files.sh %{buildroot} libfprint-egismoc-sdcp-%{driver} \
-        %{version}-%{release} rpm
+        %{version}-%{release} rpm driver
+FIX_PACKAGE_SCRIPT_DIR=%{scriptdir} MGR_PACKAGE_SCRIPT_DIR=%{mgrscriptdir} \
+    bash packaging/install-files.sh %{buildroot} libfprint-egismoc-sdcp-%{driver} \
+        %{version}-%{release} rpm manager
 # Enabled at install: the boot check, and the login check for every user.
 install -d %{buildroot}%{_presetdir} %{buildroot}%{_userpresetdir}
-echo "enable %{boot_check}" > %{buildroot}%{_presetdir}/80-fingerprint-fix-sdcp.preset
-echo "enable %{user_check}" > %{buildroot}%{_userpresetdir}/80-fingerprint-fix-sdcp.preset
+echo "enable %{boot_check}" > %{buildroot}%{_presetdir}/80-%{mgrname}.preset
+echo "enable %{user_check}" > %{buildroot}%{_userpresetdir}/80-%{mgrname}.preset
 
 %pre
 # Only for a Galaxy Book4 / Book5 with the Egis reader (USB 1c7a:05a5 / 05a1):
-# elsewhere fprintd needs the distro's drivers, which the fix's library lacks.
-# Same rule as packaging/files/fprintd-env.sh.in, install.sh and the Manager —
-# this script runs before the package's files exist, so it has its own copy.
-# Prints why not, and fails, on other hardware.
+# elsewhere fprintd needs the distro's drivers. Same rule as fprintd-env.sh.in,
+# install.sh and the Manager. Prints why not, and fails, on other hardware.
 fix_hardware_problem() {
     _vendor=$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/board_vendor 2>/dev/null | tr '[:upper:]' '[:lower:]')
     case "$_vendor" in
@@ -122,29 +146,88 @@ fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5 with the
 Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1), but $_why.
 Nothing was installed: any other fingerprint reader works with your distro's
 own driver. To install anyway (e.g. building a system image for a Galaxy Book):
-  sudo FPRINT_SDCP_FORCE=1 dnf install ./fingerprint-fix-sdcp-*.rpm
+  sudo FPRINT_SDCP_FORCE=1 dnf install ./fingerprint-fix-sdcp-*.rpm ./galaxybook-fingerprint-manager-*.rpm
 
 EOF
         exit 1
     fi
 fi
-# First install over a copy made by install.sh: remove that copy (its own
-# cleanup; enrolled fingerprints are kept), or its drop-in in /etc would
-# override this package's.
-if [ "$1" -eq 1 ] && [ -f /etc/samsung-galaxybook-egismoc-sdcp.installed ] \
-        && [ -x /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh ]; then
-    echo "Removing the copy of fingerprint-fix-sdcp installed with install.sh (fingerprints are kept)"
-    /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh || :
-    # Its cleanup (before 1.3.1) removed the Manager's icon from /usr/local but
-    # left that folder's icon cache listing it, so GTK showed a broken image
-    # instead of this package's icon: refresh that cache.
+# First install over a copy made by install.sh: remove that copy with its own
+# cleanups (driver, then Manager; enrolled fingerprints are kept), or its
+# drop-in in /etc would override this package's. Before 2.0.0 one cleanup
+# removed everything.
+if [ "$1" -eq 1 ]; then
+    for c in /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh \
+             /usr/local/bin/galaxybook-fingerprint-manager-cleanup.sh; do
+        if [ -x "$c" ]; then
+            echo "Removing the copy of fingerprint-fix-sdcp installed with install.sh (fingerprints are kept)"
+            "$c" || :
+        fi
+    done
+    [ -f /usr/local/share/icons/hicolor/icon-theme.cache ] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
+        && gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor 2>/dev/null || :
+fi
+
+%pre -n %{mgrname}
+# Only for a Galaxy Book4 / Book5 with the Egis reader (USB 1c7a:05a5 / 05a1):
+# elsewhere fprintd needs the distro's drivers. Same rule as fprintd-env.sh.in,
+# install.sh and the Manager. Prints why not, and fails, on other hardware.
+fix_hardware_problem() {
+    _vendor=$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/board_vendor 2>/dev/null | tr '[:upper:]' '[:lower:]')
+    case "$_vendor" in
+        *samsung*) ;;
+        *) echo "this computer is not a Samsung (vendor: $(head -n1 /sys/class/dmi/id/sys_vendor 2>/dev/null || echo unknown))"
+           return 1 ;;
+    esac
+    # Galaxy Book3 laptops can have the same 1c7a:05a1 reader as the Book4, but
+    # this fix is only tested on the Book4 and Book5: refused there. Recognised
+    # by the family name, or the model code: NP / 3 digits / X (laptop) or Q
+    # (360) / generation letter, F = Book3 (G = Book4, H = Book5).
+    _family=$(cat /sys/class/dmi/id/product_family 2>/dev/null)
+    _model=$(cat /sys/class/dmi/id/product_name 2>/dev/null)
+    if echo "$_family" | grep -Eqi 'galaxy ?book ?3($|[^0-9])' \
+            || echo "$_model" | grep -Eqi '^(NP)?[0-9]{3}[XQ]F'; then
+        echo "this is a Galaxy Book3 (${_family:-model $_model}), which this fix isn't tested on"
+        return 1
+    fi
+    for _d in /sys/bus/usb/devices/*; do
+        [ "$(cat "$_d/idVendor" 2>/dev/null)" = 1c7a ] || continue
+        case "$(cat "$_d/idProduct" 2>/dev/null)" in 05a5|05a1) return 0 ;; esac
+    done
+    echo "that reader was not found on this computer"
+    return 1
+}
+if [ "$1" -eq 1 ]; then
+    if [ "${FPRINT_SDCP_FORCE:-0}" != 1 ] && ! _why=$(fix_hardware_problem); then
+        cat >&2 <<EOF
+
+fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5 with the
+Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1), but $_why.
+Nothing was installed: any other fingerprint reader works with your distro's
+own driver. To install anyway (e.g. building a system image for a Galaxy Book):
+  sudo FPRINT_SDCP_FORCE=1 dnf install ./fingerprint-fix-sdcp-*.rpm ./galaxybook-fingerprint-manager-*.rpm
+
+EOF
+        exit 1
+    fi
+fi
+# First install over a copy made by install.sh: remove that copy with its own
+# cleanups (driver, then Manager; enrolled fingerprints are kept), or its
+# drop-in in /etc would override this package's. Before 2.0.0 one cleanup
+# removed everything.
+if [ "$1" -eq 1 ]; then
+    for c in /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh \
+             /usr/local/bin/galaxybook-fingerprint-manager-cleanup.sh; do
+        if [ -x "$c" ]; then
+            echo "Removing the copy of fingerprint-fix-sdcp installed with install.sh (fingerprints are kept)"
+            "$c" || :
+        fi
+    done
     [ -f /usr/local/share/icons/hicolor/icon-theme.cache ] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
         && gtk-update-icon-cache -q -t -f /usr/local/share/icons/hicolor 2>/dev/null || :
 fi
 
 %post
-%systemd_post %{boot_check}
-%systemd_user_post %{user_check}
 # Another fingerprint fix's fprintd setup (e.g. a manual install of Abdallah's
 # libfprint-egismoc-sdcp): moved aside, with a backup and how to restore it.
 %{scriptdir}/other-fix.sh takeover || :
@@ -152,6 +235,20 @@ fi
 # reload first (systemd's own reload runs at the end of the transaction).
 systemctl daemon-reload >/dev/null 2>&1 || :
 systemctl try-restart fprintd.service >/dev/null 2>&1 || :
+
+%postun
+# Removed (not upgraded): fprintd goes back to the distro's libfprint; the
+# Manager, fingerprint login and enrolled fingerprints stay.
+if [ "$1" -eq 0 ]; then
+    rm -f /run/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf \
+          /run/samsung-galaxybook/fprintd-sdcp.env
+fi
+systemctl daemon-reload >/dev/null 2>&1 || :
+systemctl try-restart fprintd.service >/dev/null 2>&1 || :
+
+%post -n %{mgrname}
+%systemd_post %{boot_check}
+%systemd_user_post %{user_check}
 # What the distro libfprint looked like, so the monitor tests it again only
 # once it changes.
 if [ ! -f /var/lib/samsung-galaxybook/libfprint-system.sha256 ]; then
@@ -164,36 +261,37 @@ fi
 if [ "$1" -eq 1 ]; then
     echo "Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger"
     echo "and turn on fingerprint login."
-    # The same hint as a notification now, for anyone logged into a desktop.
-    %{scriptdir}/notify-users.sh || :
+    # The same hint as a notification now, for anyone logged into a desktop
+    # (each hint is shown once per user, so an upgrade from 1.x shows nothing new).
+    %{mgrscriptdir}/notify-users.sh || :
 fi
 
-%preun
+%preun -n %{mgrname}
 %systemd_preun %{boot_check}
 %systemd_user_preun %{user_check}
 
-%postun
-if [ "$1" -eq 0 ]; then
-    rm -f /run/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf \
-          /run/samsung-galaxybook/fprintd-sdcp.env
-fi
+%postun -n %{mgrname}
 systemctl daemon-reload >/dev/null 2>&1 || :
-systemctl try-restart fprintd.service >/dev/null 2>&1 || :
 
 %files
 %license LICENSE
-%doc README.md CHANGELOG.md
 %{pkglibdir}/
 %{scriptdir}/
 %dir %{_unitdir}/fprintd.service.d
 %{_unitdir}/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf
+
+%files -n %{mgrname}
+%license LICENSE
+%doc README.md CHANGELOG.md
+%{mgrdir}/
+%{mgrscriptdir}/
 %{_unitdir}/samsung-galaxybook-fprint-sdcp-monitor.service
 %{_unitdir}/%{boot_check}
 %{_userunitdir}/samsung-galaxybook-fprint-sdcp-user-check.service
 %{_userunitdir}/%{user_check}
 %{_userunitdir}/samsung-galaxybook-session.target
-%{_presetdir}/80-fingerprint-fix-sdcp.preset
-%{_userpresetdir}/80-fingerprint-fix-sdcp.preset
+%{_presetdir}/80-%{mgrname}.preset
+%{_userpresetdir}/80-%{mgrname}.preset
 %config(noreplace) %{_sysconfdir}/xdg/autostart/fingerprint-fix-sdcp-session.desktop
 %{_datadir}/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules
 %{_datadir}/polkit-1/actions/io.github.david-bartlett.galaxybook-fingerprint-manager.policy

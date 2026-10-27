@@ -7,7 +7,7 @@ if [ "$1" = remove ]; then
     # kept), so installing it again looks like an upgrade to postinst. This
     # marker tells postinst to enable the units again.
     mkdir -p /var/lib/samsung-galaxybook
-    touch /var/lib/samsung-galaxybook/fingerprint-fix-sdcp.removed
+    touch /var/lib/samsung-galaxybook/galaxybook-fingerprint-manager.removed
 fi
 
 #DEBHELPER#
