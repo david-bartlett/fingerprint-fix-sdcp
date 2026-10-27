@@ -2282,19 +2282,18 @@ class Manager(Gtk.Window):
                 return self.refresh(lambda: self.error(err))
             r = (res or {}).get("result")
             if r == "match":
-                arch = shutil.which("pacman") and os.path.isfile("/usr/lib/fingerprint-fix-sdcp/installed")
-                self.show_output(
-                    "Your fingerprints work with your distro's driver",
-                    "You can remove fingerprint-fix-sdcp; enrolled fingerprints are kept:\n\n"
-                    f"    {remove_command()}"
-                    + ("\n\nOn Arch-based distros, removing it also turns off fingerprint for sudo "
-                       "and admin prompts: add pam_fprintd to /etc/pam.d/sudo again if you want it."
-                       if arch else ""))
+                self.refresh()
+                return self._offer_removal()
             elif r == "no-match":
                 self.show_output("Your distro's driver didn't recognise that finger",
-                                 "It works with the reader, but not with your current enrolments. "
-                                 "Keep the fix — or remove it and enrol your fingers again with "
-                                 "your desktop's settings.", Gtk.MessageType.WARNING)
+                                 "It works with the reader, but not with your current enrolments, "
+                                 "so keep the fix for now.\n\n"
+                                 "To switch to your distro's driver anyway, delete your fingers "
+                                 "here first — ☰ → Show the Sensor tab, select your templates and "
+                                 "click Delete… — so they don't stay on the sensor taking up its "
+                                 "10 slots (your distro's driver may not be able to delete them). "
+                                 "Then remove the fix and enrol again in your desktop's settings:"
+                                 f"\n\n    {remove_command()}", Gtk.MessageType.WARNING)
             elif r == "unsupported" and res.get("driver") in ("modified", "foreign"):
                 self.show_output("Keep fingerprint-fix-sdcp",
                                  OTHER_FIX_TEXT.format(res.get("detail", "")),
@@ -2308,6 +2307,52 @@ class Manager(Gtk.Window):
                 self.error((res or {}).get("output") or "The test didn't finish.")
             self.refresh()
         self.run_job("test_distro", done)
+
+    def _offer_removal(self):
+        """After a match with the distro's driver: remove the fix from here, or
+        copy the command."""
+        cmd = remove_command()
+        arch = shutil.which("pacman") and os.path.isfile("/usr/lib/fingerprint-fix-sdcp/installed")
+        d = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
+                              buttons=Gtk.ButtonsType.NONE,
+                              text="Your fingerprints work with your distro's driver")
+        tt = lambda t: f"<tt>{GLib.markup_escape_text(t)}</tt>"
+        d.format_secondary_markup(
+            "fingerprint-fix-sdcp is no longer needed. Removing it switches fprintd to your "
+            "distro's driver; your enrolled fingerprints are kept and keep working. This "
+            "Fingerprint Manager is removed with it — afterwards, manage fingers in your "
+            "desktop's settings."
+            + ("\n\nOn Arch-based distros, removing it also turns off fingerprint for sudo and "
+               "admin prompts: add pam_fprintd to /etc/pam.d/sudo again if you want it."
+               if arch else "")
+            + f"\n\nOr remove it yourself:\n{tt(cmd)}")
+        d.add_button("Keep it", Gtk.ResponseType.CLOSE)
+        d.add_button("Copy command", 2)
+        remove = d.add_button("Remove fingerprint-fix-sdcp", 1)
+        remove.get_style_context().add_class("suggested-action")
+        d.set_default_response(Gtk.ResponseType.CLOSE)
+        while True:
+            resp = d.run()
+            if resp == 2:
+                clip = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+                clip.set_text(cmd, -1)
+                clip.store()
+                continue
+            break
+        d.destroy()
+        if resp != 1:
+            return
+
+        def done(res, err):
+            if err:
+                return self.error(f"fingerprint-fix-sdcp was not removed:\n{err}")
+            self.show_output("fingerprint-fix-sdcp removed",
+                             "fprintd now uses your distro's driver, with your fingerprints. "
+                             "The Fingerprint Manager closes now; manage fingers in your desktop's "
+                             "settings.")
+            self.close()
+        self.message("Removing fingerprint-fix-sdcp…", Gtk.MessageType.OTHER)
+        self.run_job("remove_fix", done)
 
     def _check_windows(self):
         """Look for Windows in the background (lsblk), then show the reminder."""

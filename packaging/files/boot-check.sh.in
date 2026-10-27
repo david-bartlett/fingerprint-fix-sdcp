@@ -43,10 +43,10 @@ while read -r _tag _kind _user _finger _path; do
 done <<< "$OUT"
 if [[ ${#OTHER[@]} -gt 0 ]]; then
     _list=$(printf '%s, ' "${OTHER[@]}"); _list="${_list%, }"
-    printf '%s\n%s\n%s\n' "dialog-warning" \
+    printf '%s\n%s\n%s\n%s\n' "dialog-warning" \
         "Samsung Galaxy Book — Fingerprints From Another Driver" \
         "These fingerprints were enrolled with a different fingerprint driver and can't be used with this fix: ${_list}. Open Galaxy Book Fingerprint Manager to delete them and enrol them again." \
-        > "$OTHER_STATUS"
+        manager > "$OTHER_STATUS"
     chmod 644 "$OTHER_STATUS"
 fi
 
@@ -80,9 +80,9 @@ if $ALL_CLEARED; then
 else
     _next="Please remove them in your fingerprint settings (or run: fprintd-delete USER) and enrol them again."
 fi
-printf '%s\n%s\n%s\n' "dialog-warning" \
+printf '%s\n%s\n%s\n%s\n' "dialog-warning" \
     "Samsung Galaxy Book — Fingerprint Removed From Sensor" \
     "These fingerprints are no longer stored on the sensor: ${_list}. This usually happens after booting Windows with its fingerprint device enabled. ${_next}" \
-    > "$STATUS"
+    manager > "$STATUS"
 chmod 644 "$STATUS"
 exit 0
