@@ -1827,7 +1827,7 @@ class Manager(Gtk.Window):
         what = picked[0][1] if picked else "any of your fingers (as login and sudo do)"
 
         d = Gtk.Dialog(title="Test fingerprint", transient_for=self, modal=True)
-        WIDTH = 440
+        WIDTH, HEIGHT = 440, 320
         d.set_default_size(WIDTH, -1)
         d.set_resizable(False)          # its size is set below, the same in every state
         close_btn = d.add_button("Cancel", Gtk.ResponseType.CANCEL)
@@ -1852,15 +1852,16 @@ class Manager(Gtk.Window):
                             f'{GLib.markup_escape_text(title)}</span>')
             sub.set_text(detail)
 
-        # One size for every state (touch prompt, result, countdown): the
-        # tallest — no match, with its countdown — plus a little room below
-        # the text.
+        # One size for every state (touch prompt, result, countdown): 440 x 320,
+        # or taller if the tallest state (no match, with its countdown) needs
+        # it, e.g. with large fonts.
         no_match_detail = (f"Tested: {what}\nThat finger didn't match. Try again, "
                            "or test another finger.")
         show("✗", None, "No match", f"{no_match_detail}\n\nTesting again in {AGAIN_IN}…")
         body.show_all()
         tallest = body.get_preferred_height_for_width(WIDTH - 36)[1]
-        body.set_size_request(WIDTH - 36, tallest + 25)
+        body.set_size_request(WIDTH - 36, tallest)
+        d.set_size_request(WIDTH, HEIGHT)
 
         def start():
             show("☝", None, "Touch the fingerprint sensor", f"Testing: {what}")
