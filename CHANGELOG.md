@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fingerprint Manager: **Update** is ready for releases with two packages — the driver (`fingerprint-fix-sdcp`) and the Manager (`galaxybook-fingerprint-manager`), planned for 2.0.0 — and downloads both into `~/Downloads/fingerprint-fix-sdcp-<version>/` to install together (`sudo dnf install ./*.rpm`, `sudo apt install ./*.deb`, or `makepkg -si`), or only the Manager once the driver has been removed. Releases with one package work as before. Update to this version before 2.0.0 comes out: older Managers can't install a two-package release by themselves
+
 - Notifications whose next step is in the Fingerprint Manager — **Your Distro Now Supports the Fingerprint Reader**, **Fingerprints From Another Driver** and **Fingerprint Removed From Sensor** — have an **Open Fingerprint Manager** button, on desktops whose notifications support buttons
 - Fingerprint Manager: when *Test your distro's driver* matches, **Remove fingerprint-fix-sdcp** removes the fix the way it was installed (`dnf` / `apt-get` / `pacman`, or an `install.sh` copy's own cleanup), keeping your fingerprints, and closes the Manager; **Copy command** gives the command instead. When it doesn't match, it explains how to delete your fingers first so they don't stay on the sensor after switching
 

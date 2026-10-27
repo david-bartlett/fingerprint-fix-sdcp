@@ -192,46 +192,81 @@ def release_assets(version):
 
 
 # Arch-based systems build the release from its PKGBUILD (makepkg), so it is
-# built against the system's current libraries; these two files are downloaded
-# together into a folder of their own.
-ARCH_FILES = ("PKGBUILD", "fingerprint-fix-sdcp.install")
+# built against the system's current libraries; the PKGBUILD and its .install
+# files are downloaded together into a folder of their own.
+#
+# From 2.0.0 a release has two packages built from one source: the driver
+# (fingerprint-fix-sdcp) and the Manager (galaxybook-fingerprint-manager), with
+# the same version, and the driver requires that exact Manager. Both are then
+# downloaded into one folder and installed in one command — or only the
+# Manager, once the driver has been removed (the distro's libfprint has SDCP).
+# Releases with one package (before 2.0.0) work as before.
+FIX = "fingerprint-fix-sdcp"
+MANAGER = "galaxybook-fingerprint-manager"
 
 
-def pick_asset(assets, version, fmt, dist):
+def pick_asset(assets, version, fmt, dist, fix_installed=True):
     """This system's download among a release's files, or None. GitHub shows
     the '~' of a .deb's version as '.' in file names, so both are accepted.
-    For pacman it is the release's PKGBUILD and .install, as one item:
-    {name, folder, files: [asset, asset]}."""
+
+    One package file: that asset. Several files (the PKGBUILD and its .install
+    files, or the driver and Manager packages of a split release): one item
+    {name, folder, files: [asset, …], manager_only}, downloaded into one folder."""
     if platform.machine() not in ("x86_64", "amd64"):
         return None
+    folder = f"{FIX}-{version}"
     if fmt == "pacman":
-        files = [next((a for a in assets if a["name"] == n), None) for n in ARCH_FILES]
-        if not all(files):
+        pkgbuild = next((a for a in assets if a["name"] == "PKGBUILD"), None)
+        installs = [a for a in assets if a["name"].endswith(".install")]
+        if not pkgbuild or not installs:
             return None
-        folder = f"fingerprint-fix-sdcp-{version}"
-        return {"name": folder, "folder": folder, "files": files}
-    v, d = re.escape(version), re.escape(dist)
-    pattern = {"deb": rf"fingerprint-fix-sdcp_{v}-\d+[.~]{d}_amd64\.deb",
-               "rpm": rf"fingerprint-fix-sdcp-{v}-\d+\.{d}\.x86_64\.rpm"}.get(fmt)
-    if not pattern or not dist:
+        split = any(a["name"] == f"{MANAGER}.install" for a in installs)
+        if not fix_installed and not split:
+            return None                 # a single-package release can't update the Manager alone
+        return {"name": folder, "folder": folder, "files": [pkgbuild] + installs,
+                "manager_only": split and not fix_installed}
+    if not dist:
         return None
-    return next((a for a in assets if re.fullmatch(pattern, a["name"])), None)
+    v, d = re.escape(version), re.escape(dist)
+    patterns = {"deb": (rf"{FIX}_{v}-\d+[.~]{d}_amd64\.deb",
+                        rf"{MANAGER}_{v}-\d+[.~]{d}_(amd64|all)\.deb"),
+                "rpm": (rf"{FIX}-{v}-\d+\.{d}\.x86_64\.rpm",
+                        rf"{MANAGER}-{v}-\d+\.{d}\.(x86_64|noarch)\.rpm")}.get(fmt)
+    if not patterns:
+        return None
+    fix = next((a for a in assets if re.fullmatch(patterns[0], a["name"])), None)
+    manager = next((a for a in assets if re.fullmatch(patterns[1], a["name"])), None)
+    if manager:                                       # a split release
+        if fix_installed and not fix:
+            return None                               # both are needed together
+        files = [manager] + ([fix] if fix_installed else [])
+        return {"name": folder, "folder": folder, "files": files,
+                "manager_only": not fix_installed}
+    return fix if fix_installed else None
 
 
-def install_command(fmt, path):
+def install_command(fmt, path, manager_only=False):
     """The command that installs a download over the installed fix: the package
-    file, or for pacman the folder holding the PKGBUILD (makepkg builds as the
-    user and asks for the password to install)."""
+    file; a folder of packages (installed in one go, so the driver's
+    dependency on the same Manager version is met); or for pacman the folder
+    holding the PKGBUILD (makepkg builds as the user and asks for the password
+    to install — every package it builds, or only the Manager)."""
     quoted = "'" + path.replace("'", "'\\''") + "'"
+    if fmt == "pacman":
+        if manager_only:
+            return f"cd {quoted} && makepkg -s && sudo pacman -U ./{MANAGER}-*.pkg.tar.zst"
+        return f"cd {quoted} && makepkg -si"
+    if os.path.isdir(path):
+        ext, tool = {"deb": ("deb", "apt install"), "rpm": ("rpm", "dnf install")}[fmt]
+        return f"cd {quoted} && sudo {tool} ./*.{ext}"
     return {"deb": f"sudo apt install {quoted}",
-            "rpm": f"sudo dnf install {quoted}",
-            "pacman": f"cd {quoted} && makepkg -si"}[fmt]
+            "rpm": f"sudo dnf install {quoted}"}[fmt]
 
 
 def download_item(item, folder, progress=None):
-    """Download what pick_asset chose into folder: one package file, or the
-    PKGBUILD's files into folder/<item folder>. Returns the file's or the
-    PKGBUILD folder's path."""
+    """Download what pick_asset chose into folder: one package file, or an
+    item's files into folder/<item folder>. Returns the file's or that folder's
+    path."""
     if "files" not in item:
         return download(item, folder, progress)
     sub = os.path.join(folder, item["folder"])
