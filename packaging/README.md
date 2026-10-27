@@ -54,11 +54,11 @@ A package is for the release it was built on: its library dependencies come from
 
 ## What install and removal do
 
-- **Install:** the driver reloads systemd and restarts fprintd (fingerprints work at once); the Manager enables the boot check and every user's login check (from the next boot / login) and stores the distro libfprint's hash for the monitor. Fingerprint login (PAM), enrolling and importing are left to the Manager.
+- **Install:** the driver reloads systemd and restarts fprintd (fingerprints work at once); the Manager enables the boot check and every user's login check (from the next boot / login) and stores the distro libfprint's hash for the monitor. On the first install on a system (no `/var/lib/samsung-galaxybook/libfprint-system.sha256` yet), the Manager also turns fingerprint login on with `tools/fingerprint-pam.sh enable` (authselect, pam-auth-update, or the marked sudo / polkit-1 lines on Arch), like `install.sh`; `FPRINT_PAM=0` skips it. Upgrades, later installs and removal leave it as the user set it, on every distro: once a distro's libfprint has SDCP, fingerprint login keeps working without the fix. Enrolling and importing are left to the Manager.
 - **Over an `install.sh` copy:** the rpm and deb remove it first with its own cleanups — the driver's, then the Manager's (fingerprints kept). pacman refuses because both own the menu entry — run `sudo bash uninstall.sh` first.
 - **Upgrade:** reloads systemd and restarts fprintd; keeps the admin's choice of enabled units.
 - **Removing the driver alone:** fprintd goes back to the distro libfprint; the Manager, its checks and fingerprint login stay.
-- **Removing both:** as above, and the Manager's units are disabled. Enrolled fingerprints stay (`/var/lib/fprint` and the sensor). On Arch the sudo / polkit-1 lines the Manager added are removed (no PAM tool there); on Fedora and Debian fingerprint login is left as the user set it, like `uninstall.sh`. `apt purge` of the Manager also removes this fix's state in `/var/lib/samsung-galaxybook`.
+- **Removing both:** as above, and the Manager's units are disabled. Enrolled fingerprints stay (`/var/lib/fprint` and the sensor). Fingerprint login is left as the user set it, on every distro (the Arch sudo / polkit-1 lines too), like `uninstall.sh`. `apt purge` of the Manager also removes this fix's state in `/var/lib/samsung-galaxybook`.
 
 ## Testing a package
 

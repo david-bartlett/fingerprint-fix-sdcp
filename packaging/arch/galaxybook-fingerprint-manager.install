@@ -75,6 +75,14 @@ post_install() {
     # files: the units stay enabled, and the hint below is shown once per user.
     systemctl enable "$_boot_check" >/dev/null 2>&1 || true
     systemctl --global enable "$_user_check" >/dev/null 2>&1 || true
+    # Fingerprint for sudo and admin prompts: turned on at the first install on
+    # this system (no libfprint hash yet: every earlier install, of 1.x too,
+    # left one). Otherwise left as the user set it. FPRINT_PAM=0 leaves it off.
+    if [[ "${FPRINT_PAM:-1}" != 0 && ! -f "$_state/libfprint-system.sha256" ]]; then
+        bash "$_tools/arch-pam.sh" enable >/dev/null \
+            && echo "==> Fingerprint is on for sudo and admin prompts (turn it off in the Manager)." \
+            || echo "==> WARNING: fingerprint for sudo wasn't turned on — turn it on in the Manager."
+    fi
     [[ -f "$_state/libfprint-system.sha256" ]] || _store_libfprint_hash
     _update_pam
     if [[ -f /etc/samsung-galaxybook-egismoc-sdcp.installed || -f /etc/galaxybook-fingerprint-manager.installed ]]; then
@@ -84,8 +92,7 @@ post_install() {
         echo "      sudo bash uninstall.sh"
     fi
 
-    echo "==> Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger"
-    echo "    and turn on fingerprint for sudo and admin prompts."
+    echo "==> Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger."
     # The same hint as a notification now, for anyone logged into a desktop.
     bash /usr/lib/galaxybook-fingerprint-manager/notify-users.sh || true
 }
@@ -97,13 +104,10 @@ post_upgrade() {
 pre_remove() {
     systemctl disable "$_boot_check" >/dev/null 2>&1 || true
     systemctl --global disable "$_user_check" >/dev/null 2>&1 || true
-    # Arch has no PAM tool of its own, so undo the sudo / polkit-1 lines the
-    # Manager added (arch-pam.sh removes only lines it marked itself).
-    if grep -qsF "fingerprint-fix-sdcp (arch-pam.sh)" /etc/pam.d/sudo /etc/pam.d/polkit-1 \
-            || [[ -f "$_state/pam-polkit-1-created" ]]; then
-        bash "$_tools/arch-pam.sh" disable \
-            || echo "==> WARNING: check /etc/pam.d/sudo and /etc/pam.d/polkit-1 for pam_fprintd lines"
-    fi
+    # The sudo / polkit-1 fingerprint lines stay, as on other distros: once the
+    # distro's libfprint has SDCP, fingerprints keep working without this fix.
+    # To take them out: sudo bash /usr/lib/galaxybook-fingerprint-manager/tools/arch-pam.sh disable
+    # (before removing the package).
 }
 
 post_remove() {

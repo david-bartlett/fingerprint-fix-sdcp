@@ -82,19 +82,6 @@ else
 fi
 
 # ── Step 2: Remove the fprintd drop-in and the library ────────────────────────
-# ── Undo the Arch PAM changes, if this fix made them ──────────────────────────
-# arch-pam.sh only removes lines it marked itself; hand edits are left alone.
-if grep -qsF "fingerprint-fix-sdcp (arch-pam.sh)" /etc/pam.d/sudo /etc/pam.d/polkit-1 \
-        || [[ -f /var/lib/samsung-galaxybook/pam-polkit-1-created ]]; then
-    step "Fingerprint Step 1b: Removing fingerprint from sudo and polkit"
-    if [[ -f "$SCRIPT_DIR/tools/arch-pam.sh" ]]; then
-        bash "$SCRIPT_DIR/tools/arch-pam.sh" disable \
-            || warn "arch-pam.sh disable failed — check /etc/pam.d/sudo and /etc/pam.d/polkit-1"
-    else
-        warn "tools/arch-pam.sh not found — remove the marked lines in\n       /etc/pam.d/sudo and /etc/pam.d/polkit-1 by hand"
-    fi
-fi
-
 step "Fingerprint Step 2: Restoring the distro libfprint for fprintd"
 rm -f "$FPRINT_DROPIN" "${FPRINT_DROPIN}.testing" "$FPRINT_ENV_SCRIPT" "$FPRINT_ENV_FILE" "$FPRINT_OTHER_FIX"
 rmdir "$FPRINT_DROPIN_DIR" 2>/dev/null || true
@@ -170,6 +157,11 @@ rm -f "$FPRINT_MARKER" "$MGR_MARKER" "$FPRINT_SYSLIB_HASH" /run/samsung-galaxybo
 rm -rf "$FPRINT_REMOVED_DIR" "${FPRINT_STATE_DIR}/replaced-fingerprints"
 rmdir /run/samsung-galaxybook 2>/dev/null || true
 rmdir "$FPRINT_STATE_DIR" 2>/dev/null || true
-# PAM fingerprint authentication is left enabled on purpose.
+# Fingerprint login (PAM) is left as it is on purpose, on every distro (Arch's
+# marked sudo / polkit-1 lines too): once the distro's own libfprint has SDCP,
+# fingerprints keep working for login and sudo after this fix is gone.
+if [[ "$(bash "$SCRIPT_DIR/tools/fingerprint-pam.sh" status --short 2>/dev/null | cut -d'|' -f1)" == enabled ]]; then
+    info "Fingerprint login is left on. To turn it off: sudo bash $SCRIPT_DIR/tools/fingerprint-pam.sh disable"
+fi
 
 info "✓ Fingerprint fix uninstalled"

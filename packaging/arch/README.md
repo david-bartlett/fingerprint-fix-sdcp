@@ -21,13 +21,12 @@ Rebuilding the same version: raise `pkgrel` or use `makepkg -sif`.
 | `/usr/bin/galaxybook-fingerprint-manager`, `/usr/share/applications/`, `/usr/share/icons/` | the Manager |
 | `/etc/xdg/autostart/fingerprint-fix-sdcp-session.desktop` | starts `graphical-session.target` on desktops that don't |
 
-Install enables the boot check and the per-user login check (they start at the next boot / login) and restarts fprintd. Fingerprint login (PAM) is not touched: turn it on in the Manager. Removal keeps enrolled fingerprints; removing the Manager undoes the sudo / polkit-1 lines it added.
+Install enables the boot check and the per-user login check (they start at the next boot / login) and restarts fprintd. On the first install on this system it also turns on fingerprint for sudo and admin prompts (marked lines in `/etc/pam.d/sudo` and `polkit-1`, with backups; `FPRINT_PAM=0 makepkg -si` skips it). Removal keeps enrolled fingerprints and the sudo / polkit-1 lines (to take them out first: `sudo bash /usr/lib/galaxybook-fingerprint-manager/tools/arch-pam.sh disable`).
 
 ## Testing on CachyOS
 
 1. **Remove an `install.sh` install first**, keeping fingerprints (pacman refuses to install over its menu entry and polkit policy):
    `sudo bash uninstall.sh`
-   This also removes the fingerprint lines it added to sudo and polkit-1 — turn them back on in the Manager afterwards.
 2. `cd packaging/arch && makepkg -si`
 3. fprintd uses the driver: `fprintd-list "$USER"`, then `sudo grep fingerprint-fix-sdcp /proc/$(pidof fprintd)/maps`
 4. `fprintd-verify` matches the existing fingerprints.
@@ -35,8 +34,8 @@ Install enables the boot check and the per-user login check (they start at the n
 6. `systemctl is-enabled samsung-galaxybook-fprint-sdcp-boot-check.service` and `systemctl --user is-enabled samsung-galaxybook-fprint-sdcp-user-check.timer` both say `enabled`.
 7. Reboot: `journalctl -b -u samsung-galaxybook-fprint-sdcp-boot-check` shows the check ran; with no fingers enrolled, a notification points to the Manager about 10 s after login.
 8. Upgrade: raise `pkgrel`, `makepkg -si` — fingerprints still verify.
-9. Remove the driver alone: `sudo pacman -R fingerprint-fix-sdcp` — fprintd no longer maps the driver; the Manager still opens and the fingerprint-login lines stay.
-10. Remove both: `sudo pacman -R galaxybook-fingerprint-manager` — `/var/lib/fprint` is still there; the sudo / polkit-1 lines are removed. Reinstall and verify again.
+9. Remove the driver alone: `sudo pacman -R fingerprint-fix-sdcp` — fprintd no longer maps the driver; the Manager still opens and the fingerprint lines stay.
+10. Remove both: `sudo pacman -R galaxybook-fingerprint-manager` — `/var/lib/fprint` and the sudo / polkit-1 lines are still there. Reinstall and verify again.
 
 ## The release PKGBUILD
 

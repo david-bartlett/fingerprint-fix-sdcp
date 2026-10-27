@@ -52,6 +52,13 @@ fi
 # removed everything. Both packages' preinst have this: whichever runs first
 # does it.
 if [ "$1" = install ]; then
+    # The cleanups delete the libfprint hash that marks an earlier install:
+    # note it, so the Manager's postinst leaves fingerprint login as it was.
+    if [ -x /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh ] \
+            || [ -x /usr/local/bin/galaxybook-fingerprint-manager-cleanup.sh ]; then
+        mkdir -p /var/lib/samsung-galaxybook
+        touch /var/lib/samsung-galaxybook/keep-pam-setting
+    fi
     for c in /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh \
              /usr/local/bin/galaxybook-fingerprint-manager-cleanup.sh; do
         if [ -x "$c" ]; then

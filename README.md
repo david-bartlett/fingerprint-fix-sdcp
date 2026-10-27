@@ -86,7 +86,7 @@ Download the two files for your distro from the [**latest release**](https://git
 
 The packages are only for a Samsung with the Egis reader (`1c7a:05a5` / `1c7a:05a1`, see `lsusb | grep 1c7a`): on other hardware the packages and the Arch `PKGBUILD` stop before installing anything (`sudo FPRINT_SDCP_FORCE=1 dnf install …` / `apt install …`, or `FPRINT_SDCP_FORCE=1 makepkg -si`, installs anyway, e.g. for a system image). Either way, fprintd only uses the fix's driver while the reader is present, so another laptop's fingerprint reader keeps working.
 
-The two packages are the driver (`fingerprint-fix-sdcp`) and the [Fingerprint Manager](#galaxy-book-fingerprint-manager) (`galaxybook-fingerprint-manager`, with the monitor and the boot and login checks); the driver needs the Manager of the same version. `dnf` and `apt` install what the fix needs from your distro (fprintd, the Manager's GTK libraries…); nothing is compiled on your laptop. Fingerprints work straight away: open **Galaxy Book Fingerprint Manager** from the app menu to enrol a finger and turn on fingerprint login.
+The two packages are the driver (`fingerprint-fix-sdcp`) and the [Fingerprint Manager](#galaxy-book-fingerprint-manager) (`galaxybook-fingerprint-manager`, with the monitor and the boot and login checks); the driver needs the Manager of the same version. `dnf` and `apt` install what the fix needs from your distro (fprintd, the Manager's GTK libraries…); nothing is compiled on your laptop. Fingerprints work straight away, and on a first install fingerprint login (the lock screen, sudo and admin prompts) is turned on, as `install.sh` does: open **Galaxy Book Fingerprint Manager** from the app menu to enrol a finger. Turn it off there if you prefer, or install with `FPRINT_PAM=0` (e.g. `sudo FPRINT_PAM=0 apt install ./*.deb`). Upgrades and reinstalls keep your choice.
 
 - **Already installed with `install.sh`?** The `.rpm` and `.deb` replace it themselves, keeping your fingerprints. On Arch, run `sudo bash uninstall.sh` in the old folder first (pacman won't install over its files).
 - **Updating:** the Manager tells you when a new version is out; download the new file and install it the same way. Enrolled fingerprints are kept.
@@ -175,7 +175,7 @@ sudo bash uninstall.sh
 
 **Only the driver** — e.g. once your distro's own libfprint handles the reader with SDCP (the monitor tells you, and the Manager offers it): `sudo dnf remove fingerprint-fix-sdcp` (or `apt remove` / `pacman -R` the same name), or `sudo bash uninstall.sh --driver-only`. fprintd goes back to your distro's libfprint; the Manager, its checks and fingerprint login stay.
 
-Either way, enrolled fingerprints are always kept — fprintd's records and the templates on the sensor — so reinstalling uses them again. To delete fingers, use the Fingerprint Manager before uninstalling (while the driver is still loaded, so the templates leave the sensor too). Both remove the drop-in, the library, the Manager and the monitor; nothing needs reinstalling because the distro libfprint was never replaced. On Arch the fingerprint lines added to sudo and polkit-1 are removed too; on other distros fingerprint login is left as you set it.
+Either way, enrolled fingerprints are always kept — fprintd's records and the templates on the sensor — so reinstalling uses them again. To delete fingers, use the Fingerprint Manager before uninstalling (while the driver is still loaded, so the templates leave the sensor too). Both remove the drop-in, the library, the Manager and the monitor; nothing needs reinstalling because the distro libfprint was never replaced. Fingerprint login is left as you set it, on every distro, so it keeps working once your distro's libfprint has SDCP.
 
 To switch an `install.sh` copy off temporarily instead:
 
@@ -374,7 +374,7 @@ What it does:
 - Keeps a backup of each file (`*.bak-samsung-galaxybook`), and checks the edited file still contains every original line.
 - Leaves any file that already mentions `pam_fprintd` alone, so hand edits are never overwritten and running it twice changes nothing.
 - Is safe before enrolling: with no finger enrolled, `pam_fprintd` reports "not available" and you are asked for your password as usual.
-- Uninstalling the fix runs `arch-pam.sh disable`: only the marked lines are removed, and the `polkit-1` copy is deleted if it was created by the fix and not changed since.
+- Uninstalling the fix leaves them, so fingerprint login keeps working once your distro's libfprint has SDCP. To take them out, run `sudo bash tools/arch-pam.sh disable` (or turn fingerprint login off in the Manager) first: only the marked lines are removed, and the `polkit-1` copy is deleted if it was created by the fix and not changed since.
 
 **Not changed:** the **KDE lock screen** already uses the fingerprint through its own `kde-fingerprint` service, and the **login screen** is left password-only (with fingerprint, Plasma's login screen waits for the sensor after you type a password).
 

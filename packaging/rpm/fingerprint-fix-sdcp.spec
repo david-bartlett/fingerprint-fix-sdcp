@@ -157,6 +157,13 @@ fi
 # drop-in in /etc would override this package's. Before 2.0.0 one cleanup
 # removed everything.
 if [ "$1" -eq 1 ]; then
+    # The cleanups delete the libfprint hash that marks an earlier install:
+    # note it, so the Manager's %post leaves fingerprint login as it was.
+    if [ -x /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh ] \
+            || [ -x /usr/local/bin/galaxybook-fingerprint-manager-cleanup.sh ]; then
+        mkdir -p /var/lib/samsung-galaxybook
+        touch /var/lib/samsung-galaxybook/keep-pam-setting
+    fi
     for c in /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh \
              /usr/local/bin/galaxybook-fingerprint-manager-cleanup.sh; do
         if [ -x "$c" ]; then
@@ -216,6 +223,13 @@ fi
 # drop-in in /etc would override this package's. Before 2.0.0 one cleanup
 # removed everything.
 if [ "$1" -eq 1 ]; then
+    # The cleanups delete the libfprint hash that marks an earlier install:
+    # note it, so the Manager's %post leaves fingerprint login as it was.
+    if [ -x /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh ] \
+            || [ -x /usr/local/bin/galaxybook-fingerprint-manager-cleanup.sh ]; then
+        mkdir -p /var/lib/samsung-galaxybook
+        touch /var/lib/samsung-galaxybook/keep-pam-setting
+    fi
     for c in /usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh \
              /usr/local/bin/galaxybook-fingerprint-manager-cleanup.sh; do
         if [ -x "$c" ]; then
@@ -249,6 +263,17 @@ systemctl try-restart fprintd.service >/dev/null 2>&1 || :
 %post -n %{mgrname}
 %systemd_post %{boot_check}
 %systemd_user_post %{user_check}
+# Fingerprint for login, the lock screen and sudo: turned on at the first
+# install on this system, like install.sh (no libfprint hash yet: every earlier
+# install, of 1.x too, left one). Later installs and upgrades keep what the
+# user set in the Manager. FPRINT_PAM=0 leaves it off.
+# (keep-pam-setting: replacing an install.sh copy, whose cleanup deleted the hash.)
+if [ "$1" -eq 1 ] && [ ! -f /var/lib/samsung-galaxybook/libfprint-system.sha256 ] \
+        && [ ! -f /var/lib/samsung-galaxybook/keep-pam-setting ] && [ "${FPRINT_PAM:-1}" != 0 ]; then
+    bash %{mgrdir}/tools/fingerprint-pam.sh enable \
+        || echo "Fingerprint login wasn't turned on — turn it on in the Fingerprint Manager."
+fi
+rm -f /var/lib/samsung-galaxybook/keep-pam-setting
 # What the distro libfprint looked like, so the monitor tests it again only
 # once it changes.
 if [ ! -f /var/lib/samsung-galaxybook/libfprint-system.sha256 ]; then
@@ -259,8 +284,7 @@ if [ ! -f /var/lib/samsung-galaxybook/libfprint-system.sha256 ]; then
     fi
 fi
 if [ "$1" -eq 1 ]; then
-    echo "Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger"
-    echo "and turn on fingerprint login."
+    echo "Open 'Galaxy Book Fingerprint Manager' from the app menu to enrol a finger."
     # The same hint as a notification now, for anyone logged into a desktop
     # (each hint is shown once per user, so an upgrade from 1.x shows nothing new).
     %{mgrscriptdir}/notify-users.sh || :
