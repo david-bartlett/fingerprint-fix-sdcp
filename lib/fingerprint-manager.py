@@ -855,7 +855,7 @@ class Manager(Gtk.Window):
         page.pack_start(self.rec_views, True, True, 0)
 
         row = Gtk.Box(spacing=6)
-        self.test_btn = self._button(row, "Test all fingerprints", self.on_test,
+        self.test_btn = self._button(row, "Test any fingerprint", self.on_test,
                                      "Touch the sensor with any of your fingers — checked against "
                                      "all of them, as login and sudo do. Double-click a finger to "
                                      "test just that one.")
@@ -1828,6 +1828,7 @@ class Manager(Gtk.Window):
 
         d = Gtk.Dialog(title="Test fingerprint", transient_for=self, modal=True)
         d.set_default_size(420, -1)
+        d.set_resizable(False)          # just as tall as its text: no empty space below
         close_btn = d.add_button("Cancel", Gtk.ResponseType.CANCEL)
         area = d.get_content_area()
         area.set_spacing(8)
@@ -1838,7 +1839,7 @@ class Manager(Gtk.Window):
         for w in (icon, head, sub):
             area.pack_start(w, False, False, 0)
         state = {"proc": None, "timer": 0}
-        AGAIN_IN = 3            # seconds before the next test, after a match or no match
+        AGAIN_IN = 2            # seconds before the next test, after a match or no match
 
         def show(symbol, colour, title, detail):
             span = f' foreground="{colour}"' if colour else ""
@@ -1872,7 +1873,7 @@ class Manager(Gtk.Window):
                 return False
             result = (res or {}).get("result")
             if result == "match":
-                show("✓", "#26a269", f"Match — {res['name']}", f"Tested: {what}")
+                show("✓", "#26a269", f"Match — {long_finger(res['name'])}", f"Tested: {what}")
             elif result == "no-match":
                 show("✗", "#c01c28", "No match",
                      f"Tested: {what}\nThat finger didn't match. Try again, or test another finger.")
