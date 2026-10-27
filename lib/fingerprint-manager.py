@@ -1820,7 +1820,6 @@ class Manager(Gtk.Window):
 
         The helper asks the sensor directly: fprintd only reports match / no
         match when it checks all fingers, never which finger it was."""
-        me = self.status["user"]
         # The button tests all your fingers; double-clicking a finger passes it as rec.
         picked = [[rec["user"], rec["name"], rec["enrolled"], "", rec["finger"], 1]] if rec else []
         finger = picked[0][4] if picked else None
