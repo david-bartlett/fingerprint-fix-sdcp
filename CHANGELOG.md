@@ -1,5 +1,7 @@
 # Changelog
 
+## Unreleased
+
 ## 1.5.1 — 2026-10-27
 
 - Fingerprint Manager: the text in its dialogs is aligned left instead of centred, so lists of fingers and paragraphs line up
