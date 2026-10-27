@@ -164,19 +164,16 @@ jobs:
           path: dist
           merge-multiple: true
       # A pushed tag has no release yet: make one, titled with the version and
-      # with this version's CHANGELOG.md section as its notes.
+      # with notes from this version's CHANGELOG.md section.
       - name: Create the release if needed
         run: |
           version=$(tr -d '[:space:]' < VERSION)
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Release $TAG exists"
           else
-            awk -v h="## $version" 'index($0, h " ") == 1 || $0 == h { f = 1; next }
-                                    f && /^## / { exit } f' CHANGELOG.md > notes.md
-            [ -s notes.md ] || echo "See CHANGELOG.md." > notes.md
-            # How to install (which files, both packages) above the changes.
-            { sed "s/@VERSION@/$version/g" .github/release-install.md; cat notes.md; } > notes-full.md
-            mv notes-full.md notes.md
+            # How to install, the CHANGELOG's highlights, the full section
+            # collapsed: see .github/release-notes.sh.
+            bash .github/release-notes.sh "$version" > notes.md
             gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
               --title "$version" --notes-file notes.md
           fi

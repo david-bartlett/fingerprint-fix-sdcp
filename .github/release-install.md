@@ -14,6 +14,3 @@ Open a terminal in the folder you downloaded them to (usually Downloads) and run
 | **Ubuntu 24.04, Mint 22, Zorin 18** | `fingerprint-fix-sdcp_@VERSION@-1.ubuntu24.04_amd64.deb`<br>`galaxybook-fingerprint-manager_@VERSION@-1.ubuntu24.04_all.deb` | `sudo apt install ./fingerprint-fix-sdcp_@VERSION@-*.ubuntu24.04_amd64.deb ./galaxybook-fingerprint-manager_@VERSION@-*.ubuntu24.04_all.deb` |
 | **Debian 13, MX 25** | `fingerprint-fix-sdcp_@VERSION@-1.debian13_amd64.deb`<br>`galaxybook-fingerprint-manager_@VERSION@-1.debian13_all.deb` | `sudo apt install ./fingerprint-fix-sdcp_@VERSION@-*.debian13_amd64.deb ./galaxybook-fingerprint-manager_@VERSION@-*.debian13_all.deb` |
 | **Arch, CachyOS, EndeavourOS** | `PKGBUILD`<br>`fingerprint-fix-sdcp.install`<br>`galaxybook-fingerprint-manager.install` | In a new, empty folder: `makepkg -si` |
-
-## What's new
-
