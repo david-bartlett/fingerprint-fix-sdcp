@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.3.0 — 2026-10-28
 
 - **Hourly update check:** a notification for each new release, with *Open GitHub* and, with the Manager, *Open Fingerprint Manager*
