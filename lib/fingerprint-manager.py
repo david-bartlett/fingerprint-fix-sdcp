@@ -758,6 +758,13 @@ def os_name():
 OS_NAME = os_name()
 
 
+def tip(text, width=48):
+    """Tooltip text in short lines (GTK shows it as one long line otherwise).
+    Lines already in the text are kept."""
+    import textwrap
+    return "\n".join(textwrap.fill(par, width) for par in text.split("\n"))
+
+
 def _uniq(xs):
     return list(dict.fromkeys(xs))
 
@@ -1292,32 +1299,36 @@ class Manager(Gtk.Window):
         self._update_buttons()
 
     def _tpl_tip(self, t):
-        """Hover text for a template on the Sensor tab."""
+        """Hover text for a slot: who it is, where it's used, its template ID,
+        each on its own line (tip() wraps the long ones)."""
         if t["used_by"]:
-            also = shared_where(t["shared"], full=True) if t.get("shared") else ""
-            also = f" — also {also}" if also.startswith("used by") else ""
             who = []
             for u in t["used_by"]:                    # "dave right-ring-finger"
                 user, _, finger = u.partition(" ")
                 who.append(f"{long_finger(finger)} ({user})" if finger else user)
-            return f"{'; '.join(who)}{also} · template {t['id']}"
+            also = shared_where(t["shared"], full=True) if t.get("shared") else ""
+            where = f"Used here and by {also[8:]}" if also.startswith("used by") else "Used here only"
+            return f"{'; '.join(who)}\n{where}\nTemplate {t['id']}"
         rm = t.get("removed")
         if rm:
-            how = "removed from" if rm["kind"] == "removed" else "replaced on"
-            return (f"Template {t['id']} — {rm['user']}'s {long_finger(rm['name']).lower()}, "
-                    f"{how} {OS_NAME} on {nice_date(rm['date'], True)}. The template is still "
-                    "on the sensor: right-click to restore it, or delete it to free the slot.")
+            how = "Removed from" if rm["kind"] == "removed" else "Replaced on"
+            return (f"{long_finger(rm['name'])} ({rm['user']})\n"
+                    f"{how} {OS_NAME} on {nice_date(rm['date'], True)}. Still on the sensor: "
+                    "right-click to restore it, or clear the slot to free it.\n"
+                    f"Template {t['id']}")
         sh = t.get("shared")
         if sh:
-            who = f"{sh['user']}'s " if sh["user"] else ""
-            when = f", enrolled {nice_date(sh['enrolled'], True)}" if sh["enrolled"] else ""
+            who = f" ({sh['user']})" if sh["user"] else ""
             where = shared_where(sh, full=True)
-            return (f"Template {t['id']} — {who}{long_finger(sh['finger']).lower()}{when}"
-                    f"{' on ' + sh['enrolled_on'] if sh['enrolled_on'] else ''}. Not used by "
-                    f"{OS_NAME}{': ' + where if where and not where.startswith('enrolled') else ''}.")
-        return (f"Template {t['id']} — not used by {OS_NAME}, and no install on this laptop has "
-                "noted it: another distro that hasn't run this Fingerprint Manager yet, Windows "
-                "Hello's own, or left over from a reinstall")
+            where = (where[0].upper() + where[1:]) if where else "Not used by any install"
+            when = (f"\nEnrolled {nice_date(sh['enrolled'], True)}"
+                    f"{' on ' + sh['enrolled_on'] if sh['enrolled_on'] else ''}") if sh["enrolled"] else ""
+            return (f"{long_finger(sh['finger'])}{who}\n{where}; not used by {OS_NAME}"
+                    f"{when}\nTemplate {t['id']}")
+        return ("Unknown fingerprint\n"
+                "No install on this laptop has noted it: another distro that hasn't run the "
+                "Galaxy Book Fingerprint Manager yet, Windows Hello's own, or left over from a "
+                f"reinstall\nTemplate {t['id']}")
 
     @staticmethod
     def _tpl_order(t):
@@ -1391,7 +1402,7 @@ class Manager(Gtk.Window):
                            False, False, 4)
             child = Gtk.FlowBoxChild()
             child.tid = t["id"]
-            child.set_tooltip_text(self._tpl_tip(t))
+            child.set_tooltip_text(tip(self._tpl_tip(t)))
             child.add(box)
             self.tcards.add(child)
             # row
@@ -1411,7 +1422,7 @@ class Manager(Gtk.Window):
                           False, False, 0)
             row = Gtk.ListBoxRow()
             row.tid = t["id"]
-            row.set_tooltip_text(self._tpl_tip(t))
+            row.set_tooltip_text(tip(self._tpl_tip(t)))
             row.add(hb)
             self.trows.add(row)
         # free slots (cards only)
@@ -2022,12 +2033,25 @@ class Manager(Gtk.Window):
         self.run_job("status", done, export=True)
         return False
 
+    def _fit_height(self):
+        """Shrink the window to what its contents need. A GTK window grows to
+        fit but never shrinks by itself, so anything that was taller for a
+        moment (before the sensor was read, a reminder since hidden) would
+        leave empty space under the slots. Not when maximised or tiled."""
+        win = self.get_window()
+        if win is None or win.get_state() & (Gdk.WindowState.MAXIMIZED | Gdk.WindowState.FULLSCREEN
+                                             | Gdk.WindowState.TILED):
+            return False
+        self.resize(self.get_size()[0], 1)          # = the smallest height that fits
+        return False
+
     def show_status(self, st):
         self.status = st
         if st.get("export_offer"):
             GLib.idle_add(self._offer_export, st["export_offer"])
         self._fill_records(st["records"], st["user"])
         self._fill_templates(st["templates"])
+        GLib.idle_add(self._fit_height)
         for name, n in (("fingers", len(st["records"])), ("sensor", len(st["templates"]))):
             self.stack.child_set_property(self.stack.get_child_by_name(name), "title",
                                           f"{self.pages[name]} ({n})")
@@ -2942,11 +2966,13 @@ class Manager(Gtk.Window):
         self._windows = found
         self.windows_item.set_visible(found)
         self.win_row.set_visible(found and self.windows_item.get_active())
+        GLib.idle_add(self._fit_height)
         return False
 
     def _on_windows_toggled(self, item):
         save_setting("windows_hint", "1" if item.get_active() else "0")
         self.win_row.set_visible(self._windows and item.get_active())
+        GLib.idle_add(self._fit_height)
 
     def _on_update_toggled(self, item):
         try:
