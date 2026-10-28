@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.5.4 — 2026-10-28
 
 - **Update check at login always asks GitHub:** a release made while you were logged out is noticed straight after login
