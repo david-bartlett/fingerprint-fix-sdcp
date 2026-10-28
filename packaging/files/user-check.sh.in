@@ -23,7 +23,10 @@ show() {
         || logger -t samsung-galaxybook-fprint-sdcp-user-check "notify-send failed: $TITLE: $MSG"
 }
 
-if systemctl start samsung-galaxybook-fprint-sdcp-monitor.service; then
+# The polkit rule lets admins (wheel / sudo) start it without a password.
+# Never ask: at login a password prompt for a background check is alarming,
+# and if the rule doesn't apply the check just doesn't run.
+if systemctl start --no-ask-password samsung-galaxybook-fprint-sdcp-monitor.service 2>/dev/null; then
     [[ -s "$FPRINT_STATUS_FILE" ]] && show "$FPRINT_STATUS_FILE"
 fi
 

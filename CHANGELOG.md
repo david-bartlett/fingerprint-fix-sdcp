@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **No password prompt at login:** the login check never asks for a password
+- The login check starts the fingerprint monitor with `systemctl start --no-ask-password`. Its polkit rule lets admins start it without a password, but where the rule doesn't apply (a user outside the wheel / sudo groups, or polkit not using it), systemd showed an *Authentication Required* prompt for samsung-galaxybook-fprint-sdcp-monitor.service at login. Now the check is just skipped there
+
 ## 2.4.0 — 2026-10-28
 
 - **Update installs in a terminal:** the Manager's **Update** opens your terminal and installs the new version there
