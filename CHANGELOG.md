@@ -9,7 +9,7 @@
 
 ## Unreleased
 
-- README and release pages: the driver is presented as what you need and the Fingerprint Manager as optional (most desktops have their own fingerprint settings), no longer "most people want both"; the maintainer's release steps moved to packaging/README.md; Arch updating, the information panel and the files list brought up to date
+- **Simpler README:** what matters first (which laptops, the Windows and multi-install warnings, install, enrol, update, uninstall), with the details and big tables in collapsible sections. The driver is presented as what you need and the Manager as optional; the maintainer's release steps moved to packaging/README.md; outdated bits (Arch updating, messages, installed files) brought up to date
 
 ## 2.6.1 — 2026-10-28
 
