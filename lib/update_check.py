@@ -167,13 +167,25 @@ def latest_release(max_age=24 * 3600):
     return tag
 
 
-def _cache_fresh(max_age):
-    """True when GitHub's answer was saved less than max_age seconds ago."""
+def _cache_time():
+    """When GitHub's answer was saved (epoch seconds), or None."""
     try:
         with open(RELEASE_CACHE) as f:
-            return 0 <= time.time() - float(f.read().split()[0]) < max_age
+            return float(f.read().split()[0])
     except (OSError, ValueError, IndexError):
-        return False
+        return None
+
+
+def _session_start():
+    """When this desktop session started (graphical-session.target became
+    active), as epoch seconds; 0 when systemd can't say."""
+    try:
+        out = subprocess.run(["systemctl", "--user", "show", "-P", "ActiveEnterTimestamp",
+                              "--timestamp=unix", "graphical-session.target"],
+                             capture_output=True, text=True, timeout=5).stdout.strip()
+        return float(out.lstrip("@")) if out.lstrip("@") else 0
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return 0
 
 
 def newer_release(max_age=24 * 3600):
@@ -396,12 +408,21 @@ def notify_once():
     if not _regular_user():
         return
     _migrate_setting()
+    # GitHub's answer is reused for an hour, but not from before this login:
+    # the first check of a session always asks (a release made while you
+    # were away is seen at once).
+    login = _session_start()
+
+    def fresh():
+        t = _cache_time()
+        return t is not None and t >= login and 0 <= time.time() - t < 3600
+
     # Right after login the network may not be up yet: when GitHub has to be
     # asked and can't be reached, try again every 30 s for up to 3 minutes.
     for attempt in range(7):
-        had_answer = _cache_fresh(3600)
-        new = newer_release(max_age=3600)
-        if new or had_answer or _cache_fresh(3600) or attempt == 6:
+        had_answer = fresh()
+        new = newer_release(max_age=3600 if had_answer else 0)
+        if new or had_answer or fresh() or attempt == 6:
             break
         time.sleep(30)
     if not new:
