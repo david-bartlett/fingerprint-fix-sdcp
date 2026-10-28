@@ -1285,8 +1285,12 @@ class Manager(Gtk.Window):
         """Hover text for a template on the Sensor tab."""
         if t["used_by"]:
             also = shared_where(t["shared"], full=True) if t.get("shared") else ""
-            also = f"; also {also}" if also.startswith("used by") else ""
-            return f"Template {t['id']} — used by {', '.join(t['used_by'])}{also}"
+            also = f" — also {also}" if also.startswith("used by") else ""
+            who = []
+            for u in t["used_by"]:                    # "dave right-ring-finger"
+                user, _, finger = u.partition(" ")
+                who.append(f"{long_finger(finger)} ({user})" if finger else user)
+            return f"{'; '.join(who)}{also} · template {t['id']}"
         rm = t.get("removed")
         if rm:
             how = "removed from" if rm["kind"] == "removed" else "replaced on"

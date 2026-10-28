@@ -11,6 +11,7 @@
 
 - **Shorter notification titles:** e.g. *fingerprint-fix-sdcp 2.6.0 is available*, which fits on one line
 - Notification titles no longer start with "Samsung Galaxy Book — ": the desktop already shows the app name, *Samsung Galaxy Book Fixes*, above each one, and on GNOME the update notification's title was cut off
+- Sensor tab: a slot's tooltip reads *Right ring finger (dave) — also used by Fedora*, not *used by dave right-ring-finger*
 
 ## 2.6.0 — 2026-10-28
 
