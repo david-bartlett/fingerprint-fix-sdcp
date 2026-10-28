@@ -18,7 +18,7 @@ Download the files for your distro, open a terminal in that folder and run the c
 
 <details>
 <summary>Expand for a list of package names for each distro</summary>
-  
+
 | Distro | Command |
 | --- | --- |
 | Fedora 45 | `sudo dnf install ./fingerprint-fix-sdcp-*.fc45.x86_64.rpm ./galaxybook-fingerprint-manager-*.fc45.noarch.rpm` |
@@ -31,12 +31,6 @@ Download the files for your distro, open a terminal in that folder and run the c
 </details>
 
 Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first install. You can turn it off in the Manager, or install with `FPRINT_PAM=0` (e.g. `sudo FPRINT_PAM=0 apt install ./*.deb`).
-
-### To enrol a fingerprint
-
-Open **Galaxy Book Fingerprint Manager** from the app menu and click a grey finger, or use your desktop's settings: KDE: System Settings → Users → Fingerprint Authentication · GNOME: Settings → System → Users → Fingerprint Login · Mint: Menu → Fingerprints · Xfce (e.g. MX Linux) has none: use the Manager or `fprintd-enroll`. No reboot is needed. Check with `fprintd-verify`.
-
-If `fprintd-verify` never matches, those fingers were enrolled with another driver (e.g. your distro's own, before this fix): the Manager marks them **Other driver** and offers to delete and enrol them again.
 
 ### Arch-based distros
 
@@ -78,6 +72,8 @@ sudo bash install.sh
 The installer checks your distro, installs the build packages it needs, builds the driver and sets everything up; at the end it offers to open the Manager. It works on Fedora, Debian / Ubuntu and their derivatives (Linux Mint, Zorin, Pop!_OS, MX Linux…) and Arch-based distros. `/etc/samsung-galaxybook-egismoc-sdcp.installed` records the installed version, the driver commit, its date and where it came from. Each release builds one tested driver commit (see [Releases](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases) and [CHANGELOG.md](CHANGELOG.md)).
 
 **Updating:** in the `fingerprint-fix-sdcp` folder, run `git pull`, then `sudo bash install.sh` again. Enrolled fingerprints are kept.
+
+Once installed, [enrol a fingerprint](#enrolling-a-fingerprint).
 
 ## Updating
 
@@ -130,6 +126,12 @@ sudo systemctl daemon-reload && sudo systemctl restart fprintd
 ```
 
 </details>
+
+## Enrolling a Fingerprint
+
+Open **Galaxy Book Fingerprint Manager** from the app menu and click a grey finger, or use your desktop's settings: KDE: System Settings → Users → Fingerprint Authentication · GNOME: Settings → System → Users → Fingerprint Login · Mint: Menu → Fingerprints · Xfce (e.g. MX Linux) has none: use the Manager or `fprintd-enroll`. No reboot is needed. Check with `fprintd-verify`.
+
+If `fprintd-verify` never matches, those fingers were enrolled with another driver (e.g. your distro's own, before this fix): the Manager marks them **Other driver** and offers to delete and enrol them again.
 
 ## Supported Hardware
 
