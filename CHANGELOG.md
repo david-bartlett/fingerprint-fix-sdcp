@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.5.2 — 2026-10-28
 
 - **Update notification right after login:** the first check for a new release is 30 seconds after login, not 10 minutes
 - The hourly update check (both packages' user timers) first runs 30 seconds after login instead of 10 minutes, without the random delay. If the network isn't up yet, it tries again every 30 seconds for up to 3 minutes. GitHub is still asked at most once an hour
