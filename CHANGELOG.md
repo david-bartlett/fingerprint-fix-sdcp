@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- README and release pages: the driver is presented as what you need and the Fingerprint Manager as optional (most desktops have their own fingerprint settings), no longer "most people want both"; the maintainer's release steps moved to packaging/README.md; Arch updating, the information panel and the files list brought up to date
+
 ## 2.6.1 — 2026-10-28
 
 - **Shorter notification titles:** e.g. *fingerprint-fix-sdcp 2.6.0 is available*, which fits on one line
