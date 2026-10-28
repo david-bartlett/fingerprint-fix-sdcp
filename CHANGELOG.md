@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Removing the Manager with update checks off:** a notification offers to turn them back on for the driver
+- If you turned *Check for new versions* off in the Manager, the driver's check stays off after the Manager is removed, and there's no switch left to turn it back on. Removing the Manager now says so: a notification with a **Turn on** button for each logged-in user it applies to, and a line in the terminal (dnf / apt / pacman, `uninstall.sh --manager-only`) with the command to run
+
 ## 2.3.1 — 2026-10-28
 
 - **Update notification stays on screen:** until you click a button or close it
