@@ -221,13 +221,13 @@ The sensor has a single template store shared by every OS:
 
 ## Sharing Fingerprints Between Linux Installs
 
-<details>
-<summary>Show how to share fingerprints between installs</summary>
-
 Several Linux installs on the same laptop can share one enrolment instead of each enrolling the same finger (which would make them delete each other's templates). fprintd's record for a finger holds only the ID of its template on the sensor — no fingerprint image and no secret — so the same record works on every install that runs this fix.
 
 **Tested:** a finger enrolled on Fedora 45, exported and imported on Linux Mint 27 (beta) (via `FPRINT_IMPORT` during install), verified on Mint — and still verified on Fedora afterwards (940XHA, 2026-10-24). Importing for a different username (exported by `dave`, imported for `daveb` on MX Linux) also verified (2026-10-25).
 
+<details>
+<summary>Show how to share fingerprints between installs</summary>
+  
 **On the install where the fingers are enrolled:**
 
 ```bash
