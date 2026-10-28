@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.2.0 — 2026-10-28
 
 - **Install either part on its own:** the driver no longer needs the Fingerprint Manager, and the Manager never needed the driver
 - The driver package *recommends* the Fingerprint Manager instead of requiring it (deb and rpm `Recommends`, Arch `optdepends`): installed from the release files, name both to get both (the release page's command does), or just one. The driver alone works with your desktop's fingerprint settings; it has no Manager window, monitor or boot check. Both packages turn fingerprint login on at the first install on a computer, whichever comes first, and only once (`/var/lib/samsung-galaxybook/fingerprint-login-set-up`), so the driver alone gets it too. `install.sh --driver-only` / `--manager-only` and `uninstall.sh --manager-only` (next to `--driver-only`) do the same for `install.sh` copies. The Manager's **Update** updates what is installed: both packages, or only the Manager
