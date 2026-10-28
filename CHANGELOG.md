@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.3.2 — 2026-10-28
 
 - **Removing the Manager with update checks off:** a notification offers to turn them back on for the driver
