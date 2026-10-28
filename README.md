@@ -16,6 +16,9 @@ Each distro has two files in the [**latest release**](https://github.com/david-b
 
 Download the files for your distro, open a terminal in that folder and run the command. It installs both; for the driver alone, leave out the Manager's file.
 
+<details>
+<summary>Expand for a list of package names for each distro</summary>
+  
 | Distro | Command |
 | --- | --- |
 | Fedora 45 | `sudo dnf install ./fingerprint-fix-sdcp-*.fc45.x86_64.rpm ./galaxybook-fingerprint-manager-*.fc45.noarch.rpm` |
@@ -24,6 +27,8 @@ Download the files for your distro, open a terminal in that folder and run the c
 | Ubuntu 24.04, Linux Mint 22, Zorin OS 18 | `sudo apt install ./fingerprint-fix-sdcp_*ubuntu24.04_amd64.deb ./galaxybook-fingerprint-manager_*ubuntu24.04_all.deb` |
 | Debian 13, MX Linux 25 | `sudo apt install ./fingerprint-fix-sdcp_*debian13_amd64.deb ./galaxybook-fingerprint-manager_*debian13_all.deb` |
 | Arch, CachyOS, EndeavourOS | see [Arch-based distros](#arch-based-distros) below |
+
+</details>
 
 Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first install. You can turn it off in the Manager, or install with `FPRINT_PAM=0` (e.g. `sudo FPRINT_PAM=0 apt install ./*.deb`).
 
