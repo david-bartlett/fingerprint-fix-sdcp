@@ -1098,6 +1098,13 @@ class Manager(Gtk.Window):
         top.pack_start(self.slots_label, True, True, 0)
         switch, self.tview_icons, self.tview_list = self._view_switch()
         top.pack_end(switch, False, False, 0)
+        # What a slot is, for anyone who wonders (the ⓘ next to Cards | List).
+        info = Gtk.Button(valign=Gtk.Align.CENTER)
+        self._icon_or_text(info, ["dialog-information-symbolic", "help-about-symbolic",
+                                  "help-info-symbolic", "dialog-information"], "i")
+        info.set_tooltip_text("What is a slot?")
+        info.connect("clicked", self.on_slots_info)
+        top.pack_end(info, False, False, 0)
         # Slots, bar and key together in a card like the one above.
         slots_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         slots_card.get_style_context().add_class("fpm-card")
@@ -1147,9 +1154,9 @@ class Manager(Gtk.Window):
         self.wipe_btn.connect("clicked", self.on_wipe)
         row.pack_end(self.wipe_btn, False, False, 0)
         self.btn_stack.add_named(row, "sensor")
-        self.stack.add_titled(page, "sensor", "Sensor")
+        self.stack.add_titled(page, "sensor", "Sensor slots")
         self.sensor_page = page
-        self.pages = {"fingers": "Fingerprints", "sensor": "Sensor"}
+        self.pages = {"fingers": "Fingerprints", "sensor": "Sensor slots"}
 
         self._set_view(load_view(), save=False)
         self.connect("destroy", self.on_quit)
@@ -2273,20 +2280,40 @@ class Manager(Gtk.Window):
                 return False
         return True
 
+    def on_slots_info(self, *_):
+        d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.CLOSE,
+                          message_type=Gtk.MessageType.INFO, text="The sensor's slots")
+        d.format_secondary_markup(
+            f"The fingerprint sensor has <b>{SENSOR_SLOTS} slots</b>. When you enrol a finger, the "
+            "sensor stores that fingerprint in one slot, and it stays there until it's erased.\n\n"
+            "• <b>One slot holds one enrolled finger</b>: from this Linux, another Linux on this "
+            "laptop, or Windows Hello.\n"
+            "• <b>Your fingerprint never leaves the sensor.</b> Linux only notes which slot holds "
+            "which of your fingers.\n"
+            f"• <b>Removing a finger</b> on the Fingerprints tab only takes it off {GLib.markup_escape_text(OS_NAME)}: "
+            "its slot stays filled (<i>Removed here</i>), so other installs keep using it and you "
+            "can restore it.\n"
+            "• <b>Clearing a slot erases its fingerprint</b> from the sensor, for every install. "
+            "It can't be undone: that finger has to be enrolled again.\n"
+            f"• <b>When all {SENSOR_SLOTS} slots are full</b>, clear one you don't need before "
+            "enrolling another finger.")
+        d.run()
+        d.destroy()
+
     def sensor_full_dialog(self, parent=None):
         """All slots taken: say so, with a button to the Sensor tab. True when
         the user chose to open it."""
         d = MessageDialog(transient_for=parent or self, modal=True, buttons=Gtk.ButtonsType.NONE,
                           message_type=Gtk.MessageType.WARNING, text="The sensor is full")
         d.format_secondary_text(f"All {SENSOR_SLOTS} of its slots are in use, so no new finger can be "
-                                "enrolled. Delete fingerprints you no longer need on the Sensor tab, "
+                                "enrolled. Clear the slots you no longer need on the Sensor slots tab, "
                                 "then enrol again.")
         add_details(d, "The sensor keeps every fingerprint enrolled on it, from this install, other "
                        "Linux installs and Windows Hello, and has room for 10. Fingerprints shown "
-                       "in grey on the Sensor tab aren't used by this install; deleting one of yours "
+                       "in grey on the Sensor slots tab aren't used by this install; clearing one of yours "
                        "stops it working here.")
         d.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        d.add_button("Open Sensor tab", 1).get_style_context().add_class("suggested-action")
+        d.add_button("Open Sensor slots", 1).get_style_context().add_class("suggested-action")
         d.set_default_response(1)
         r = d.run()
         d.destroy()
@@ -2448,7 +2475,7 @@ class Manager(Gtk.Window):
                        "or for another user). Nothing was changed.")
             elif res == "enroll-data-full":
                 finish("failed", RED, "The sensor is full",
-                       "Delete fingerprints you no longer need on the Sensor tab, then try "
+                       "Clear the slots you no longer need on the Sensor slots tab, then try "
                        "again.")
 
                 def offer():
