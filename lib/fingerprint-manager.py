@@ -1005,8 +1005,10 @@ class Manager(Gtk.Window):
         # Selection is ours, not GTK's: a click toggles a card/row on and off.
         self.cards = Gtk.FlowBox(selection_mode=Gtk.SelectionMode.NONE, homogeneous=True,
                                  min_children_per_line=5, max_children_per_line=5,
-                                 column_spacing=4, row_spacing=4, valign=Gtk.Align.START,
+                                 column_spacing=4, row_spacing=4, valign=Gtk.Align.CENTER,
                                  activate_on_single_click=True)
+        # Centred in the room the taller Sensor tab leaves, not stuck to the top
+        # with a gap below.
         self.cards.get_style_context().add_class("fpm-cards")
         self.cards.connect("child-activated", self._on_card_clicked)
         self.cards.connect("button-press-event", self._on_fingers_double_click)
@@ -1035,6 +1037,8 @@ class Manager(Gtk.Window):
                                      "Touch the sensor with any of your fingers — checked against "
                                      "all of them, as login and sudo do. Double-click a finger to "
                                      "test just that one.")
+        row.remove(self.test_btn)                   # on the right, like the Sensor tab's Wipe
+        row.pack_end(self.test_btn, False, False, 0)
         # Remove is in the right-click menu (and the Delete key), not a button.
         for w in (self.cards, self.rows):
             w.connect("key-press-event", self._on_fingers_key)
