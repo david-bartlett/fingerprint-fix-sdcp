@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Update installs in a terminal:** the Manager's **Update** opens your terminal and installs the new version there
+- The Manager's **Update** now downloads the new files to a folder of their own in `/tmp` (removed once installed, and emptied at restart, so `~/Downloads` stays tidy) and opens your terminal to install them: it shows the command, `sudo` asks for your fingerprint or password, dnf / apt / pacman ask you to confirm, and the window closes itself 10 seconds after it's done (it stays open if something went wrong). Once it's installed and the terminal window has closed, the Manager asks in a window of its own whether to restart into the new version (before, only a bar at the bottom said so). The terminal is the one your desktop is set to use (KDE, Xfce, Cinnamon, MATE), else `xdg-terminal-exec`, the desktop's own (Ptyxis, GNOME Terminal, Console, Konsole…), `x-terminal-emulator`, or any other known one. With none found, or if it can't be started, it works as before: the files go to `~/Downloads` with the command to paste
+
 ## 2.3.2 — 2026-10-28
 
 - **Removing the Manager with update checks off:** a notification offers to turn them back on for the driver
