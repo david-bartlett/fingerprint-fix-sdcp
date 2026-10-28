@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.5.0 — 2026-10-28
 
 - **Tidier right-click menus:** a heading with the finger, an icon for each option, and removing set apart in red
