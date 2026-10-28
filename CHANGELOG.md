@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Tidier right-click menus:** a heading with the finger, an icon for each option, and removing set apart in red
+- The right-click menus on both tabs start with what was clicked (e.g. *Right index finger · On the sensor*, or *Unknown template*), give each option an icon from your theme instead of a › mark, keep Remove / Delete apart at the bottom in red, and have rounded corners with a softer highlight. *Remove from …* now ends in "…", as it asks first
+
 - **Information panel:** the Manager's messages now appear in a panel at the bottom of the window
 - Messages (what was done, warnings, errors, Restart after an update) are in a rounded panel at the very bottom of the window, tinted blue, amber or red by kind, with their buttons and a × to close them. With nothing to say it shows *Information panel*. The space they used to keep free between the page and its buttons is gone, so the Sensor tab's buttons sit right under the slots
 - Fingerprints tab: the finger cards sit in the middle of the space the taller Sensor tab leaves, instead of at the top with a gap below, and *Test any fingerprint* is on the right, like the Sensor tab's *Wipe sensor…*
