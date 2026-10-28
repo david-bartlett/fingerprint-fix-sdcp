@@ -2953,6 +2953,21 @@ class Manager(Gtk.Window):
         self._announced_version = version
         self.update_btn.hide()
         self.refresh()                              # the install restarted fprintd
+        # A window of its own, so it isn't missed; with Later, the bar stays
+        # with its Restart button.
+        d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
+                          buttons=Gtk.ButtonsType.NONE,
+                          text=f"fingerprint-fix-sdcp {version} has been installed")
+        d.format_secondary_text("Restart the Fingerprint Manager to use the new version.")
+        d.add_button("Later", Gtk.ResponseType.CLOSE)
+        d.add_button("Restart", 1)
+        d.set_default_response(1)
+        d.present()
+        resp = d.run()
+        d.destroy()
+        if resp == 1:
+            self._restart_into(command)
+            return False
         self.message(f"fingerprint-fix-sdcp {version} has been installed — restart the "
                      "Fingerprint Manager to use it.", Gtk.MessageType.INFO,
                      action=("Restart", lambda c=command: self._restart_into(c)))
