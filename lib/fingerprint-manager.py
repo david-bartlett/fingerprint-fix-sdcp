@@ -1108,8 +1108,9 @@ class Manager(Gtk.Window):
             self.tpl_views.add_named(sw, name)
         page.pack_start(self.tpl_views, True, True, 0)
         row = Gtk.Box(spacing=6)
-        self.del_btn = self._button(row, "Delete…", self.on_delete_templates,
-                                    "Delete the selected templates from the sensor")
+        self.del_btn = self._button(row, "Clear…", self.on_delete_templates,
+                                    "Clear the selected slots: their fingerprints are deleted "
+                                    "from the sensor, everywhere")
         self.wipe_btn = Gtk.Button(label="Wipe sensor…")
         self.wipe_btn.get_style_context().add_class("destructive-action")
         self.wipe_btn.set_tooltip_text("Delete every template on the sensor — every install and Windows")
@@ -1538,7 +1539,7 @@ class Manager(Gtk.Window):
             title = ("Unknown template", "Another distro, Windows Hello or a reinstall")
         if entries:
             entries.append(None)
-        entries.append(("Delete from sensor…", lambda: self.on_delete_templates(None),
+        entries.append(("Clear slot…", lambda: self.on_delete_templates(None),
                         self.status["features"].get("STORAGE_DELETE", False), None,
                         "user-trash-symbolic", True))
         return self._popup(entries, event, title=title)
@@ -1559,10 +1560,11 @@ class Manager(Gtk.Window):
         """Replace one of your fingers: delete its template, then enrol it afresh."""
         name = long_finger(rec["name"]).lower()
         if not self.confirm(f"Enrol your {name} again?",
-                            "The old one is deleted from the sensor and you enrol the finger afresh.",
-                            "Enrol again",
-                            details="Any other Linux install sharing this finger stops matching "
-                                    "it until you export it from here and import it there again."):
+                            "The old one is deleted from the sensor and you enrol the finger "
+                            "afresh.\n\nOther Linux installs sharing this finger lose it: "
+                            "afterwards, export from here (☰ → Export fingerprints…) and "
+                            "import on each of them.",
+                            "Enrol again"):
             return
         if not rec.get("template"):
             return self.reenrol(rec)
@@ -2014,9 +2016,9 @@ class Manager(Gtk.Window):
                 parts.append(summarise(res["output"]))
             if res.get("deleted") not in (None, [], 0):
                 n = res["deleted"] if isinstance(res["deleted"], int) else len(res["deleted"])
-                parts.append(f"Deleted {n} template(s) from the sensor.")
+                parts.append(f"Cleared {n} slot{'s' if n != 1 else ''} on the sensor.")
             if res.get("left"):
-                parts.append(f"{res['left']} template(s) could not be deleted.")
+                parts.append(f"{res['left']} slot{'s' if res['left'] != 1 else ''} could not be cleared.")
             if res.get("moved"):
                 head, sep, tail = res["moved"][0].partition("/removed-fingerprints/")
                 folder = f"{head}{sep}{tail.split('/')[0]}/" if sep \
@@ -2533,13 +2535,15 @@ class Manager(Gtk.Window):
             text.append("Used here: " + "; ".join(r[1] for r in used) + ".")
         if unused:
             text.append(f"{len(unused)} not used here: probably another install or Windows Hello.")
-        if self.confirm(f"Delete {len(rows)} template(s) from the sensor?",
-                        "\n".join(text) + "\n\nThey stop working everywhere. This can't be undone.",
-                        "Delete",
+        n = len(rows)
+        if self.confirm(f"Clear {'this slot' if n == 1 else f'{n} slots'}?",
+                        "\n".join(text) + f"\n\n{'Its fingerprint is' if n == 1 else 'Their fingerprints are'} "
+                        "deleted from the sensor and stop working everywhere. This can't be undone.",
+                        "Clear",
                         details="Records here that used them are moved aside. Templates not used "
                                 "here may also be left over from a reinstall; fingerprint login "
                                 "wherever they were used stops working until you enrol again."):
-            self.run_job("delete_templates", self.after_job("Deleted from the sensor"),
+            self.run_job("delete_templates", self.after_job("Cleared"),
                          ids=[r[0] for r in rows])
 
     def on_wipe(self, _btn):
@@ -2597,6 +2601,7 @@ class Manager(Gtk.Window):
         if not path:
             return
         mine = [r for r in self.status["records"] if r["user"] == self.status["user"]]
+        dead = [r["finger"] for r in mine if r["on_sensor"] is False]
         replace = False
         if mine:
             names = ", ".join(long_finger(r["name"]).lower() for r in mine)
@@ -2605,7 +2610,8 @@ class Manager(Gtk.Window):
                                   text="You already have fingerprints on this install")
             d.format_secondary_text(
                 f"You have {names} here.\n\n"
-                "Add the missing ones keeps yours. Replace all swaps them for the ones in the file.")
+                "Add the missing ones keeps yours (ones gone from the sensor are replaced). "
+                "Replace all swaps them all for the ones in the file.")
             add_details(d, "Replaced records are moved to /var/lib/samsung-galaxybook/"
                            "replaced-fingerprints/. Nothing is deleted from the sensor.")
             d.add_button("Cancel", Gtk.ResponseType.CANCEL)
@@ -2618,7 +2624,7 @@ class Manager(Gtk.Window):
             if r not in (Gtk.ResponseType.OK, 2):
                 return
             replace = r == 2
-        self.run_job("import", self.after_job("Imported"), file=path, replace=replace)
+        self.run_job("import", self.after_job("Imported"), file=path, replace=replace, dead=dead)
 
     # ── fingerprints in ~/fingerprint-export.tgz that this install lacks ──
     def _offer_export(self, offer):
@@ -2637,10 +2643,13 @@ class Manager(Gtk.Window):
         n = len(offer["fingers"])
         short = offer["file"].replace(os.path.expanduser("~") + "/", "~/")
         if self.confirm(f"Import {n} fingerprint{'s' if n > 1 else ''} from another install?",
-                        f"{short} has {names}, not on this install yet. Yours stay as they are.",
+                        f"{short} has {names}, missing or gone from the sensor on this install. "
+                        "Your others stay as they are.",
                         "Import", destructive=False):
+            mine = [r for r in self.status["records"] if r["user"] == self.status["user"]]
             self.run_job("import", self.after_job("Imported"), file=offer["file"],
-                         fingers=[f["finger"] for f in offer["fingers"]])
+                         fingers=[f["finger"] for f in offer["fingers"]],
+                         dead=[r["finger"] for r in mine if r["on_sensor"] is False])
         return False
 
     # ── new versions ──
@@ -2749,8 +2758,8 @@ class Manager(Gtk.Window):
                                  "It works with the reader, but not with your current "
                                  "fingerprints. Keep the fix for now.", Gtk.MessageType.WARNING,
                                  details="To switch to your distro's driver anyway: first delete "
-                                         "your fingers here (on the Sensor tab, select your "
-                                         "templates, Delete…), so they don't stay on the sensor "
+                                         "your fingers here (on the Sensor tab, select their "
+                                         "slots, Clear…), so they don't stay on the sensor "
                                          "taking up its 10 slots. Then remove the driver and enrol "
                                          f"again in your desktop's settings:\n{remove_command()}")
             elif r == "unsupported" and res.get("driver") in ("modified", "foreign"):

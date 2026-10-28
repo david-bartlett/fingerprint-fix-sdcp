@@ -288,7 +288,10 @@ def export_offer(user, serial, chip, records):
     if not stat.S_ISREG(st.st_mode) or st.st_size > (1 << 20) or st.st_uid not in (0, pw.pw_uid):
         return None
     mine = [r for r in records if r["user"] == user]
-    have = {r["finger"] for r in mine}
+    # A finger counts as here only while its template is on the sensor: a dead
+    # record (re-enrolled on another install, say) is offered from the export.
+    have = {r["finger"] for r in mine
+            if r["print"] is not None and any(r["print"].equal(c) for c in chip)}
     offer = []
     try:
         with tarfile.open(path, "r:gz") as tar:
@@ -759,6 +762,9 @@ def do_import(req):
     fingers = [f for f in req.get("fingers") or [] if re.fullmatch(FINGER_FILE, str(f))]
     if fingers:
         argv += ["--fingers", ",".join(fingers)]
+    dead = [f for f in req.get("dead") or [] if re.fullmatch(FINGER_FILE, str(f))]
+    if dead and not req.get("replace"):
+        argv += ["--dead", ",".join(dead)]          # gone from the sensor: replaced
     if req.get("file"):
         argv.append(req["file"])
     return run_script(argv)

@@ -14,12 +14,15 @@
 #                       fprintd's numbers, 1-9 and a)
 #   sudo bash import-fingerprint.sh --replace [FILE.tgz]     (replace this install's
 #                       records; old ones are moved aside, the sensor is not touched)
+#   sudo bash import-fingerprint.sh --dead 2,7 [FILE.tgz]    (these records here are
+#                       dead — their template is gone from the sensor: replace them)
 #
 # The fingerprints are imported for the user running it (or --user NAME). That
 # user does not need the same name as on the install they were exported from.
 #
 # Fingers the user already has here are kept, and only the missing ones are
-# imported (all of them are replaced with --replace). Checks first that the
+# imported (all of them are replaced with --replace; dead ones named with
+# --dead, e.g. by the Fingerprint Manager, count as missing). Checks first that the
 # records are for this laptop's sensor and still stored on it: fingers whose
 # template is gone are left out.
 # =============================================================================
@@ -68,6 +71,9 @@ while [[ $# -gt 0 ]]; do
         --user) TARGET_USER="${2:-}"; shift 2 || error "--user needs a name" ;;
         --no-check) NO_CHECK=1; shift ;;
         --replace)  REPLACE=1; shift ;;
+        --dead)     DEAD="${2:-}"; shift 2 || error "--dead needs a list, e.g. --dead 7"
+                    [[ -z "$DEAD" || "$DEAD" =~ ^[1-9a](,[1-9a])*$ ]] \
+                        || error "--dead takes fprintd's finger numbers 1-9 and a, comma-separated" ;;
         --fingers)  ONLY="${2:-}"; shift 2 || error "--fingers needs a list, e.g. --fingers 7,1"
                     [[ "$ONLY" =~ ^[1-9a](,[1-9a])*$ ]] \
                         || error "--fingers takes fprintd's finger numbers 1-9 and a, comma-separated" ;;
@@ -154,13 +160,18 @@ ALL=("$SRC"/*)
 shopt -u nullglob
 [[ ${#ALL[@]} -gt 0 ]] || error "Archive contains no fingerprint records."
 
-# Which to import: --fingers narrows it down; fingers already here are kept.
-FILES=(); KEPT=()
+# Which to import: --fingers narrows it down; fingers already here are kept,
+# except dead ones (--dead), which this export replaces.
+FILES=(); KEPT=(); SWAP=()
 for f in "${ALL[@]}"; do
     n=$(basename "$f")
     [[ -z "${ONLY:-}" || ",$ONLY," == *",$n,"* ]] || continue
     if [[ "${REPLACE:-0}" != "1" && -e "$DEST/egismoc/$SERIAL/$n" ]]; then
-        KEPT+=("$n"); continue
+        if [[ ",${DEAD:-}," == *",$n,"* ]]; then
+            SWAP+=("$n")
+        else
+            KEPT+=("$n"); continue
+        fi
     fi
     FILES+=("$f")
 done
@@ -229,6 +240,21 @@ if $HAS_RECORDS && [[ "${REPLACE:-0}" == "1" ]]; then
     mv "$DEST" "$OLD/"
     ls -1dt "$REPLACED_DIR"/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf
     info "Moved ${TARGET_USER}'s previous records to $OLD"
+elif [[ ${#SWAP[@]} -gt 0 ]]; then
+    # Dead records this export replaces (only those that passed the check):
+    # moved aside the same way.
+    REPLACED_DIR="/var/lib/samsung-galaxybook/replaced-fingerprints"
+    OLD="${REPLACED_DIR}/$(date +%Y-%m-%d_%H%M%S)/${TARGET_USER}/egismoc/${SERIAL}"
+    MOVED=()
+    for n in "${SWAP[@]}"; do
+        [[ -e "$TMP/ready/$n" ]] || continue
+        mkdir -p "$OLD"
+        chmod 700 "$REPLACED_DIR"
+        mv "$DEST/egismoc/$SERIAL/$n" "$OLD/"
+        MOVED+=("$n")
+    done
+    ls -1dt "$REPLACED_DIR"/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf
+    [[ ${#MOVED[@]} -gt 0 ]] && info "Replacing records gone from the sensor: $(list_of "${MOVED[@]}") (old ones moved to $REPLACED_DIR)"
 fi
 install -d -m 700 -o root -g root "$DEST" "$DEST/egismoc" "$DEST/egismoc/$SERIAL"
 NAMES=()
