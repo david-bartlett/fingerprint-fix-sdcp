@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.4.0 — 2026-10-28
 
 - **Update installs in a terminal:** the Manager's **Update** opens your terminal and installs the new version there
