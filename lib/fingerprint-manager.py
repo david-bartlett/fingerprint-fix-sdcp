@@ -2701,15 +2701,15 @@ class Manager(Gtk.Window):
 
         tt = lambda t: f"<tt>{GLib.markup_escape_text(t)}</tt>"     # file names, commands
         if term:
-            where = GLib.markup_escape_text(terminal.pretty_name(term))
+            where = GLib.markup_escape_text(terminal.in_window(term))
             if fmt == "pacman":
                 what = (f"Downloads the release's {tt('PKGBUILD')}, then builds and installs it "
-                        f"with {tt('makepkg')} in a {where} window (needs {tt('base-devel')} "
+                        f"with {tt('makepkg')} {where} (needs {tt('base-devel')} "
                         f"and {tt('git')}; it only takes seconds).")
             else:
                 files = asset["files"] if "files" in asset else [asset]
                 names = "\n".join(f"    {tt(f['name'])}" for f in files)
-                what = f"Downloads and installs, in a {where} window:\n{names}"
+                what = f"Downloads and installs, {where}:\n{names}"
             how = (what + "\n\nUse your fingerprint or type your password there, then confirm. "
                    "The window closes itself when it's done.")
         elif asset and "files" in asset and fmt == "pacman":
@@ -2879,8 +2879,8 @@ class Manager(Gtk.Window):
                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         except OSError:
             return False
-        name = terminal.pretty_name(term)
-        self.message(f"Installing in {name}: use your fingerprint or password there, and confirm. "
+        self.message(f"Installing {terminal.in_window(term)}: use your fingerprint or password there, "
+                     "and confirm. "
                      "The Manager offers to restart when it's done.", Gtk.MessageType.INFO)
 
         def check():                                 # it failed straight away: the old way

@@ -150,14 +150,31 @@ def command_line(term, argv):
     return prefix + list(argv)
 
 
+def _default_name(term):
+    """For the system's default (xdg-terminal-exec, x-terminal-emulator): the
+    table key of the terminal it opens, when that can be found out."""
+    if term[0] == "xdg-terminal-exec":
+        return _known(_read(["xdg-terminal-exec", "--print-id"]))      # e.g. org.gnome.Ptyxis.desktop
+    if term[0] == "x-terminal-emulator":
+        return _known(os.path.realpath(term[1][0]))
+    return term[0]
+
+
 def pretty_name(term):
+    """'Konsole', 'Ptyxis'…; '' when it isn't known which terminal opens."""
     return {"ptyxis": "Ptyxis", "gnome-terminal": "GNOME Terminal", "kgx": "Console",
             "konsole": "Konsole", "xfce4-terminal": "Xfce Terminal", "mate-terminal": "MATE Terminal",
             "qterminal": "QTerminal", "lxterminal": "LXTerminal", "tilix": "Tilix",
             "terminator": "Terminator", "kitty": "kitty", "alacritty": "Alacritty",
-            "wezterm": "WezTerm", "foot": "foot", "xterm": "XTerm"}.get(term[0], "a terminal")
+            "wezterm": "WezTerm", "foot": "foot", "xterm": "XTerm"}.get(_default_name(term), "")
+
+
+def in_window(term):
+    """'in a Konsole window', or 'in your terminal' when the name isn't known."""
+    name = pretty_name(term)
+    return f"in a {name} window" if name else "in your terminal"
 
 
 if __name__ == "__main__":          # python3 terminal.py: which one would be used
     t = find_terminal()
-    print(t and f"{pretty_name(t)}: {' '.join(command_line(t, ['echo', 'hello']))}" or "no terminal found")
+    print(t and f"{in_window(t)}: {' '.join(command_line(t, ['echo', 'hello']))}" or "no terminal found")

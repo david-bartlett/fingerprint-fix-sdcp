@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- The *Update* dialog names the terminal it opens when that is the system's default (`xdg-terminal-exec`, as on Ubuntu 26.04, or `x-terminal-emulator`), e.g. "in a Ptyxis window"; when it can't tell, "in your terminal" (it said "in a a terminal window")
+
 - **No password prompt on the login screen:** the login check no longer runs for the login screen itself
 - The login check and the hourly update check are enabled for every user, and on Ubuntu 26.04 the login screen runs a desktop session of its own (GDM's `gdm-greeter` user). There, the login check tried to start the fingerprint monitor and, as that user isn't an admin, an *Authentication Required* prompt for samsung-galaxybook-fprint-sdcp-monitor.service appeared before anyone had logged in. Both checks now only run for people's accounts (UID_MIN to UID_MAX in /etc/login.defs). The login check also starts the fingerprint monitor with `systemctl start --no-ask-password` now, so it never asks for a password: for a user outside the wheel / sudo groups (whom the polkit rule doesn't cover) the check is skipped instead
 
