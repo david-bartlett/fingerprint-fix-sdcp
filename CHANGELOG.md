@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.5.3 — 2026-10-28
 
 - **Clear all slots:** the Sensor tab's *Wipe sensor…* is now *Clear all slots…*, matching *Clear…* for selected slots
