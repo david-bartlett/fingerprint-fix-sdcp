@@ -3,4 +3,6 @@ Description=Galaxy Book Fingerprint Manager — check GitHub for a new fingerpri
 
 [Service]
 Type=oneshot
+# Waits up to 3 minutes for the network after login (update_check.py).
+TimeoutStartSec=5min
 ExecStart=/usr/bin/python3 @MGR_DIR@/lib/update_check.py --notify

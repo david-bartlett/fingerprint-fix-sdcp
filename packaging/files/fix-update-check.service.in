@@ -6,4 +6,6 @@ ConditionPathExists=!@MGR_LOCAL_MARKER@
 
 [Service]
 Type=oneshot
+# Waits up to 3 minutes for the network after login (update_check.py).
+TimeoutStartSec=5min
 ExecStart=/usr/bin/python3 @FIX_UPDATE_DIR@/update_check.py --notify
