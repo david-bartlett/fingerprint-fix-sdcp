@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.6.0 — 2026-10-28
 
 - **Slots shared between installs say whose finger they are:** the Sensor tab shows which finger a slot holds and which other distro uses it
