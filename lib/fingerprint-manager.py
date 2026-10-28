@@ -757,6 +757,25 @@ def os_name():
 OS_NAME = os_name()
 
 
+def _uniq(xs):
+    return list(dict.fromkeys(xs))
+
+
+def shared_where(sh, short=False):
+    """Where else a template is known, from the shared file on the EFI
+    partition: 'used by Ubuntu, Linux Mint', 'removed on Fedora', 'enrolled
+    on Fedora' ('' if nothing). short: just the distro names, for cards."""
+    used = _uniq(o["os"] for o in sh.get("others", []) if o["state"] == "used")
+    removed = _uniq(o["os"] for o in sh.get("others", []) if o["state"] == "removed")
+    if used:
+        return ", ".join(used) if short else "used by " + ", ".join(used)
+    if removed:
+        return f"Removed ({removed[0]})" if short else "removed on " + ", ".join(removed)
+    if sh.get("enrolled_on"):
+        return sh["enrolled_on"] if short else f"enrolled on {sh['enrolled_on']}"
+    return ""
+
+
 def _login_screen():
     """The display manager, from display-manager.service: gdm, sddm,
     plasmalogin, lightdm… ('' when unknown)."""
@@ -1255,22 +1274,26 @@ class Manager(Gtk.Window):
     def _tpl_tip(self, t):
         """Hover text for a template on the Sensor tab."""
         if t["used_by"]:
-            return f"Template {t['id']} — used by {', '.join(t['used_by'])}"
+            also = shared_where(t["shared"]) if t.get("shared") else ""
+            also = f"; also {also}" if also.startswith("used by") else ""
+            return f"Template {t['id']} — used by {', '.join(t['used_by'])}{also}"
         rm = t.get("removed")
         if rm:
             how = "removed from" if rm["kind"] == "removed" else "replaced on"
             return (f"Template {t['id']} — {rm['user']}'s {long_finger(rm['name']).lower()}, "
                     f"{how} {OS_NAME} on {nice_date(rm['date'], True)}. The template is still "
                     "on the sensor: right-click to restore it, or delete it to free the slot.")
-        ident = t.get("ident")
-        if ident:
-            who = f"{ident['user']}'s " if ident["user"] else ""
-            when = f", enrolled {nice_date(ident['date'], True)}" if ident["date"] else ""
-            return (f"Template {t['id']} — {who}{long_finger(ident['finger']).lower()}{when}. "
-                    f"Not used by {OS_NAME}: enrolled on another install, or removed there "
-                    "or left over from a reinstall.")
-        return (f"Template {t['id']} — not used by {OS_NAME}, and it doesn't say whose finger it "
-                "is: probably Windows Hello's own (or from another fingerprint driver)")
+        sh = t.get("shared")
+        if sh:
+            who = f"{sh['user']}'s " if sh["user"] else ""
+            when = f", enrolled {nice_date(sh['enrolled'], True)}" if sh["enrolled"] else ""
+            where = shared_where(sh)
+            return (f"Template {t['id']} — {who}{long_finger(sh['finger']).lower()}{when}"
+                    f"{' on ' + sh['enrolled_on'] if sh['enrolled_on'] else ''}. Not used by "
+                    f"{OS_NAME}{': ' + where if where and not where.startswith('enrolled') else ''}.")
+        return (f"Template {t['id']} — not used by {OS_NAME}, and no install on this laptop has "
+                "noted it: another distro that hasn't run this Fingerprint Manager yet, Windows "
+                "Hello's own, or left over from a reinstall")
 
     def _fill_templates(self, templates):
         self.templates = templates
@@ -1293,18 +1316,18 @@ class Manager(Gtk.Window):
                 title, long_title = short_finger(rm["name"]), long_finger(rm["name"])
                 sub = (f"Removed from {OS_NAME}" if rm["kind"] == "removed"
                        else f"Replaced on {OS_NAME}")
-            elif t.get("ident"):
-                # Not used here, but the template names its finger, user and
-                # date (enrolled on another install with this driver).
-                ident = t["ident"]
+            elif t.get("shared"):
+                # Not used here, but another install noted it in the shared
+                # file on the EFI partition.
+                sh = t["shared"]
                 kind, pill = "unknown", "Not used here"
-                title, long_title = short_finger(ident["finger"]), long_finger(ident["finger"])
-                when = f"enrolled {nice_date(ident['date'])}" if ident["date"] else ""
-                sub = " · ".join(x for x in (ident["user"], when) if x) or "Another install"
+                title, long_title = short_finger(sh["finger"]), long_finger(sh["finger"])
+                when = f"enrolled {nice_date(sh['enrolled'])}" if sh["enrolled"] else ""
+                sub = " · ".join(x for x in (sh["user"], shared_where(sh), when) if x) or "Another install"
             else:
                 kind, pill = "unknown", "Not used here"
                 title, long_title = "Unknown", "Unknown template"
-                sub = "Windows Hello?"
+                sub = "Another install?"
             # card
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             box.get_style_context().add_class("fpm-fcard")
@@ -1312,8 +1335,8 @@ class Manager(Gtk.Window):
             box.pack_start(self._label(title, "fpm-name", justify=Gtk.Justification.CENTER,
                                        wrap=True, max_width_chars=8), False, False, 0)
             card_sub = (t["removed"]["user"] if t.get("removed")                # cards are narrow
-                        else (nice_date(t["ident"]["date"]) or t["ident"]["user"] or "Another install")
-                        if t.get("ident") and not owners
+                        else (shared_where(t["shared"], short=True) or t["shared"]["user"]
+                              or "Another install") if t.get("shared") and not owners
                         else sub)
             box.pack_start(self._label(card_sub, "dim-label", "fpm-small", justify=Gtk.Justification.CENTER,
                                        ellipsize=Pango.EllipsizeMode.END, max_width_chars=10),
@@ -1331,9 +1354,10 @@ class Manager(Gtk.Window):
             hb.pack_start(FingerprintIcon(kind, 32), False, False, 0)
             texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
             texts.pack_start(self._label(long_title, "fpm-name", xalign=0), False, False, 0)
-            detail = (sub if owners or t.get("removed")
-                      else f"{sub} · on another install?" if t.get("ident")
-                      else "Windows Hello, or another fingerprint driver?")
+            also = shared_where(t["shared"]) if owners and t.get("shared") else ""
+            detail = (f"{sub} · also {also}" if also.startswith("used by")
+                      else sub if owners or t.get("removed") or t.get("shared")
+                      else "Not noted by any install: another distro, Windows Hello, or a reinstall")
             texts.pack_start(self._label(f"{detail} · template {t['id']}", "dim-label", "fpm-small",
                                          xalign=0, ellipsize=Pango.EllipsizeMode.END), False, False, 0)
             hb.pack_start(texts, True, True, 0)
@@ -1555,13 +1579,13 @@ class Manager(Gtk.Window):
                             None if rm["restorable"] else
                             f"That finger is enrolled on {OS_NAME} again", "edit-undo-symbolic"))
             title = (long_finger(rm["name"]), f"Removed from {OS_NAME}")
-        elif t.get("ident"):
-            ident = t["ident"]
-            when = f"enrolled {nice_date(ident['date'])}" if ident["date"] else ""
-            title = (long_finger(ident["finger"]),
-                     " · ".join(x for x in (ident["user"], when, "not used here") if x))
+        elif t.get("shared"):
+            sh = t["shared"]
+            when = f"enrolled {nice_date(sh['enrolled'])}" if sh["enrolled"] else ""
+            title = (long_finger(sh["finger"]),
+                     " · ".join(x for x in (sh["user"], shared_where(sh), when, "not used here") if x))
         else:
-            title = ("Unknown template", "Windows Hello, or another fingerprint driver?")
+            title = ("Unknown template", "Not noted by any install: another distro, Windows Hello…")
         if entries:
             entries.append(None)
         entries.append(("Clear slot…", lambda: self.on_delete_templates(None),
