@@ -374,8 +374,18 @@ button.fpm-update:hover { box-shadow: 0 0 0 1px rgba(231,76,60,1.0), 0 0 8px rgb
 button.fpm-update:disabled { box-shadow: none; font-weight: normal; }
 .fpm-card { border: 1px solid alpha(currentColor, 0.15); border-radius: 8px; padding: 10px 12px; }
 .fpm-hint { font-size: 100%; }
-menu.fpm-menu { padding: 3px 0; min-width: 0; background-color: @theme_bg_color; }
-menu.fpm-menu menuitem { padding: 5px 14px 5px 10px; min-width: 0; min-height: 0; }
+menu.fpm-menu { padding: 4px; min-width: 0; background-color: @theme_bg_color; border-radius: 8px; }
+menu.fpm-menu menuitem { padding: 6px 14px 6px 8px; min-width: 0; min-height: 0; border-radius: 6px; }
+menu.fpm-menu menuitem:hover { background-color: alpha(@theme_selected_bg_color, 0.16); color: @theme_fg_color; }
+menu.fpm-menu menuitem:hover label, menu.fpm-menu menuitem:hover image { color: @theme_fg_color; }
+menu.fpm-menu menuitem image { color: alpha(@theme_fg_color, 0.70); }
+menu.fpm-menu menuitem.fpm-menu-title { padding: 4px 14px 6px 8px; }
+menu.fpm-menu menuitem.fpm-menu-title:disabled label { color: @theme_fg_color; }
+menu.fpm-menu menuitem.fpm-menu-title:disabled label.fpm-menu-sub { color: alpha(@theme_fg_color, 0.55); }
+menu.fpm-menu menuitem.fpm-danger label, menu.fpm-menu menuitem.fpm-danger image { color: #c01c28; }
+menu.fpm-menu menuitem.fpm-danger:hover { background-color: alpha(#c01c28, 0.12); }
+menu.fpm-menu menuitem.fpm-danger:hover label, menu.fpm-menu menuitem.fpm-danger:hover image { color: #c01c28; }
+menu.fpm-menu separator { margin: 4px 6px; }
 .fpm-status { font-size: 100%; }
 .fpm-soft { color: alpha(@theme_fg_color, 0.72); }   /* easier to read than dim-label */
 .fpm-fcard { background-color: @theme_base_color; border: 1px solid alpha(@theme_fg_color, 0.15);
@@ -1380,15 +1390,49 @@ class Manager(Gtk.Window):
         GLib.timeout_add(120, go)
         return False
 
-    def _popup(self, entries, event):
-        """Show a right-click menu. entries: (label, callback, sensitive, tooltip)."""
+    def _popup(self, entries, event, title=None):
+        """Show a right-click menu. entries: (label, callback, sensitive,
+        tooltip[, icon, danger]), or None for a separator. title: (heading,
+        subtitle) shown at the top, e.g. the finger and its state. Each
+        option has an icon (or the old mark); danger ones are red, after a
+        separator."""
         menu = Gtk.Menu()
         menu.get_style_context().add_class("fpm-menu")
         menu.set_reserve_toggle_size(False)            # no empty check-box column
-        for label, cb, sensitive, tip in entries:
-            mi = Gtk.MenuItem(label="")
-            # a mark before each option, to set them apart
-            mi.get_child().set_markup(MENU_MARK + "  " + GLib.markup_escape_text(label))
+        if title:
+            mi = Gtk.MenuItem()
+            mi.get_style_context().add_class("fpm-menu-title")
+            box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
+            head = Gtk.Label(xalign=0)
+            head.set_markup(f"<b>{GLib.markup_escape_text(title[0])}</b>")
+            box.pack_start(head, False, False, 0)
+            if title[1]:
+                sub = Gtk.Label(label=title[1], xalign=0)
+                sub.get_style_context().add_class("fpm-menu-sub")
+                sub.get_style_context().add_class("fpm-small")
+                box.pack_start(sub, False, False, 0)
+            mi.add(box)
+            mi.set_sensitive(False)
+            menu.append(mi)
+            menu.append(Gtk.SeparatorMenuItem())
+        for entry in entries:
+            if entry is None:
+                menu.append(Gtk.SeparatorMenuItem())
+                continue
+            label, cb, sensitive, tip = entry[:4]
+            icon = entry[4] if len(entry) > 4 else None
+            mi = Gtk.MenuItem()
+            box = Gtk.Box(spacing=10)
+            if icon:
+                box.pack_start(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU), False, False, 0)
+                box.pack_start(Gtk.Label(label=label, xalign=0), True, True, 0)
+            else:                                       # a mark before it, to set it apart
+                lab = Gtk.Label(xalign=0)
+                lab.set_markup(MENU_MARK + "  " + GLib.markup_escape_text(label))
+                box.pack_start(lab, True, True, 0)
+            mi.add(box)
+            if len(entry) > 5 and entry[5]:
+                mi.get_style_context().add_class("fpm-danger")
             mi.set_sensitive(sensitive)
             if tip:
                 mi.set_tooltip_text(tip)
@@ -1405,46 +1449,58 @@ class Manager(Gtk.Window):
             return False
         entries = []
 
-        def item(label, cb, sensitive=True, tip=None):
-            entries.append((label, cb, sensitive, tip))
+        def item(label, cb, sensitive=True, tip=None, icon=None, danger=False):
+            if danger and entries:
+                entries.append(None)                # destructive ones apart, at the end
+            entries.append((label, cb, sensitive, tip, icon, danger))
 
         empty = getattr(child, "empty_finger", None)
         key = getattr(child, "key", None)
         rec = next((r for r in self.records if (r["user"], r["finger"]) == key), None)
         if empty:
-            item(f"Enrol {long_finger(empty).lower()}…",
-                 lambda: self.on_enrol(None, finger=empty), self.enrol_ok)
-            item("Restore removed record…", lambda: self.restore_finger(empty),
+            title = (long_finger(empty), "Not enrolled")
+            item("Enrol…", lambda: self.on_enrol(None, finger=empty), self.enrol_ok,
+                 icon="list-add-symbolic")
+            item("Restore removed record…", lambda: self.restore_finger(empty), icon="edit-undo-symbolic",
                  tip="Put back a record of this finger that was removed earlier, "
                      "if its template is still on the sensor")
         elif rec is not None:
             self._set_selection({key})
             mine = rec["user"] == self.status["user"]
+            state = rec_kind(rec)[1]
+            title = (long_finger(rec["name"]), state if mine else f"{rec['user']} · {state}")
             if rec_kind(rec)[0] == "other":
                 if mine:
                     item("Delete and enrol again…", lambda: self.delete_other(rec, enrol=True),
                          tip="Delete this old fingerprint (and its template on the sensor), "
-                             "then enrol the finger again with this driver")
+                             "then enrol the finger again with this driver", icon="view-refresh-symbolic")
                 item("Delete…", lambda: self.delete_other(rec),
-                     tip="Delete this old fingerprint and its template on the sensor")
+                     tip="Delete this old fingerprint and its template on the sensor",
+                     icon="user-trash-symbolic", danger=True)
             elif rec["on_sensor"]:
                 item("Test", lambda: self.on_test(None, rec=rec), mine,
-                     None if mine else "You can only test your own fingers")
+                     None if mine else "You can only test your own fingers",
+                     icon="media-playback-start-symbolic")
                 if mine:
                     item("Enrol again…", lambda: self.enrol_again(rec),
                          tip="Replace this finger with a fresh enrolment — "
-                             "useful if it doesn't match reliably")
+                             "useful if it doesn't match reliably", icon="view-refresh-symbolic")
                 if rec.get("template"):
-                    item("Show on sensor", lambda: self.show_template(rec["template"]))
-                item(f"Remove from {OS_NAME}", lambda: self.on_remove_selected(None))
+                    item("Show on sensor", lambda: self.show_template(rec["template"]),
+                         icon="find-location-symbolic")
+                item(f"Remove from {OS_NAME}…", lambda: self.on_remove_selected(None),
+                     tip="Its template stays on the sensor; Undo or ☰ → Restore removed "
+                         "records brings it back", icon="list-remove-symbolic", danger=True)
             else:
-                item("Remove dead record…", lambda: self.on_remove_dead(None, [rec]))
                 if mine:
                     item("Enrol this finger again…", lambda: self.reenrol(rec),
-                         tip="Remove the dead record, then enrol the finger again")
+                         tip="Remove the dead record, then enrol the finger again",
+                         icon="view-refresh-symbolic")
+                item("Remove dead record…", lambda: self.on_remove_dead(None, [rec]),
+                     icon="user-trash-symbolic", danger=True)
         else:
             return False
-        return self._popup(entries, event)
+        return self._popup(entries, event, title=title)
 
     def _tpl_menu(self, widget, event):
         """Right-click a template on the Sensor tab: select it and show a menu."""
@@ -1463,16 +1519,25 @@ class Manager(Gtk.Window):
         entries = []
         rm = t.get("removed")
         if keys:
-            entries.append(("Show finger", lambda: self.show_finger(keys[0]), True, None))
+            entries.append(("Show finger", lambda: self.show_finger(keys[0]), True, None,
+                            "find-location-symbolic"))
+            name = next((r["name"] for r in self.records if (r["user"], r["finger"]) == keys[0]), "")
+            title = (long_finger(name) if name else "Template", f"Used here · {keys[0][0]}")
         elif rm:
             entries.append((f"Restore to {OS_NAME}",
                             lambda: self.undo_remove([rm["path"]], what="Restored"),
                             rm["restorable"],
                             None if rm["restorable"] else
-                            f"That finger is enrolled on {OS_NAME} again"))
+                            f"That finger is enrolled on {OS_NAME} again", "edit-undo-symbolic"))
+            title = (long_finger(rm["name"]), f"Removed from {OS_NAME}")
+        else:
+            title = ("Unknown template", "Another distro, Windows Hello or a reinstall")
+        if entries:
+            entries.append(None)
         entries.append(("Delete from sensor…", lambda: self.on_delete_templates(None),
-                        self.status["features"].get("STORAGE_DELETE", False), None))
-        return self._popup(entries, event)
+                        self.status["features"].get("STORAGE_DELETE", False), None,
+                        "user-trash-symbolic", True))
+        return self._popup(entries, event, title=title)
 
     def show_template(self, tid):
         """From a finger: the Sensor tab with its template selected."""
