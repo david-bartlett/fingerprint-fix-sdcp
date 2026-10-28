@@ -20,8 +20,9 @@
 #   the driver   fingerprint-fix-sdcp            libfprint build, fprintd drop-in
 #   the Manager  galaxybook-fingerprint-manager  window, helper, tools, monitor,
 #                                                boot and login checks
-# The driver requires the Manager; the Manager works without the driver (with
-# the distro's libfprint, once it has SDCP), so the driver can be removed alone.
+# Either can be installed without the other: the driver alone (enrol in the
+# desktop's settings), or the Manager alone (with the distro's libfprint once
+# it has SDCP). The driver package recommends the Manager.
 FIX_PACKAGE_MARKER="/usr/lib/fingerprint-fix-sdcp/installed"
 FIX_LOCAL_MARKER="/etc/samsung-galaxybook-egismoc-sdcp.installed"
 MGR_PACKAGE_MARKER="/usr/lib/galaxybook-fingerprint-manager/installed"

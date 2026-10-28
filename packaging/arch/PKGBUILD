@@ -11,8 +11,8 @@
 
 _repo="$(cd "$startdir/../.." && pwd)"
 # Two packages from one build: the driver (fingerprint-fix-sdcp) and the
-# Manager (galaxybook-fingerprint-manager). The driver requires the same
-# version of the Manager; the Manager works without the driver.
+# Manager (galaxybook-fingerprint-manager). Either works without the other;
+# makepkg -si installs both (the Manager is an optdepends of the driver).
 pkgbase=fingerprint-fix-sdcp
 pkgname=(fingerprint-fix-sdcp galaxybook-fingerprint-manager)
 pkgver=$(tr -d '[:space:]' < "$_repo/VERSION")
@@ -35,8 +35,9 @@ build() {
 
 package_fingerprint-fix-sdcp() {
     pkgdesc="Egis fingerprint reader driver for Samsung Galaxy Book (egismoc SDCP, for fprintd)"
+    # The Manager is optional: `makepkg -si` installs both, `pacman -U` either alone.
+    optdepends=("galaxybook-fingerprint-manager: Fingerprint Manager window, monitor, boot and login checks")
     depends=(
-        "galaxybook-fingerprint-manager=$pkgver-$pkgrel"
         # the driver library and the fprintd it is loaded into
         'fprintd' 'libfprint' 'glib2' 'libgusb' 'openssl' 'bash' 'systemd' 'usbutils'
     )

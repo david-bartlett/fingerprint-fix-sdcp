@@ -18,20 +18,22 @@ Package: fingerprint-fix-sdcp
 Architecture: amd64
 Depends: ${shlibs:Depends},
          ${misc:Depends},
-         galaxybook-fingerprint-manager (= ${binary:Version}),
          fprintd,
          libfprint-2-2,
+         libpam-fprintd,
          usbutils,
          systemd
+Recommends: galaxybook-fingerprint-manager (= ${binary:Version})
 Description: Egis fingerprint reader driver for Samsung Galaxy Book (egismoc SDCP)
  Makes the Egis match-on-chip fingerprint reader (1c7a:05a5 on Galaxy Book 4 /
  Book 5 Pro, 1c7a:05a1 on Book 4) work on Linux. Builds only the
  egismoc SDCP driver of libfprint and points fprintd at it; the distro's
  libfprint is not replaced.
  .
- Comes with the Galaxy Book Fingerprint Manager (galaxybook-fingerprint-manager).
- Removing this package alone switches fprintd back to the distro's libfprint
- and keeps the Manager.
+ Turns fingerprint login on at the first install. The Galaxy Book Fingerprint
+ Manager (galaxybook-fingerprint-manager) is recommended with it, but the driver
+ works on its own: enrol in your desktop's settings. Removing this package
+ alone switches fprintd back to the distro's libfprint and keeps the Manager.
 
 Package: galaxybook-fingerprint-manager
 Architecture: all

@@ -10,6 +10,11 @@ case "$1" in
         systemctl try-restart fprintd.service >/dev/null 2>&1 || true
         ;;
 esac
+if [ "$1" = purge ] && [ ! -e /usr/lib/galaxybook-fingerprint-manager/installed ]; then
+    # Purged with the Manager gone too: a later install counts as the first again.
+    rm -f /var/lib/samsung-galaxybook/fingerprint-login-set-up
+    rmdir /var/lib/samsung-galaxybook 2>/dev/null || true
+fi
 
 #DEBHELPER#
 exit 0

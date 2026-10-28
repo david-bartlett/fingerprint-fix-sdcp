@@ -2,7 +2,14 @@
 # =============================================================================
 # Samsung Galaxy Book — Fingerprint Fix (egismoc SDCP driver) — Install
 # =============================================================================
-# Self-contained. Run as root: sudo bash install.sh
+# Self-contained. Run as root:
+#   sudo bash install.sh                  the driver and the Fingerprint Manager
+#   sudo bash install.sh --driver-only    only the driver (enrol in your desktop's
+#                                         settings; no monitor or boot check)
+#   sudo bash install.sh --manager-only   only the Fingerprint Manager (e.g. once
+#                                         the distro's own libfprint has SDCP)
+# Fingerprint login is turned on either way. Installing one part later adds it
+# to what is already installed.
 #
 # Builds ONLY the egismoc driver from libfprint-egismoc-sdcp (our fork of
 # Abdallah Alkanani's repo: libfprint-TOD v1.95.2 + Joshua Grisham's Egis SDCP
@@ -14,6 +21,16 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Which parts to install: both, or one of them.
+WANT_DRIVER=true WANT_MGR=true
+case "${1:-}" in
+    "")             ;;
+    --driver-only)  WANT_MGR=false ;;
+    --manager-only) WANT_DRIVER=false ;;
+    -h|--help)      sed -n '5,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *)              echo "Unknown option: $1 (use --driver-only, --manager-only, or nothing)"; exit 1 ;;
+esac
 # The installer needs its tools/ and lib/ folders — run it from the whole
 # fingerprint-fix-sdcp folder, not on its own.
 for _f in lib/sensor-check.py lib/fingerprint-manager.py lib/fingerprint-manager-helper.py \
@@ -32,11 +49,13 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
 fi
 
 # Installed from a package (rpm, deb or pacman)? Then the package manager
-# updates and removes it; installing over it here would leave two copies.
-if [[ -f /usr/lib/fingerprint-fix-sdcp/installed ]]; then
-    echo "fingerprint-fix-sdcp is installed as a package — update it with your package"
-    echo "manager instead. To use install.sh, remove the package first (enrolled"
-    echo "fingerprints are kept): sudo pacman -R / dnf remove / apt remove fingerprint-fix-sdcp"
+# updates and removes it; installing over it here would leave two copies, and
+# mixing a package with an install.sh part isn't supported.
+if [[ -f /usr/lib/fingerprint-fix-sdcp/installed || -f /usr/lib/galaxybook-fingerprint-manager/installed ]]; then
+    echo "fingerprint-fix-sdcp is installed as packages — update them with your package"
+    echo "manager instead. To use install.sh, remove the packages first (enrolled"
+    echo "fingerprints are kept): sudo pacman -R / dnf remove / apt remove"
+    echo "fingerprint-fix-sdcp galaxybook-fingerprint-manager"
     exit 1
 fi
 
@@ -176,7 +195,13 @@ SENSOR_ON_BUS=$(lsusb 2>/dev/null | grep -iE "1c7a:05a5|1c7a:05a1" || true)
 
 echo
 echo "╔════════════════════════════════════════════════════════════╗"
+if ! $WANT_MGR; then
+echo "║  Installing: Fingerprint Fix (egismoc SDCP driver only)    ║"
+elif ! $WANT_DRIVER; then
+echo "║  Installing: Galaxy Book Fingerprint Manager only          ║"
+else
 echo "║       Installing: Fingerprint Fix (egismoc SDCP driver)    ║"
+fi
 echo "╚════════════════════════════════════════════════════════════╝"
 info "fingerprint-fix-sdcp ${FIX_VERSION} — driver commit ${DRIVER_COMMIT:0:12}"
 
@@ -188,29 +213,34 @@ info "✓ Sensor found: $SENSOR_ON_BUS"
 
 # ── Step 2: Install dependencies ─────────────────────────────────────────────
 step "Fingerprint Step 2: Installing dependencies"
+# Build tools only for the driver (the Manager is Python and shell).
 if [[ "$DISTRO" == "fedora" ]]; then
-    dnf install -y \
+    # shellcheck disable=SC2046
+    dnf install -y $($WANT_DRIVER && echo \
         git gcc gcc-c++ meson ninja-build pkgconf-pkg-config \
-        glib2-devel libgusb-devel cairo-devel openssl-devel systemd-devel \
+        glib2-devel libgusb-devel cairo-devel openssl-devel systemd-devel) \
         fprintd fprintd-pam libfprint libnotify python3-gobject \
         || error "Failed to install dependencies via dnf.\n  Check your internet connection and that Fedora repos are reachable (dnf repolist)."
 elif [[ "$DISTRO" == "arch" ]]; then
-    pacman -S --noconfirm --needed \
+    # shellcheck disable=SC2046
+    pacman -S --noconfirm --needed $($WANT_DRIVER && echo \
         git base-devel meson ninja pkgconf \
-        glib2 glib2-devel libgusb cairo openssl systemd \
+        glib2 glib2-devel libgusb cairo openssl) systemd \
         fprintd libfprint libnotify python-gobject \
         || error "Failed to install dependencies via pacman.\n  Check your internet connection and that Arch repos are reachable (pacman -Sy)."
 else
     apt-get update -q \
         || error "apt-get update failed.\n  Check your internet connection and that the repos are reachable."
-    apt-get install -y \
+    # shellcheck disable=SC2046
+    apt-get install -y $($WANT_DRIVER && echo \
         git build-essential meson ninja-build pkg-config \
-        libglib2.0-dev libgusb-dev libcairo2-dev libssl-dev systemd-dev \
+        libglib2.0-dev libgusb-dev libcairo2-dev libssl-dev systemd-dev) \
         fprintd libfprint-2-2 libpam-fprintd libnotify-bin python3-gi gir1.2-fprint-2.0 \
         || error "Failed to install dependencies via apt-get.\n  Check your internet connection and that the repos are reachable."
 fi
 info "Dependencies installed"
 
+if $WANT_DRIVER; then
 # ── Step 3: Check if the distro libfprint already supports our sensor ─────────
 step "Fingerprint Step 3: Checking if the distro libfprint already supports the sensor"
 # Skipped on a reinstall (our drop-in is active). Only an SDCP driver counts:
@@ -339,6 +369,8 @@ else
     warn "Could not confirm fprintd loaded $FPRINT_LIB.\n       Check with: fprintd-list \"\$USER\"; sudo grep libfprint /proc/\$(pidof fprintd)/maps"
 fi
 
+fi   # WANT_DRIVER (Steps 3–7)
+
 # ── Step 8: Record state ──────────────────────────────────────────────────────
 step "Fingerprint Step 8: Recording installed state"
 mkdir -p "$FPRINT_STATE_DIR"
@@ -347,20 +379,23 @@ if [[ -n "$SYSLIB" ]]; then
     sha256sum "$SYSLIB" | awk '{print $1}' > "$FPRINT_SYSLIB_HASH"
     chmod 644 "$FPRINT_SYSLIB_HASH"
 fi
-echo "${SDCP_COMMIT:0:12} ${SDCP_DATE} ${SDCP_SOURCE}${SDCP_FIXES[*]:+ +${SDCP_FIXES[*]}} (installed $(date '+%Y-%m-%d')) fingerprint-fix-sdcp ${FIX_VERSION}" > "$FPRINT_MARKER"
+$WANT_DRIVER && echo "${SDCP_COMMIT:0:12} ${SDCP_DATE} ${SDCP_SOURCE}${SDCP_FIXES[*]:+ +${SDCP_FIXES[*]}} (installed $(date '+%Y-%m-%d')) fingerprint-fix-sdcp ${FIX_VERSION}" > "$FPRINT_MARKER"
 # The Manager's own marker: it, its monitor and its checks are installed.
-echo "(installed $(date '+%Y-%m-%d')) galaxybook-fingerprint-manager ${FIX_VERSION}" > "$MGR_MARKER"
+$WANT_MGR && echo "(installed $(date '+%Y-%m-%d')) galaxybook-fingerprint-manager ${FIX_VERSION}" > "$MGR_MARKER"
 info "✓ Markers and distro libfprint hash stored"
 
 # ── Step 9: Monitor — cleanup helper, scripts, polkit rule, services ─────────
-step "Fingerprint Step 9: Installing the fingerprint monitor"
+step "Fingerprint Step 9: Installing the fingerprint monitor$($WANT_MGR || echo ' — skipped (driver only)')"
 
 # Cleanup helpers, used when a package replaces this copy: the driver's (also
 # the Manager's "Remove the driver") and the Manager's. Both keep fingerprints;
 # PAM fingerprint auth is left enabled.
-render cleanup.sh.in > "$FPRINT_CLEANUP"
-chown root:root "$FPRINT_CLEANUP"
-chmod 750 "$FPRINT_CLEANUP"
+if $WANT_DRIVER; then
+    render cleanup.sh.in > "$FPRINT_CLEANUP"
+    chown root:root "$FPRINT_CLEANUP"
+    chmod 750 "$FPRINT_CLEANUP"
+fi
+if $WANT_MGR; then
 render mgr-cleanup.sh.in > "$MGR_CLEANUP"
 chown root:root "$MGR_CLEANUP"
 chmod 750 "$MGR_CLEANUP"
@@ -446,6 +481,7 @@ elif [[ -f "$SESSION_HELPER_TARGET" ]] \
 else
     info "Desktop starts graphical-session.target itself — no session helper needed"
 fi
+fi   # WANT_MGR (Steps 9–10)
 
 # ── Step 11: Enable fingerprint authentication ────────────────────────────────
 step "Fingerprint Step 11: Enabling fingerprint authentication"
@@ -491,10 +527,19 @@ fi
 # FPRINT_IMPORT=FILE imports a file kept anywhere else without asking.
 step "Fingerprint Step 12: Importing fingerprints from another install (optional)"
 _imp_user="${FPRINT_USER:-${SUDO_USER:-}}"
+# Importing needs an SDCP driver: this fix's, or the distro's own.
+if ! $WANT_DRIVER && ! fix_installed \
+        && [[ "$(env -u LD_LIBRARY_PATH python3 "$SCRIPT_DIR/lib/distro-driver-check.py" 2>/dev/null | head -n1)" != sdcp ]]; then
+    info "No SDCP driver here (Manager only) — skipping import"
+    _imp_user=""
+    _imp_skip=1
+fi
 _imp_home=""
 [[ -n "$_imp_user" ]] && _imp_home=$(getent passwd "$_imp_user" | cut -d: -f6)
 _imp_file="${FPRINT_IMPORT:-}"
-if [[ -z "$_imp_user" ]]; then
+if [[ -n "${_imp_skip:-}" ]]; then
+    :
+elif [[ -z "$_imp_user" ]]; then
     info "Could not tell which user to import for — skipping"
 elif [[ -n "$(find "/var/lib/fprint/$_imp_user" -type f 2>/dev/null | head -1)" ]]; then
     info "${_imp_user} already has fingerprints enrolled — skipping import"
@@ -531,6 +576,7 @@ fi
 # driver can be removed alone (uninstall.sh --driver-only) once the distro's
 # libfprint has SDCP. Its GUI packages are installed here, separately: if they
 # fail, the fix itself is still fine.
+if $WANT_MGR; then
 step "Fingerprint Step 13: Installing the Galaxy Book Fingerprint Manager"
 case "$DISTRO" in
     fedora) dnf install -y python3-gobject python3-cairo gtk3 polkit ;;
@@ -576,9 +622,11 @@ done
 command -v update-desktop-database >/dev/null 2>&1 \
     && update-desktop-database -q /usr/share/applications 2>/dev/null || true
 info "✓ Galaxy Book Fingerprint Manager installed (app menu, or: ${MGR_ID})"
+fi   # WANT_MGR (Step 13)
 
 # ── Done ──────────────────────────────────────────────────────────────────────
-info "✓ fingerprint-fix-sdcp ${FIX_VERSION} installed — no reboot required"
+info "✓ fingerprint-fix-sdcp ${FIX_VERSION} installed ($($WANT_DRIVER && $WANT_MGR && echo "driver and Fingerprint Manager" || { $WANT_DRIVER && echo "driver only" || echo "Fingerprint Manager only"; })) — no reboot required"
+if $WANT_DRIVER; then
 info "Built from: $SDCP_REPO_URL"
 info "            branch $SDCP_BRANCH, commit ${SDCP_COMMIT:0:12} (${SDCP_DATE})"
 [[ "$SDCP_COMMIT" == "$DRIVER_COMMIT" ]] \
@@ -586,6 +634,7 @@ info "            branch $SDCP_BRANCH, commit ${SDCP_COMMIT:0:12} (${SDCP_DATE})
 [[ ${#SDCP_FIXES[@]} -gt 0 ]] && info "            with fixes from lib/patches: ${SDCP_FIXES[*]}"
 [[ "$SDCP_SOURCE" == "fork" ]] \
     || warn "This is a TEST build (not the usual fork). Run the installer again without\n       SDCP_REPO_URL to go back to the fork's build."
+fi
 echo
 echo "  Existing SDCP enrolments are kept."
 echo "  Test with:  fprintd-verify"
@@ -606,9 +655,14 @@ echo "  Fingerprints exported on another install of this laptop"
 echo "  (export-fingerprint.sh) can be imported here instead of enrolling:"
 echo "      sudo bash $SCRIPT_DIR/tools/import-fingerprint.sh ~/fingerprint-export.tgz"
 echo
+if $WANT_MGR; then
 echo "  Galaxy Book Fingerprint Manager — test, enrol, export/import and more"
 echo "  in a window: find it in your app menu, or run (as yourself, not sudo):"
 echo "      ${MGR_ID}"
+else
+echo "  The Galaxy Book Fingerprint Manager (window, monitor, boot and login"
+echo "  checks) can be added any time:  sudo bash install.sh --manager-only"
+fi
 echo
 
 # ── Offer to open the Galaxy Book Fingerprint Manager ────────────────────────

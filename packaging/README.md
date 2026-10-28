@@ -9,7 +9,7 @@ From 2.0.0 each format builds two packages from one source, with the same versio
 | `fingerprint-fix-sdcp` | the driver: the egismoc SDCP libfprint build, fprintd's drop-in, `fprintd-env.sh`, `other-fix.sh` | x86_64 |
 | `galaxybook-fingerprint-manager` | the Manager, its helper and tools, the monitor, boot and login checks (`sensor-check.py`), units, polkit files, menu entry | noarch / all / any |
 
-The driver requires the Manager of exactly its version; the Manager doesn't require the driver, so the driver can be removed alone once a distro's libfprint has SDCP. The Manager takes over files that `fingerprint-fix-sdcp` 1.x owned (deb: `Replaces` / `Breaks: fingerprint-fix-sdcp (<< 2.0.0~)`; rpm and pacman allow the move within one transaction), so 1.x upgrades by installing both.
+Either can be installed without the other. The driver *recommends* the Manager of its version (deb `Recommends`, rpm `Recommends`, pacman `optdepends`): installed from a repository, dnf and apt add it unless told not to; from local files, only what is named is installed. Each package turns fingerprint login on at the first install on a computer (`tools/pam-first-install.sh`, a copy in each package; `/var/lib/samsung-galaxybook/fingerprint-login-set-up` records it), so the driver alone gets it too. The Manager takes over files that `fingerprint-fix-sdcp` 1.x owned (deb: `Replaces` / `Breaks: fingerprint-fix-sdcp (<< 2.0.0~)`; rpm and pacman allow the move within one transaction), so 1.x upgrades by installing both.
 
 | Folder / file | What it is |
 | --- | --- |

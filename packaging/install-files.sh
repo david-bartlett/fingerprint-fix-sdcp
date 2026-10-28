@@ -46,6 +46,12 @@ driver)
     # Moves another fingerprint fix's fprintd setup aside (run by the install
     # scripts), and lists it for the monitor.
     install -Dm755 "$REPO/lib/other-fix.sh" "$D$FPRINT_OTHER_FIX"
+    # Its own copy of the fingerprint-login scripts: installed without the
+    # Manager, the driver's install script turns fingerprint login on itself
+    # (once per computer, pam-first-install.sh).
+    for t in fingerprint-pam.sh arch-pam.sh pam-first-install.sh; do
+        install -Dm755 "$REPO/tools/$t" "$D$FPRINT_LIB_DIR/pam/$t"
+    done
     # Install marker, in install.sh's format (the Manager shows it):
     # '<driver commit> <driver date> <source> … fingerprint-fix-sdcp <version>'
     fixes=$(paste -sd' ' "$SRC/.fix-patches" 2>/dev/null || true)
@@ -88,7 +94,7 @@ manager)
         "$REPO/lib/sensor-check.py"
     install -Dm644 -t "$D$MGR_DIR/lib" "$REPO/lib/fixpaths.sh"
     install -d "$D$MGR_DIR/tools"
-    for t in fingerprint-pam.sh arch-pam.sh export-fingerprint.sh import-fingerprint.sh; do
+    for t in fingerprint-pam.sh arch-pam.sh pam-first-install.sh export-fingerprint.sh import-fingerprint.sh; do
         install -m755 "$REPO/tools/$t" "$D$MGR_DIR/tools/"
     done
     install -d "$D$(dirname "$MGR_BIN")"

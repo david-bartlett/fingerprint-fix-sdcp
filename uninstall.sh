@@ -7,6 +7,9 @@
 #   sudo bash uninstall.sh --driver-only   only the driver (once the distro's own
 #                                          libfprint has SDCP): fprintd switches to
 #                                          it, and the Manager stays
+#   sudo bash uninstall.sh --manager-only  only the Fingerprint Manager, with its
+#                                          monitor and boot / login checks: the
+#                                          driver stays
 # Enrolled fingerprints are always kept (fprintd's records and the templates
 # on the sensor). To delete fingers, use the Fingerprint Manager first.
 # =============================================================================
@@ -52,7 +55,20 @@ if [[ "${1:-}" == --driver-only ]]; then
     info "✓ Driver removed. Enrolled fingerprints and the Fingerprint Manager are kept."
     exit 0
 fi
-[[ -z "${1:-}" ]] || error "Unknown option: $1 (use --driver-only, or nothing)"
+# --manager-only: the Manager's own cleanup (window, monitor, boot and login
+# checks); the driver and fingerprint login stay.
+if [[ "${1:-}" == --manager-only ]]; then
+    [[ -f "$MGR_MARKER" && -x "$MGR_CLEANUP" ]] \
+        || error "The Fingerprint Manager isn't installed here (by install.sh)."
+    echo
+    info "Removing the Galaxy Book Fingerprint Manager, its monitor and boot / login checks"
+    "$MGR_CLEANUP"
+    command -v update-desktop-database >/dev/null 2>&1 \
+        && update-desktop-database -q /usr/share/applications 2>/dev/null || true
+    info "✓ Fingerprint Manager removed. The driver, fingerprint login and enrolled fingerprints are kept."
+    exit 0
+fi
+[[ -z "${1:-}" ]] || error "Unknown option: $1 (use --driver-only, --manager-only, or nothing)"
 
 echo
 echo "╔════════════════════════════════════════════════════════════╗"

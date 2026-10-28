@@ -196,9 +196,9 @@ def release_assets(version):
 #
 # From 2.0.0 a release has two packages built from one source: the driver
 # (fingerprint-fix-sdcp) and the Manager (galaxybook-fingerprint-manager), with
-# the same version, and the driver requires that exact Manager. Both are then
-# downloaded into one folder and installed in one command — or only the
-# Manager, once the driver has been removed (the distro's libfprint has SDCP).
+# the same version; either can be installed alone. With both installed, both
+# are downloaded into one folder and installed in one command; with only the
+# Manager, only the Manager (e.g. the distro's libfprint has SDCP).
 # Releases with one package (before 2.0.0) work as before.
 FIX = "fingerprint-fix-sdcp"
 MANAGER = "galaxybook-fingerprint-manager"
