@@ -72,3 +72,22 @@ A package is for the release it was built on: its library dependencies come from
 8. Upgrade from a 1.x package (one `fingerprint-fix-sdcp`) by installing both new packages: the units stay enabled, fingerprints still verify.
 9. Remove the driver alone: fprintd no longer maps it; the Manager still opens, says *Driver: your distro's libfprint*, and its boot check still runs.
 10. Remove both: `/var/lib/fprint` is still there.
+
+## Driver updates and releases
+
+Each release of fingerprint-fix-sdcp builds one tested driver commit, named in the `DRIVER` file, from the fork (david-bartlett/libfprint-egismoc-sdcp). Syncing the fork on GitHub changes nothing for users by itself.
+
+**Trying Abdallah's newest driver:** `bash tools/test-latest-libfprint.sh` checks whether upstream has anything newer than the fork and, if so, installs it on your laptop for testing — or by hand:
+
+```bash
+sudo SDCP_REPO_URL=https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp.git bash install.sh
+```
+
+`sudo SDCP_COMMIT=latest bash install.sh` builds the fork's newest commit instead of the tested one. Either way, `sudo bash install.sh` goes back to the tested commit — enrolled fingerprints are kept. `SDCP_REPO_URL` only accepts `https://github.com/OWNER/REPO` addresses; `SDCP_COMMIT` takes `latest` or a full commit id.
+
+**Making a release:**
+
+1. If the driver changes: sync the fork, then put the new commit's full id in `DRIVER`.
+2. Raise the number in `VERSION` — `1.0.1` for fixes, `1.1.0` for new features, `2.0.0` when users need to do something differently.
+3. Add a section for it at the top of `CHANGELOG.md` (`## 1.1.0 — date`, or `## Unreleased`, which gets the number and date at release); commit and push. Each change is a `- ` line: a bold headline line (`- **Headline:** …`, short) for the release page's *What's new*, plain lines for the full detail under *Full changelog*. Every release has at least one bold line.
+4. Tag the commit `v` + the version (e.g. `v1.1.0`) and push the tag: `git tag -a v1.1.0 -m 1.1.0 && git push origin v1.1.0`. The *Release packages* workflow creates the GitHub release with the changelog section as its notes, builds the packages and attaches them. Steps 2–4 can also be done in one go with the Release button of `fingerprint-repo-gui.py` (samsung-galaxybook-dev-tools).

@@ -3,7 +3,7 @@
 >
 > **galaxybook-fingerprint-manager**: an app to turn fingerprint for sudo and the lock screen on or off, enrol, test and delete fingerprints, and see which of the sensor's slots are in use. It works with the fingerprint-fix-sdcp driver, or with your distro's own libfprint once that supports the sensor.
 >
-> Most people want both: download both files for your distro and install them together. Either also works on its own.
+> The driver is all you need to use the fingerprint reader with your desktop's own fingerprint settings; add the Manager if you want it. Each works on its own; the commands below install both (leave out the Manager's file for the driver alone).
 >
 > **Update notifications:** either one checks for a new release about every hour while you're logged in, and tells you once per version. Turn it on or off in the Fingerprint Manager (☰ → *Check for new versions*). With only the driver installed: `systemctl --user mask fingerprint-fix-sdcp-update-check.timer` (off) or `systemctl --user unmask fingerprint-fix-sdcp-update-check.timer` (on).
 >
