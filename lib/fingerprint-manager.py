@@ -761,16 +761,26 @@ def _uniq(xs):
     return list(dict.fromkeys(xs))
 
 
-def shared_where(sh, short=False):
+def _names(names, full):
+    """'Ubuntu', 'Ubuntu and Fedora', '4 other distros' (all of them when full)."""
+    if full or len(names) <= 2:
+        return " and ".join(names) if len(names) <= 2 else ", ".join(names[:-1]) + " and " + names[-1]
+    return f"{len(names)} other distros"
+
+
+def shared_where(sh, short=False, full=False):
     """Where else a template is known, from the shared file on the EFI
-    partition: 'used by Ubuntu, Linux Mint', 'removed on Fedora', 'enrolled
-    on Fedora' ('' if nothing). short: just the distro names, for cards."""
+    partition: 'used by Ubuntu and Linux Mint', 'used by 4 other distros',
+    'removed on Fedora', 'enrolled on Fedora' ('' if nothing). short: for
+    cards ('Fedora', 'Fedora +3'). full: every distro named (tooltips)."""
     used = _uniq(o["os"] for o in sh.get("others", []) if o["state"] == "used")
     removed = _uniq(o["os"] for o in sh.get("others", []) if o["state"] == "removed")
     if used:
-        return ", ".join(used) if short else "used by " + ", ".join(used)
+        if short:
+            return used[0] + (f" +{len(used) - 1}" if len(used) > 1 else "")
+        return "used by " + _names(used, full)
     if removed:
-        return f"Removed ({removed[0]})" if short else "removed on " + ", ".join(removed)
+        return f"Removed ({removed[0]})" if short else "removed on " + _names(removed, full)
     if sh.get("enrolled_on"):
         return sh["enrolled_on"] if short else f"enrolled on {sh['enrolled_on']}"
     return ""
@@ -1274,7 +1284,7 @@ class Manager(Gtk.Window):
     def _tpl_tip(self, t):
         """Hover text for a template on the Sensor tab."""
         if t["used_by"]:
-            also = shared_where(t["shared"]) if t.get("shared") else ""
+            also = shared_where(t["shared"], full=True) if t.get("shared") else ""
             also = f"; also {also}" if also.startswith("used by") else ""
             return f"Template {t['id']} — used by {', '.join(t['used_by'])}{also}"
         rm = t.get("removed")
@@ -1287,7 +1297,7 @@ class Manager(Gtk.Window):
         if sh:
             who = f"{sh['user']}'s " if sh["user"] else ""
             when = f", enrolled {nice_date(sh['enrolled'], True)}" if sh["enrolled"] else ""
-            where = shared_where(sh)
+            where = shared_where(sh, full=True)
             return (f"Template {t['id']} — {who}{long_finger(sh['finger']).lower()}{when}"
                     f"{' on ' + sh['enrolled_on'] if sh['enrolled_on'] else ''}. Not used by "
                     f"{OS_NAME}{': ' + where if where and not where.startswith('enrolled') else ''}.")
