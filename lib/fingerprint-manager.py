@@ -1382,8 +1382,10 @@ class Manager(Gtk.Window):
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             box.get_style_context().add_class("fpm-fcard")
             box.pack_start(FingerprintIcon(kind, 40), False, False, 2)
-            box.pack_start(self._label(title, "fpm-name", justify=Gtk.Justification.CENTER,
-                                       wrap=True, max_width_chars=8), False, False, 0)
+            # One line, never wrapped: a wrapped name would make GTK keep a
+            # second line's height in every row (the grid is measured at its
+            # narrowest), leaving space under the cards.
+            box.pack_start(self._label(title, "fpm-name", justify=Gtk.Justification.CENTER, ellipsize=Pango.EllipsizeMode.END, max_width_chars=13), False, False, 0)
             card_sub = (t["removed"]["user"] if t.get("removed")                # cards are narrow
                         else (shared_where(t["shared"], short=True) or t["shared"]["user"]
                               or "Another install") if t.get("shared") and not owners
@@ -1783,7 +1785,7 @@ class Manager(Gtk.Window):
             over.add_overlay(Gtk.Label(label="⚠", halign=Gtk.Align.END, valign=Gtk.Align.START))
         box.pack_start(over, False, False, 2)
         box.pack_start(self._label(short_finger(r["name"]), "fpm-name",
-                                   justify=Gtk.Justification.CENTER, wrap=True), False, False, 0)
+                                   justify=Gtk.Justification.CENTER, ellipsize=Pango.EllipsizeMode.END, max_width_chars=13), False, False, 0)   # one line: see _fill_templates
         box.pack_start(self._label(f"Enrolled {when}" if when else " ", "dim-label", "fpm-small"),
                        False, False, 0)
         box.pack_start(self._pill(kind, status), False, False, 4)
@@ -1802,7 +1804,7 @@ class Manager(Gtk.Window):
             box.get_style_context().add_class(c)
         box.pack_start(FingerprintIcon("empty", 40), False, False, 2)
         box.pack_start(self._label(short_finger(name), "fpm-name",
-                                   justify=Gtk.Justification.CENTER, wrap=True), False, False, 0)
+                                   justify=Gtk.Justification.CENTER, ellipsize=Pango.EllipsizeMode.END, max_width_chars=13), False, False, 0)   # one line: see _fill_templates
         box.pack_start(self._label("Not enrolled", "fpm-small"), False, False, 0)
         child = Gtk.FlowBoxChild()
         child.empty_finger = name

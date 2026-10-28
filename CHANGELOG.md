@@ -11,6 +11,7 @@
 
 - **Tidier window:** no empty space under the slots, and short, readable hover text
 - The window shrinks to fit its contents once the sensor has been read and when the Windows reminder is shown or hidden (a GTK window grows but never shrinks by itself, so it could keep empty space under the slots); not when maximised or tiled
+- Card names (*Right middle*, *Left thumb*…) stay on one line. GTK measures the card grid at its narrowest, where a name would wrap, so it kept a second line's height in every row: the empty space under the Sensor slots cards, larger with bigger fonts or scaling
 - Sensor slots tab: the hover text over a slot is in short lines — who it is, where it is used, its template ID — instead of one long line
 
 - **What is a slot?** The *Sensor* tab is now *Sensor slots*, with an ⓘ button that explains what a slot holds, and the difference between removing a finger (only from this Linux) and clearing a slot (erased from the sensor for every install)
