@@ -1559,10 +1559,11 @@ class Manager(Gtk.Window):
         """Replace one of your fingers: delete its template, then enrol it afresh."""
         name = long_finger(rec["name"]).lower()
         if not self.confirm(f"Enrol your {name} again?",
-                            "The old one is deleted from the sensor and you enrol the finger afresh.",
-                            "Enrol again",
-                            details="Any other Linux install sharing this finger stops matching "
-                                    "it until you export it from here and import it there again."):
+                            "The old one is deleted from the sensor and you enrol the finger "
+                            "afresh.\n\nOther Linux installs sharing this finger lose it: "
+                            "afterwards, export from here (☰ → Export fingerprints…) and "
+                            "import on each of them.",
+                            "Enrol again"):
             return
         if not rec.get("template"):
             return self.reenrol(rec)
@@ -2597,6 +2598,7 @@ class Manager(Gtk.Window):
         if not path:
             return
         mine = [r for r in self.status["records"] if r["user"] == self.status["user"]]
+        dead = [r["finger"] for r in mine if r["on_sensor"] is False]
         replace = False
         if mine:
             names = ", ".join(long_finger(r["name"]).lower() for r in mine)
@@ -2605,7 +2607,8 @@ class Manager(Gtk.Window):
                                   text="You already have fingerprints on this install")
             d.format_secondary_text(
                 f"You have {names} here.\n\n"
-                "Add the missing ones keeps yours. Replace all swaps them for the ones in the file.")
+                "Add the missing ones keeps yours (ones gone from the sensor are replaced). "
+                "Replace all swaps them all for the ones in the file.")
             add_details(d, "Replaced records are moved to /var/lib/samsung-galaxybook/"
                            "replaced-fingerprints/. Nothing is deleted from the sensor.")
             d.add_button("Cancel", Gtk.ResponseType.CANCEL)
@@ -2618,7 +2621,7 @@ class Manager(Gtk.Window):
             if r not in (Gtk.ResponseType.OK, 2):
                 return
             replace = r == 2
-        self.run_job("import", self.after_job("Imported"), file=path, replace=replace)
+        self.run_job("import", self.after_job("Imported"), file=path, replace=replace, dead=dead)
 
     # ── fingerprints in ~/fingerprint-export.tgz that this install lacks ──
     def _offer_export(self, offer):
@@ -2637,10 +2640,13 @@ class Manager(Gtk.Window):
         n = len(offer["fingers"])
         short = offer["file"].replace(os.path.expanduser("~") + "/", "~/")
         if self.confirm(f"Import {n} fingerprint{'s' if n > 1 else ''} from another install?",
-                        f"{short} has {names}, not on this install yet. Yours stay as they are.",
+                        f"{short} has {names}, missing or gone from the sensor on this install. "
+                        "Your others stay as they are.",
                         "Import", destructive=False):
+            mine = [r for r in self.status["records"] if r["user"] == self.status["user"]]
             self.run_job("import", self.after_job("Imported"), file=offer["file"],
-                         fingers=[f["finger"] for f in offer["fingers"]])
+                         fingers=[f["finger"] for f in offer["fingers"]],
+                         dead=[r["finger"] for r in mine if r["on_sensor"] is False])
         return False
 
     # ── new versions ──

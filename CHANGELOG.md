@@ -9,6 +9,10 @@
 
 ## Unreleased
 
+- **Sharing fingers after Enrol again:** a fresh export from one install now replaces that finger on the others
+- *Enrol again* says up front (not under Details) that other Linux installs sharing the finger lose it, and to export and import afterwards
+- A record whose template is gone from the sensor (the finger was re-enrolled on another install) now counts as missing: the automatic offer from `~/fingerprint-export.tgz` includes it, and *Import fingerprints… → Add the missing ones* replaces it (the dead record is moved to /var/lib/samsung-galaxybook/replaced-fingerprints/). Before, it was kept and the new fingerprint skipped, so only *Replace all* worked. `import-fingerprint.sh` gains `--dead` for this
+
 ## 2.5.2 — 2026-10-28
 
 - **Update notification right after login:** the first check for a new release is 30 seconds after login, not 10 minutes
