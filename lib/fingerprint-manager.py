@@ -1262,8 +1262,15 @@ class Manager(Gtk.Window):
             return (f"Template {t['id']} — {rm['user']}'s {long_finger(rm['name']).lower()}, "
                     f"{how} {OS_NAME} on {nice_date(rm['date'], True)}. The template is still "
                     "on the sensor: right-click to restore it, or delete it to free the slot.")
-        return (f"Template {t['id']} — not used by {OS_NAME}: probably another distro; "
-                "it could also be Windows Hello's own, or left over from a reinstall")
+        ident = t.get("ident")
+        if ident:
+            who = f"{ident['user']}'s " if ident["user"] else ""
+            when = f", enrolled {nice_date(ident['date'], True)}" if ident["date"] else ""
+            return (f"Template {t['id']} — {who}{long_finger(ident['finger']).lower()}{when}. "
+                    f"Not used by {OS_NAME}: enrolled on another install, or removed there "
+                    "or left over from a reinstall.")
+        return (f"Template {t['id']} — not used by {OS_NAME}, and it doesn't say whose finger it "
+                "is: probably Windows Hello's own (or from another fingerprint driver)")
 
     def _fill_templates(self, templates):
         self.templates = templates
@@ -1286,17 +1293,28 @@ class Manager(Gtk.Window):
                 title, long_title = short_finger(rm["name"]), long_finger(rm["name"])
                 sub = (f"Removed from {OS_NAME}" if rm["kind"] == "removed"
                        else f"Replaced on {OS_NAME}")
+            elif t.get("ident"):
+                # Not used here, but the template names its finger, user and
+                # date (enrolled on another install with this driver).
+                ident = t["ident"]
+                kind, pill = "unknown", "Not used here"
+                title, long_title = short_finger(ident["finger"]), long_finger(ident["finger"])
+                when = f"enrolled {nice_date(ident['date'])}" if ident["date"] else ""
+                sub = " · ".join(x for x in (ident["user"], when) if x) or "Another install"
             else:
                 kind, pill = "unknown", "Not used here"
                 title, long_title = "Unknown", "Unknown template"
-                sub = "Another distro?"
+                sub = "Windows Hello?"
             # card
             box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             box.get_style_context().add_class("fpm-fcard")
             box.pack_start(FingerprintIcon(kind, 40), False, False, 2)
             box.pack_start(self._label(title, "fpm-name", justify=Gtk.Justification.CENTER,
                                        wrap=True, max_width_chars=8), False, False, 0)
-            card_sub = t["removed"]["user"] if t.get("removed") else sub   # cards are narrow
+            card_sub = (t["removed"]["user"] if t.get("removed")                # cards are narrow
+                        else (nice_date(t["ident"]["date"]) or t["ident"]["user"] or "Another install")
+                        if t.get("ident") and not owners
+                        else sub)
             box.pack_start(self._label(card_sub, "dim-label", "fpm-small", justify=Gtk.Justification.CENTER,
                                        ellipsize=Pango.EllipsizeMode.END, max_width_chars=10),
                            False, False, 0)
@@ -1314,7 +1332,8 @@ class Manager(Gtk.Window):
             texts = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, valign=Gtk.Align.CENTER)
             texts.pack_start(self._label(long_title, "fpm-name", xalign=0), False, False, 0)
             detail = (sub if owners or t.get("removed")
-                      else "Another distro, Windows Hello, or left over from a reinstall?")
+                      else f"{sub} · on another install?" if t.get("ident")
+                      else "Windows Hello, or another fingerprint driver?")
             texts.pack_start(self._label(f"{detail} · template {t['id']}", "dim-label", "fpm-small",
                                          xalign=0, ellipsize=Pango.EllipsizeMode.END), False, False, 0)
             hb.pack_start(texts, True, True, 0)
@@ -1536,8 +1555,13 @@ class Manager(Gtk.Window):
                             None if rm["restorable"] else
                             f"That finger is enrolled on {OS_NAME} again", "edit-undo-symbolic"))
             title = (long_finger(rm["name"]), f"Removed from {OS_NAME}")
+        elif t.get("ident"):
+            ident = t["ident"]
+            when = f"enrolled {nice_date(ident['date'])}" if ident["date"] else ""
+            title = (long_finger(ident["finger"]),
+                     " · ".join(x for x in (ident["user"], when, "not used here") if x))
         else:
-            title = ("Unknown template", "Another distro, Windows Hello or a reinstall")
+            title = ("Unknown template", "Windows Hello, or another fingerprint driver?")
         if entries:
             entries.append(None)
         entries.append(("Clear slot…", lambda: self.on_delete_templates(None),
