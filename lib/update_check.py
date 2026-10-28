@@ -167,6 +167,15 @@ def latest_release(max_age=24 * 3600):
     return tag
 
 
+def _cache_fresh(max_age):
+    """True when GitHub's answer was saved less than max_age seconds ago."""
+    try:
+        with open(RELEASE_CACHE) as f:
+            return 0 <= time.time() - float(f.read().split()[0]) < max_age
+    except (OSError, ValueError, IndexError):
+        return False
+
+
 def newer_release(max_age=24 * 3600):
     """The newer release's version ('1.0.2') if there is one, else None."""
     tag, mine = latest_release(max_age), installed_version()
@@ -387,7 +396,14 @@ def notify_once():
     if not _regular_user():
         return
     _migrate_setting()
-    new = newer_release(max_age=3600)
+    # Right after login the network may not be up yet: when GitHub has to be
+    # asked and can't be reached, try again every 30 s for up to 3 minutes.
+    for attempt in range(7):
+        had_answer = _cache_fresh(3600)
+        new = newer_release(max_age=3600)
+        if new or had_answer or _cache_fresh(3600) or attempt == 6:
+            break
+        time.sleep(30)
     if not new:
         return
     try:

@@ -1,12 +1,13 @@
 [Unit]
-Description=fingerprint-fix-sdcp — check GitHub for a new release (10 min after login, then hourly)
+Description=fingerprint-fix-sdcp — check GitHub for a new release (30 s after login, then hourly)
 PartOf=graphical-session.target
 After=graphical-session.target
 
 [Timer]
-OnActiveSec=10min
+OnActiveSec=30s
+# Timers fire within a minute of their time by default: 30 s means 30 s.
+AccuracySec=1s
 OnCalendar=hourly
-RandomizedDelaySec=5min
 Unit=@FIX_UPDATE_SVC@
 
 [Install]
