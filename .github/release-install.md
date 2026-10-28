@@ -1,6 +1,6 @@
 > [!IMPORTANT]
 > **Download both files for your distro and install them together**: the driver and the Fingerprint Manager. Most people want both. Either also works on its own: the driver alone (enrol in your desktop's settings), or the Manager alone once your distro's own driver supports the reader.
-> Already have the fix? Open **Galaxy Book Fingerprint Manager** and press **Update**: it downloads both files for you.
+> Already have the fix? Open **Galaxy Book Fingerprint Manager** and press **Update**: it downloads the new files for whatever you have installed. Have the driver without the Manager? Download just the driver's file and install it with the same command, leaving out the Manager's file ([Only one part](https://github.com/david-bartlett/fingerprint-fix-sdcp#only-one-part)).
 
 ## Install
 
