@@ -7,7 +7,7 @@ Enables fingerprint authentication on Samsung Galaxy Book laptops with an EgisTe
 ## Download
 
 > [!IMPORTANT]
-> **Each distro has two files**: the driver (`fingerprint-fix-sdcp`) and the Fingerprint Manager (`galaxybook-fingerprint-manager`). Download both from the [**latest release**](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest) and install them together, as described in [Install](#install). Either works on its own (see [Only one part](#only-one-part)).
+> **Each distro has two files**: the driver (`fingerprint-fix-sdcp`) and the Fingerprint Manager (`galaxybook-fingerprint-manager`). You can download both from the [**latest release**](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest) and install them together, as described in [Install](#install). Either works on its own (see [Only one part](#only-one-part)).
 > Already installed? The Manager's **Update** button downloads the new version and installs it in a terminal window for you.
 
 | Distro | The two files (`<version>` is the release, e.g. `2.0.1-1`) |
