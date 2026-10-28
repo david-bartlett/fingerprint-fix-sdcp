@@ -1309,7 +1309,24 @@ class Manager(Gtk.Window):
                 "noted it: another distro that hasn't run this Fingerprint Manager yet, Windows "
                 "Hello's own, or left over from a reinstall")
 
+    @staticmethod
+    def _tpl_order(t):
+        """Sensor tab order: used here, removed here, used elsewhere, unknown;
+        within each, by user and in the Fingerprints tab's hand order."""
+        if t["used_by"]:
+            user, _, finger = t["used_by"][0].partition(" ")
+            group = 0
+        elif t.get("removed"):
+            user, finger, group = t["removed"]["user"], t["removed"]["name"], 1
+        elif t.get("shared"):
+            user, finger, group = t["shared"]["user"], t["shared"]["finger"], 2
+        else:
+            user, finger, group = "", "", 3
+        hand = GRID_FINGERS.index(finger) if finger in GRID_FINGERS else len(GRID_FINGERS)
+        return (group, user, hand, t["id"])
+
     def _fill_templates(self, templates):
+        templates = sorted(templates, key=self._tpl_order)
         self.templates = templates
         for w in self.tcards.get_children() + self.trows.get_children():
             w.destroy()
