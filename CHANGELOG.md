@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.5.1 — 2026-10-28
 
 - **Window opens centred:** the Fingerprint Manager opens in the middle of the screen on Xfce, Cinnamon and MATE
 - The Manager asks to open in the middle of the screen. Window managers on X11 (Xfce, Cinnamon, MATE) follow that; Xfce placed it off to the bottom right before. GNOME and KDE on Wayland place windows themselves, as before
