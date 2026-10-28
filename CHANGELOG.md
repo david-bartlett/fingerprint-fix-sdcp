@@ -9,6 +9,7 @@
 
 ## Unreleased
 
+- **Release builds updated:** no more Node.js 20 warnings, and a stuck build stops after 45 minutes
 - Release builds: GitHub Actions updated to their Node.js 24 versions (checkout v6, upload-artifact v6, download-artifact v7), and each job stops after 45 minutes instead of hanging for hours on a stuck package mirror
 
 ## 2.4.1 — 2026-10-28
