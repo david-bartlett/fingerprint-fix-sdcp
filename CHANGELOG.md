@@ -9,8 +9,8 @@
 
 ## Unreleased
 
-- **Unknown slots say whose finger they are:** a slot another install uses shows its finger, user and enrolment date
-- On the Sensor tab, a template this install doesn't use was shown as *Unknown — Another distro?*. This driver names each template it enrols with its date, finger and username, and the sensor keeps that name, so such a slot now shows e.g. *Right little · 28 Oct* (list: *dave · enrolled 28 Oct · on another install?*), in its tooltip and right-click heading too. Only a template without that name (Windows Hello's, or another driver's) is still *Unknown*, now labelled *Windows Hello?*
+- **Slots shared between installs say whose finger they are:** the Sensor tab shows which finger a slot holds and which other distro uses it
+- With SDCP the sensor only knows a template's ID, so each install now notes its templates (finger, user, enrolment date, distro, and whether it still uses each one or removed it) in a small shared file on the EFI system partition, which every OS on the laptop shares: `EFI/samsung-galaxybook/fingerprint-slots.json`. A slot this install doesn't use then shows e.g. *Right little · Fedora* (list: *dave · used by Fedora · enrolled 28 Oct*, or *removed on Fedora*), and one it uses says *also used by Ubuntu*. Slots no install has noted (Windows Hello's, or a distro that hasn't run this Manager yet) stay *Unknown*. The file updates whenever the Manager reads the sensor, and forgets slots that are no longer on it (cleared, or wiped by Windows)
 
 ## 2.5.4 — 2026-10-28
 
