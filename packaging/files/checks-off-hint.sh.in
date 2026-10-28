@@ -48,7 +48,8 @@ _tell() {   # user state logged-in
     echo "  The fingerprint fix can still tell you about new versions. To turn them on, as $1:"
     echo "    $how"
     if [[ "$3" == yes ]]; then
-        timeout 15 systemd-run --user -M "$1@" --collect --quiet bash -c "$NOTIFY" >/dev/null 2>&1 || true
+        # systemd expands $VAR in a unit's command line: $$ keeps each $ as it is.
+        timeout 15 systemd-run --user -M "$1@" --collect --quiet bash -c "${NOTIFY//\$/\$\$}" >/dev/null 2>&1 || true
     fi
 }
 
