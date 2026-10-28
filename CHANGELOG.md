@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.5.2 — 2026-10-28
 
 - **Update notification right after login:** the first check for a new release is 30 seconds after login, not 10 minutes
