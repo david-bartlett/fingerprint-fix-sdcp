@@ -365,9 +365,27 @@ MANAGER_BINS = ("/usr/bin/galaxybook-fingerprint-manager",
                 "/usr/local/bin/galaxybook-fingerprint-manager")
 
 
+def _regular_user():
+    """A person's account (UID_MIN..UID_MAX of /etc/login.defs), not a system
+    one: the timers are enabled for every user, including the login screen's
+    own session (GDM's gdm-greeter users)."""
+    lo, hi = 1000, 60000
+    try:
+        with open("/etc/login.defs") as f:
+            for line in f:
+                f2 = line.split()
+                if len(f2) >= 2 and f2[0] in ("UID_MIN", "UID_MAX") and f2[1].isdigit():
+                    lo, hi = (int(f2[1]), hi) if f2[0] == "UID_MIN" else (lo, int(f2[1]))
+    except OSError:
+        pass
+    return lo <= os.getuid() <= hi
+
+
 def notify_once():
     """The hourly check (only runs while its timer isn't masked): tell the
     user once about each new release."""
+    if not _regular_user():
+        return
     _migrate_setting()
     new = newer_release(max_age=3600)
     if not new:
