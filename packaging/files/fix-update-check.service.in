@@ -1,0 +1,9 @@
+[Unit]
+Description=fingerprint-fix-sdcp — check GitHub for a new release (driver installed without the Fingerprint Manager)
+# The Fingerprint Manager has its own check: with it installed, this one is skipped.
+ConditionPathExists=!@MGR_PACKAGE_MARKER@
+ConditionPathExists=!@MGR_LOCAL_MARKER@
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 @FIX_UPDATE_DIR@/update_check.py --notify

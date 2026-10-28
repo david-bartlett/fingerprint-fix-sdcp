@@ -22,6 +22,8 @@ systemctl daemon-reload 2>/dev/null || true
 for _home in /home/*/; do
     _udir="${_home}.config/systemd/user"
     rm -f "${_udir}/samsung-galaxybook-fprint-sdcp-user-check.timer" "${_udir}/samsung-galaxybook-fprint-sdcp-user-check.service" \
+          "${_udir}/@MGR_UPDATE_SVC@" "${_udir}/galaxybook-fingerprint-manager-update-check.timer" \
+          "${_udir}/graphical-session.target.wants/galaxybook-fingerprint-manager-update-check.timer" \
           "${_udir}/graphical-session.target.wants/samsung-galaxybook-fprint-sdcp-user-check.timer" \
           "${_home}.cache/samsung-galaxybook/fprint-sdcp-boot-shown" \
           "${_home}.cache/samsung-galaxybook/fprint-sdcp-welcome-shown" \

@@ -52,6 +52,13 @@ driver)
     for t in fingerprint-pam.sh arch-pam.sh pam-first-install.sh; do
         install -Dm755 "$REPO/tools/$t" "$D$FPRINT_LIB_DIR/pam/$t"
     done
+    # The hourly check for new releases, used while the Manager isn't installed
+    # (its user timer is skipped when the Manager is): update_check.py reads
+    # the VERSION next to its folder.
+    install -Dm755 -t "$D$FIX_UPDATE_DIR" "$REPO/lib/update_check.py" "$REPO/lib/notify-update.sh"
+    install -Dm644 "$REPO/VERSION" "$D$FPRINT_LIB_DIR/VERSION"
+    put fix-update-check.service.in "$FPRINT_USER_UNIT_DIR/$FIX_UPDATE_SVC"
+    put fix-update-check.timer.in   "$FPRINT_USER_UNIT_DIR/$FIX_UPDATE_TIMER"
     # Install marker, in install.sh's format (the Manager shows it):
     # '<driver commit> <driver date> <source> … fingerprint-fix-sdcp <version>'
     fixes=$(paste -sd' ' "$SRC/.fix-patches" 2>/dev/null || true)
@@ -76,6 +83,8 @@ manager)
     put boot-check.service.in "$FPRINT_UNIT_DIR/$FPRINT_BOOT_CHECK_SVC"
     put user-check.service.in "$FPRINT_USER_UNIT_DIR/$FPRINT_USER_CHECK_SVC"
     put user-check.timer.in   "$FPRINT_USER_UNIT_DIR/$FPRINT_USER_CHECK_TIMER"
+    put mgr-update-check.service.in "$FPRINT_USER_UNIT_DIR/$MGR_UPDATE_SVC"
+    put mgr-update-check.timer.in   "$FPRINT_USER_UNIT_DIR/$MGR_UPDATE_TIMER"
     put polkit-monitor.rules.in "$FPRINT_POLKIT_RULE"
     # Starts graphical-session.target on desktops that don't (Xfce and others),
     # so the login check runs there too.
@@ -90,7 +99,8 @@ manager)
     install -Dm755 "$REPO/fingerprint-manager.sh" "$D$MGR_DIR/fingerprint-manager.sh"
     install -Dm644 "$REPO/VERSION" "$D$MGR_DIR/VERSION"
     install -Dm755 -t "$D$MGR_DIR/lib" "$REPO/lib/fingerprint-manager.py" "$REPO/lib/fingerprint-manager-helper.py" \
-        "$REPO/lib/update_check.py" "$REPO/lib/notify-open-manager.sh" "$REPO/lib/distro-driver-check.py" \
+        "$REPO/lib/update_check.py" "$REPO/lib/notify-open-manager.sh" "$REPO/lib/notify-update.sh" \
+        "$REPO/lib/distro-driver-check.py" \
         "$REPO/lib/sensor-check.py"
     install -Dm644 -t "$D$MGR_DIR/lib" "$REPO/lib/fixpaths.sh"
     install -d "$D$MGR_DIR/tools"

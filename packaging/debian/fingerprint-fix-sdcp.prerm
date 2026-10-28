@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+if [ "$1" = remove ]; then
+    # The hourly release check: off with the package (installing it again
+    # turns it on again).
+    systemctl --global disable fingerprint-fix-sdcp-update-check.timer >/dev/null 2>&1 || true
+    rm -f /var/lib/samsung-galaxybook/fingerprint-fix-sdcp-update-check.timer.set-up
+fi
+
+#DEBHELPER#
+exit 0

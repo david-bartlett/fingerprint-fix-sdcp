@@ -1,0 +1,6 @@
+[Unit]
+Description=Galaxy Book Fingerprint Manager — check GitHub for a new fingerprint-fix-sdcp release
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 @MGR_DIR@/lib/update_check.py --notify

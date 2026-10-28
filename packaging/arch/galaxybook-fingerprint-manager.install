@@ -76,11 +76,20 @@ pre_install() {
     echo "      sudo pacman -R fingerprint-fix-sdcp galaxybook-fingerprint-manager"
 }
 
+# The hourly release check: enabled for every user once (first install, or
+# the upgrade that brings it); after that the admin's choice is kept.
+_update_timer() {
+    [[ -e "/var/lib/samsung-galaxybook/galaxybook-fingerprint-manager-update-check.timer.set-up" ]] && return 0
+    systemctl --global enable galaxybook-fingerprint-manager-update-check.timer >/dev/null 2>&1 || true
+    mkdir -p /var/lib/samsung-galaxybook && touch "/var/lib/samsung-galaxybook/galaxybook-fingerprint-manager-update-check.timer.set-up"
+}
+
 post_install() {
     # Also the move from fingerprint-fix-sdcp 1.x, which had these units and
     # files: the units stay enabled, and the hint below is shown once per user.
     systemctl enable "$_boot_check" >/dev/null 2>&1 || true
     systemctl --global enable "$_user_check" >/dev/null 2>&1 || true
+    _update_timer
     # Fingerprint for sudo and admin prompts on, once per computer (whichever
     # package comes first; before the libfprint hash below, which marks
     # computers set up by 2.1 and earlier). FPRINT_PAM=0 leaves it off.
@@ -101,11 +110,14 @@ post_install() {
 
 post_upgrade() {
     _update_pam
+    _update_timer
 }
 
 pre_remove() {
     systemctl disable "$_boot_check" >/dev/null 2>&1 || true
     systemctl --global disable "$_user_check" >/dev/null 2>&1 || true
+    systemctl --global disable galaxybook-fingerprint-manager-update-check.timer >/dev/null 2>&1 || true
+    rm -f "/var/lib/samsung-galaxybook/galaxybook-fingerprint-manager-update-check.timer.set-up"
     # The sudo / polkit-1 fingerprint lines stay, as on other distros: once the
     # distro's libfprint has SDCP, fingerprints keep working without this fix.
     # To take them out: sudo bash /usr/lib/galaxybook-fingerprint-manager/tools/arch-pam.sh disable

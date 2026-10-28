@@ -2,14 +2,17 @@
 # =============================================================================
 # fingerprint-fix-sdcp — is a newer release on GitHub? (runs as the user)
 # =============================================================================
-# Used by the Fingerprint Manager (its Update button) and by the login check:
+# Used by the Fingerprint Manager (its Update button) and by the hourly check:
 #
-#   update_check.py --notify    at login: one notification per new release
+#   update_check.py --notify    one notification per new release, with buttons
+#                               to its GitHub page and the Fingerprint Manager
 #
-# The Manager asks GitHub each time it starts; the login check asks at most
-# once a day (both share one cache). When GitHub can't be reached (no network
-# yet), the next login or Manager start tries again. The Manager's menu item
-# "Check for new versions" (update_check=0 in its settings) turns both off.
+# The hourly check is a user timer in each package (the driver's copy of this
+# file in /usr/lib/fingerprint-fix-sdcp/update/ runs only while the Manager
+# isn't installed). It asks GitHub at most once an hour; the Manager asks each
+# time it starts (they share one cache). When GitHub can't be reached (no
+# network yet), the next check tries again. The Manager's menu item "Check for
+# new versions" (update_check=0 in its settings) turns both off.
 #
 # The Manager's Download button: this_system() and pick_asset() choose this
 # system's package from the release's files, download() saves and checks it.
@@ -310,11 +313,15 @@ def download(asset, folder, progress=None):
     return path
 
 
+MANAGER_BINS = ("/usr/bin/galaxybook-fingerprint-manager",
+                "/usr/local/bin/galaxybook-fingerprint-manager")
+
+
 def notify_once():
-    """At login: tell the user once about each new release."""
+    """The hourly check: tell the user once about each new release."""
     if not enabled():
         return
-    new = newer_release()
+    new = newer_release(max_age=3600)
     if not new:
         return
     try:
@@ -324,20 +331,25 @@ def notify_once():
     except OSError:
         pass
     title = f"Samsung Galaxy Book — fingerprint-fix-sdcp {new} is available"
-    msg = "Open Galaxy Book Fingerprint Manager and click Update to see how to install it."
-    # Stays until closed, with an "Open Fingerprint Manager" button
-    # (notify-open-manager.sh, started on its own so this doesn't wait for it);
-    # a plain notification if that can't be started.
-    helper = os.path.join(HERE, "notify-open-manager.sh")
+    url = f"{REPO_URL}/releases/tag/v{new}"
+    if any(os.access(m, os.X_OK) for m in MANAGER_BINS):
+        msg = ("Open the Fingerprint Manager and click Update to install it, or see "
+               "the release on GitHub.")
+    else:
+        msg = "See the release on GitHub for the files and how to install them."
+    # Stays until closed, with buttons to the release page and (when it is
+    # installed) the Manager: notify-update.sh, started on its own so this
+    # doesn't wait for it; a plain notification if that can't be started.
+    helper = os.path.join(HERE, "notify-update.sh")
     try:
-        subprocess.run(["systemd-run", "--user", "--quiet", "--collect", helper, title, msg],
+        subprocess.run(["systemd-run", "--user", "--quiet", "--collect", helper, title, msg, url],
                        check=True, timeout=15, capture_output=True)
     except (OSError, subprocess.SubprocessError):
         try:
             subprocess.run(["notify-send", "-t", "0", "-a", "Samsung Galaxy Book Fixes", "-i", APP,
-                            title, msg], check=True, timeout=15)
+                            title, f"{msg}\n{url}"], check=True, timeout=15)
         except (OSError, subprocess.SubprocessError):
-            return                  # try again next login
+            return                  # try again next time
     try:
         os.makedirs(CACHE_DIR, exist_ok=True)
         with open(NOTIFIED, "w") as f:

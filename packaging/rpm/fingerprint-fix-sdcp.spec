@@ -22,6 +22,8 @@
 %global mgrscriptdir %{_libexecdir}/%{mgrname}
 %global boot_check   samsung-galaxybook-fprint-sdcp-boot-check.service
 %global user_check   samsung-galaxybook-fprint-sdcp-user-check.timer
+%global fix_update   fingerprint-fix-sdcp-update-check.timer
+%global mgr_update   galaxybook-fingerprint-manager-update-check.timer
 %{!?_unitdir:       %global _unitdir       %{_prefix}/lib/systemd/system}
 %{!?_userunitdir:   %global _userunitdir   %{_prefix}/lib/systemd/user}
 %{!?_presetdir:     %global _presetdir     %{_prefix}/lib/systemd/system-preset}
@@ -113,7 +115,9 @@ FIX_PACKAGE_SCRIPT_DIR=%{scriptdir} MGR_PACKAGE_SCRIPT_DIR=%{mgrscriptdir} \
 # Enabled at install: the boot check, and the login check for every user.
 install -d %{buildroot}%{_presetdir} %{buildroot}%{_userpresetdir}
 echo "enable %{boot_check}" > %{buildroot}%{_presetdir}/80-%{mgrname}.preset
-echo "enable %{user_check}" > %{buildroot}%{_userpresetdir}/80-%{mgrname}.preset
+printf 'enable %%s\n' %{user_check} %{mgr_update} > %{buildroot}%{_userpresetdir}/80-%{mgrname}.preset
+# The driver's hourly release check (skipped while the Manager is installed).
+echo "enable %{fix_update}" > %{buildroot}%{_userpresetdir}/80-%{name}.preset
 
 %pre
 # Only for a Galaxy Book4 / Book5 with the Egis reader (USB 1c7a:05a5 / 05a1):
@@ -262,6 +266,12 @@ if [ "$1" -eq 1 ]; then
 fi
 
 %post
+# The hourly release check: enabled for every user once (first install, or
+# the upgrade that brings it); after that the admin's choice is kept.
+if [ ! -e /var/lib/samsung-galaxybook/fingerprint-fix-sdcp-update-check.timer.set-up ]; then
+    systemctl --global enable fingerprint-fix-sdcp-update-check.timer >/dev/null 2>&1 || :
+    mkdir -p /var/lib/samsung-galaxybook && touch /var/lib/samsung-galaxybook/fingerprint-fix-sdcp-update-check.timer.set-up
+fi
 # Another fingerprint fix's fprintd setup (e.g. a manual install of Abdallah's
 # libfprint-egismoc-sdcp): moved aside, with a backup and how to restore it.
 %{scriptdir}/other-fix.sh takeover || :
@@ -271,6 +281,12 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 systemctl try-restart fprintd.service >/dev/null 2>&1 || :
 # Fingerprint login on, once per computer (whichever package comes first).
 bash %{pkglibdir}/pam/pam-first-install.sh || :
+
+%preun
+%systemd_user_preun %{fix_update}
+if [ "$1" -eq 0 ]; then
+    rm -f /var/lib/samsung-galaxybook/fingerprint-fix-sdcp-update-check.timer.set-up
+fi
 
 %postun
 # Removed (not upgraded): fprintd goes back to the distro's libfprint; the
@@ -285,6 +301,12 @@ systemctl try-restart fprintd.service >/dev/null 2>&1 || :
 %post -n %{mgrname}
 %systemd_post %{boot_check}
 %systemd_user_post %{user_check}
+# The hourly release check: enabled for every user once (first install, or
+# the upgrade that brings it); after that the admin's choice is kept.
+if [ ! -e /var/lib/samsung-galaxybook/galaxybook-fingerprint-manager-update-check.timer.set-up ]; then
+    systemctl --global enable galaxybook-fingerprint-manager-update-check.timer >/dev/null 2>&1 || :
+    mkdir -p /var/lib/samsung-galaxybook && touch /var/lib/samsung-galaxybook/galaxybook-fingerprint-manager-update-check.timer.set-up
+fi
 # Fingerprint login on, once per computer (whichever package comes first;
 # before the libfprint hash below, which marks computers set up by 2.1 and
 # earlier). FPRINT_PAM=0 leaves it off.
@@ -307,7 +329,10 @@ fi
 
 %preun -n %{mgrname}
 %systemd_preun %{boot_check}
-%systemd_user_preun %{user_check}
+%systemd_user_preun %{user_check} %{mgr_update}
+if [ "$1" -eq 0 ]; then
+    rm -f /var/lib/samsung-galaxybook/galaxybook-fingerprint-manager-update-check.timer.set-up
+fi
 
 %postun -n %{mgrname}
 systemctl daemon-reload >/dev/null 2>&1 || :
@@ -317,6 +342,9 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{pkglibdir}/
 %{scriptdir}/
 %dir %{_unitdir}/fprintd.service.d
+%{_userunitdir}/fingerprint-fix-sdcp-update-check.service
+%{_userunitdir}/%{fix_update}
+%{_userpresetdir}/80-%{name}.preset
 %{_unitdir}/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf
 
 %files -n %{mgrname}
@@ -328,6 +356,8 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %{_unitdir}/%{boot_check}
 %{_userunitdir}/samsung-galaxybook-fprint-sdcp-user-check.service
 %{_userunitdir}/%{user_check}
+%{_userunitdir}/galaxybook-fingerprint-manager-update-check.service
+%{_userunitdir}/%{mgr_update}
 %{_userunitdir}/samsung-galaxybook-session.target
 %{_presetdir}/80-%{mgrname}.preset
 %{_userpresetdir}/80-%{mgrname}.preset

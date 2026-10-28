@@ -36,7 +36,7 @@ esac
 for _f in lib/sensor-check.py lib/fingerprint-manager.py lib/fingerprint-manager-helper.py \
           lib/galaxybook-fingerprint-manager.svg fingerprint-manager.sh \
           tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh \
-          lib/fixpaths.sh lib/update_check.py lib/notify-open-manager.sh lib/distro-driver-check.py \
+          lib/fixpaths.sh lib/update_check.py lib/notify-open-manager.sh lib/notify-update.sh lib/distro-driver-check.py \
           packaging/render.sh packaging/files/monitor.sh.in packaging/files/mgr-cleanup.sh.in \
           packaging/files/fprintd-env.sh.in packaging/files/dropin.conf.in lib/other-fix.sh \
           VERSION DRIVER; do
@@ -384,6 +384,40 @@ $WANT_DRIVER && echo "${SDCP_COMMIT:0:12} ${SDCP_DATE} ${SDCP_SOURCE}${SDCP_FIXE
 $WANT_MGR && echo "(installed $(date '+%Y-%m-%d')) galaxybook-fingerprint-manager ${FIX_VERSION}" > "$MGR_MARKER"
 info "✓ Markers and distro libfprint hash stored"
 
+# The desktop user: user timers go into their ~/.config/systemd/user.
+FPRINT_USER=$(loginctl list-sessions --no-legend 2>/dev/null | awk '$4 == "seat0" {print $3}' | head -1)
+FPRINT_USER_ID=$(id -u "$FPRINT_USER" 2>/dev/null || true)
+FPRINT_USER_SYSTEMD_DIR="/home/${FPRINT_USER}/.config/systemd/user"
+
+_fp_user_systemctl() {
+    sudo -u "$FPRINT_USER" \
+        XDG_RUNTIME_DIR="/run/user/${FPRINT_USER_ID}" \
+        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${FPRINT_USER_ID}/bus" \
+        systemctl --user "$@"
+}
+
+# A user timer (and its service) from packaging/files, for the desktop user.
+_fp_user_timer() {   # service-template timer-template service-name timer-name
+    [[ -n "$FPRINT_USER" && -n "$FPRINT_USER_ID" ]] || return 1
+    mkdir -p "$FPRINT_USER_SYSTEMD_DIR"
+    render "$1" > "${FPRINT_USER_SYSTEMD_DIR}/$3"
+    render "$2" > "${FPRINT_USER_SYSTEMD_DIR}/$4"
+    chown -R "${FPRINT_USER}:${FPRINT_USER}" "$FPRINT_USER_SYSTEMD_DIR"
+    _fp_user_systemctl daemon-reload 2>/dev/null || true
+    _fp_user_systemctl enable "$4" >/dev/null 2>&1
+}
+
+# The driver's hourly check for new releases (skipped while the Manager is
+# installed, which has its own).
+if $WANT_DRIVER; then
+    install -d -m 755 "$FIX_UPDATE_DIR"
+    install -m 755 "$SCRIPT_DIR/lib/update_check.py" "$SCRIPT_DIR/lib/notify-update.sh" "$FIX_UPDATE_DIR/"
+    install -m 644 "$SCRIPT_DIR/VERSION" "$FPRINT_LIB_DIR/VERSION"
+    _fp_user_timer fix-update-check.service.in fix-update-check.timer.in "$FIX_UPDATE_SVC" "$FIX_UPDATE_TIMER" \
+        && info "✓ Hourly check for new releases enabled" \
+        || warn "Could not set up the hourly check for new releases (no desktop user found)"
+fi
+
 # ── Step 9: Monitor — cleanup helper, scripts, polkit rule, services ─────────
 step "Fingerprint Step 9: Installing the fingerprint monitor$($WANT_MGR || echo ' — skipped (driver only)')"
 
@@ -426,17 +460,6 @@ systemctl enable "$FPRINT_BOOT_CHECK_SVC" >/dev/null 2>&1 \
     && info "✓ Boot-time sensor check enabled" \
     || warn "Could not enable ${FPRINT_BOOT_CHECK_SVC}"
 
-FPRINT_USER=$(loginctl list-sessions --no-legend 2>/dev/null | awk '$4 == "seat0" {print $3}' | head -1)
-FPRINT_USER_ID=$(id -u "$FPRINT_USER" 2>/dev/null || true)
-FPRINT_USER_SYSTEMD_DIR="/home/${FPRINT_USER}/.config/systemd/user"
-
-_fp_user_systemctl() {
-    sudo -u "$FPRINT_USER" \
-        XDG_RUNTIME_DIR="/run/user/${FPRINT_USER_ID}" \
-        DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/${FPRINT_USER_ID}/bus" \
-        systemctl --user "$@"
-}
-
 if [[ -z "$FPRINT_USER" || -z "$FPRINT_USER_ID" ]]; then
     warn "Could not detect logged-in user — skipping user monitor timer install"
 else
@@ -448,6 +471,9 @@ else
     _fp_user_systemctl enable "${FPRINT_USER_CHECK_TIMER}" \
         && info "✓ User timer enabled for $FPRINT_USER" \
         || warn "systemctl --user enable failed for ${FPRINT_USER_CHECK_TIMER}"
+    _fp_user_timer mgr-update-check.service.in mgr-update-check.timer.in "$MGR_UPDATE_SVC" "$MGR_UPDATE_TIMER" \
+        && info "✓ Hourly check for new releases enabled" \
+        || warn "systemctl --user enable failed for ${MGR_UPDATE_TIMER}"
 fi
 
 # ── Step 10: Graphical session helper (Xfce and other desktops) ───────────────
@@ -593,6 +619,7 @@ install -m 755 -o root -g root "$SCRIPT_DIR/lib/fingerprint-manager.py" \
     "$SCRIPT_DIR/lib/fingerprint-manager-helper.py" "$MGR_DIR/lib/"
 install -m 644 -o root -g root "$SCRIPT_DIR/lib/fixpaths.sh" "$MGR_DIR/lib/"
 install -m 755 -o root -g root "$SCRIPT_DIR/lib/update_check.py" "$SCRIPT_DIR/lib/notify-open-manager.sh" \
+    "$SCRIPT_DIR/lib/notify-update.sh" \
     "$SCRIPT_DIR/lib/distro-driver-check.py" "$SCRIPT_DIR/lib/sensor-check.py" "$MGR_DIR/lib/"
 install -m 755 -o root -g root "$SCRIPT_DIR"/tools/*.sh "$MGR_DIR/tools/"
 mkdir -p "$(dirname "$MGR_BIN")"

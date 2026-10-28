@@ -76,9 +76,4 @@ if LIST=$(timeout 15 fprintd-list "$USER" 2>/dev/null); then
     fi
 fi
 
-# A newer fingerprint-fix-sdcp release on GitHub: one notification per release
-# (at most one request a day, shared with the Manager; off with the Manager's
-# "Check for new versions").
-if [[ -f "@MGR_DIR@/lib/update_check.py" ]]; then
-    timeout 20 python3 "@MGR_DIR@/lib/update_check.py" --notify 2>/dev/null || true
-fi
+# New releases: the hourly update-check timers (see update_check.py), not here.

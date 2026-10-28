@@ -3,6 +3,8 @@ set -e
 if [ "$1" = remove ]; then
     systemctl disable samsung-galaxybook-fprint-sdcp-boot-check.service >/dev/null 2>&1 || true
     systemctl --global disable samsung-galaxybook-fprint-sdcp-user-check.timer >/dev/null 2>&1 || true
+    systemctl --global disable galaxybook-fingerprint-manager-update-check.timer >/dev/null 2>&1 || true
+    rm -f /var/lib/samsung-galaxybook/galaxybook-fingerprint-manager-update-check.timer.set-up
     # Removed but not purged, the package stays known to dpkg (its conffile is
     # kept), so installing it again looks like an upgrade to postinst. This
     # marker tells postinst to enable the units again.

@@ -108,6 +108,13 @@ fix_layout() {
     FPRINT_MONITOR_SVC="samsung-galaxybook-fprint-sdcp-monitor.service"
     FPRINT_USER_CHECK_SVC="samsung-galaxybook-fprint-sdcp-user-check.service"
     FPRINT_USER_CHECK_TIMER="samsung-galaxybook-fprint-sdcp-user-check.timer"
+    # The hourly check for new releases (user timers): one in each package,
+    # the driver's skipped while the Manager is installed (its own runs).
+    FIX_UPDATE_DIR="${FPRINT_LIB_DIR}/update"
+    FIX_UPDATE_SVC="fingerprint-fix-sdcp-update-check.service"
+    FIX_UPDATE_TIMER="fingerprint-fix-sdcp-update-check.timer"
+    MGR_UPDATE_SVC="galaxybook-fingerprint-manager-update-check.service"
+    MGR_UPDATE_TIMER="galaxybook-fingerprint-manager-update-check.timer"
     FPRINT_BOOT_CHECK_SVC="samsung-galaxybook-fprint-sdcp-boot-check.service"
     HARDWARE_USB_ID="1c7a:05a5|1c7a:05a1"
 
