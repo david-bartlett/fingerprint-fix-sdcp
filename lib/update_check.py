@@ -11,8 +11,15 @@
 # file in /usr/lib/fingerprint-fix-sdcp/update/ runs only while the Manager
 # isn't installed). It asks GitHub at most once an hour; the Manager asks each
 # time it starts (they share one cache). When GitHub can't be reached (no
-# network yet), the next check tries again. The Manager's menu item "Check for
-# new versions" (update_check=0 in its settings) turns both off.
+# network yet), the next check tries again.
+#
+# On / off is the timer itself, per user. The Manager's menu item "Check for
+# new versions" switches both timers; with only the driver:
+#   systemctl --user mask   fingerprint-fix-sdcp-update-check.timer   (off)
+#   systemctl --user unmask fingerprint-fix-sdcp-update-check.timer   (on)
+# Packages enable the timers for all users, which a user can't disable, only
+# mask; install.sh enables them in the user's own folder, where they can be
+# disabled but not masked. So "off" is masked or disabled.
 #
 # The Manager's Download button: this_system() and pick_asset() choose this
 # system's package from the release's files, download() saves and checks it.
@@ -61,13 +68,54 @@ def installed_version():
         return None
 
 
+FIX_TIMER = "fingerprint-fix-sdcp-update-check.timer"
+MGR_TIMER = "galaxybook-fingerprint-manager-update-check.timer"
+
+
+def _timer_state(timer):
+    """systemctl --user is-enabled: enabled, masked, disabled…; '' if unknown."""
+    try:
+        r = subprocess.run(["systemctl", "--user", "is-enabled", timer],
+                           capture_output=True, text=True, timeout=10)
+        return r.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
 def enabled():
-    """False when the Manager's 'Check for new versions' is switched off."""
+    """False when checking is switched off: the Manager's timer masked (its
+    'Check for new versions' masks both). Before 2.3 the switch was a line in
+    the Manager's settings: such a choice is moved to the timers once."""
+    _migrate_setting()
+    return _timer_state(MGR_TIMER) not in ("masked", "disabled")
+
+
+def set_enabled(on):
+    """The Manager's switch: unmask / mask both timers (the driver's too, so
+    removing the Manager later doesn't start checking again)."""
+    timers = [MGR_TIMER, FIX_TIMER]
+    steps = (["unmask", "enable"] if on else ["disable", "mask"])
+    for step in steps:              # each may not apply (see above): errors are fine
+        for t in timers:
+            subprocess.run(["systemctl", "--user", step, t], capture_output=True, timeout=15)
+
+
+def _migrate_setting():
     try:
         with open(SETTINGS) as f:
-            return not any(l.strip() == "update_check=0" for l in f)
+            lines = f.readlines()
     except OSError:
-        return True
+        return
+    old = [l for l in lines if l.strip().startswith("update_check=")]
+    if not old:
+        return
+    try:
+        if any(l.strip() == "update_check=0" for l in old):
+            set_enabled(False)
+        with open(SETTINGS, "w") as f:
+            f.writelines(l for l in lines if l not in old)
+    except (OSError, subprocess.SubprocessError):
+        pass
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -318,9 +366,9 @@ MANAGER_BINS = ("/usr/bin/galaxybook-fingerprint-manager",
 
 
 def notify_once():
-    """The hourly check: tell the user once about each new release."""
-    if not enabled():
-        return
+    """The hourly check (only runs while its timer isn't masked): tell the
+    user once about each new release."""
+    _migrate_setting()
     new = newer_release(max_age=3600)
     if not new:
         return

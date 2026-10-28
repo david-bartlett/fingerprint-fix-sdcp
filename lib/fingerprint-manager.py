@@ -447,7 +447,7 @@ SETTINGS = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser(
 
 
 def load_settings():
-    """key=value lines: view (icons/list), update_check, windows_hint, …"""
+    """key=value lines: view (icons/list), windows_hint, …"""
     try:
         with open(SETTINGS) as f:
             return dict(l.strip().split("=", 1) for l in f if "=" in l)
@@ -795,9 +795,10 @@ class Manager(Gtk.Window):
         self.restore_item = self._menu_item(menu, "Restore removed records…", self.on_restore)
         menu.append(Gtk.SeparatorMenuItem())
         self.update_item = Gtk.CheckMenuItem(label="Check for new versions")
-        self.update_item.set_tooltip_text("Asks GitHub each time the Manager starts whether "
-                                          "a newer fingerprint-fix-sdcp has been released")
-        self.update_item.set_active(load_settings().get("update_check", "1") == "1")
+        self.update_item.set_tooltip_text("Asks GitHub when the Manager starts and about every hour "
+                                          "whether a newer fingerprint-fix-sdcp has been released "
+                                          "(off = its user timers masked)")
+        self.update_item.set_active(update_check.enabled())
         self.update_item.connect("toggled", self._on_update_toggled)
         menu.append(self.update_item)
         self.windows_item = Gtk.CheckMenuItem(label="Remind me about Windows")
@@ -2662,7 +2663,10 @@ class Manager(Gtk.Window):
         self.win_row.set_visible(self._windows and item.get_active())
 
     def _on_update_toggled(self, item):
-        save_setting("update_check", "1" if item.get_active() else "0")
+        try:
+            update_check.set_enabled(item.get_active())
+        except (OSError, subprocess.SubprocessError) as e:
+            self.error(f"Couldn't switch the update check: {e}")
         if item.get_active():
             self.check_for_update(max_age=0)
         else:
