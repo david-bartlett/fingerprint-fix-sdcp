@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.3.1 — 2026-10-28
 
 - **Update notification stays on screen:** until you click a button or close it
