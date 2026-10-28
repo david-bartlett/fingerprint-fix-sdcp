@@ -6,7 +6,7 @@
 #   • which fingers are enrolled on this install, and whether each one is
 #     still stored on the sensor (or was wiped, e.g. by Windows)
 #   • every template on the sensor, and which of them this install uses
-#   • test a fingerprint, remove dead records, delete templates, wipe the sensor
+#   • test a fingerprint, remove dead records, clear slots on the sensor (or all of them)
 #   • export / import fingerprints to share them with another install
 #
 #   galaxybook-fingerprint-manager   (installed by install.sh; also in the app
@@ -1051,7 +1051,7 @@ class Manager(Gtk.Window):
                                      "Touch the sensor with any of your fingers — checked against "
                                      "all of them, as login and sudo do. Double-click a finger to "
                                      "test just that one.")
-        row.remove(self.test_btn)                   # on the right, like the Sensor tab's Wipe
+        row.remove(self.test_btn)                   # on the right, like the Sensor tab's Clear all slots
         row.pack_end(self.test_btn, False, False, 0)
         # Remove is in the right-click menu (and the Delete key), not a button.
         for w in (self.cards, self.rows):
@@ -1111,9 +1111,10 @@ class Manager(Gtk.Window):
         self.del_btn = self._button(row, "Clear…", self.on_delete_templates,
                                     "Clear the selected slots: their fingerprints are deleted "
                                     "from the sensor, everywhere")
-        self.wipe_btn = Gtk.Button(label="Wipe sensor…")
+        self.wipe_btn = Gtk.Button(label="Clear all slots…")
         self.wipe_btn.get_style_context().add_class("destructive-action")
-        self.wipe_btn.set_tooltip_text("Delete every template on the sensor — every install and Windows")
+        self.wipe_btn.set_tooltip_text("Clear every slot on the sensor: every install's fingerprints "
+                                       "and Windows Hello's")
         self.wipe_btn.connect("clicked", self.on_wipe)
         row.pack_end(self.wipe_btn, False, False, 0)
         self.btn_stack.add_named(row, "sensor")
@@ -2548,25 +2549,25 @@ class Manager(Gtk.Window):
 
     def on_wipe(self, _btn):
         d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.WARNING,
-                              buttons=Gtk.ButtonsType.NONE, text="Wipe the whole sensor?")
+                              buttons=Gtk.ButtonsType.NONE, text="Clear all slots on the sensor?")
         d.format_secondary_text(
             "Deletes every fingerprint on the sensor: every Linux install's and Windows "
-            "Hello's. Everyone has to enrol again.\n\nType WIPE to confirm.")
+            "Hello's. Everyone has to enrol again.\n\nType CLEAR to confirm.")
         add_details(d, "Every record on this install is moved aside. Exports made before "
                        "this stop working.")
         entry = Gtk.Entry(activates_default=True)
         d.get_message_area().pack_start(entry, False, False, 0)
         d.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        ok = d.add_button("Wipe", Gtk.ResponseType.OK)
+        ok = d.add_button("Clear all", Gtk.ResponseType.OK)
         ok.get_style_context().add_class("destructive-action")
         ok.set_sensitive(False)
-        entry.connect("changed", lambda e: ok.set_sensitive(e.get_text().strip().upper() == "WIPE"))
+        entry.connect("changed", lambda e: ok.set_sensitive(e.get_text().strip().upper() == "CLEAR"))
         d.show_all()
         r = d.run()
-        confirmed = r == Gtk.ResponseType.OK and entry.get_text().strip().upper() == "WIPE"
+        confirmed = r == Gtk.ResponseType.OK and entry.get_text().strip().upper() == "CLEAR"
         d.destroy()
         if confirmed:
-            self.run_job("wipe", self.after_job("Sensor wiped"))
+            self.run_job("wipe", self.after_job("All slots cleared"))
 
     def _chooser(self, title, action, ok_label):
         d = Gtk.FileChooserDialog(title=title, transient_for=self, action=action)

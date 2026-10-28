@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Clear all slots:** the Sensor tab's *Wipe sensor…* is now *Clear all slots…*, matching *Clear…* for selected slots
+- *Wipe sensor…* is renamed *Clear all slots…*; its confirmation asks *Clear all slots on the sensor?* and you type CLEAR (was WIPE)
+
 - **Sharing fingers after Enrol again:** a fresh export from one install now replaces that finger on the others
 - *Enrol again* says up front (not under Details) that other Linux installs sharing the finger lose it, and to export and import afterwards
 - A record whose template is gone from the sensor (the finger was re-enrolled on another install) now counts as missing: the automatic offer from `~/fingerprint-export.tgz` includes it, and *Import fingerprints… → Add the missing ones* replaces it (the dead record is moved to /var/lib/samsung-galaxybook/replaced-fingerprints/). Before, it was kept and the new fingerprint skipped, so only *Replace all* worked. `import-fingerprint.sh` gains `--dead` for this
