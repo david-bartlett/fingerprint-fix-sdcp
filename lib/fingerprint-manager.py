@@ -374,6 +374,7 @@ button.fpm-update:hover { box-shadow: 0 0 0 1px rgba(231,76,60,1.0), 0 0 8px rgb
 button.fpm-update:disabled { box-shadow: none; font-weight: normal; }
 .fpm-card { border: 1px solid alpha(currentColor, 0.15); border-radius: 8px; padding: 10px 12px; }
 .fpm-hint { font-size: 100%; }
+button.fpm-info { min-width: 22px; min-height: 22px; padding: 2px; }
 menu.fpm-menu { padding: 4px; min-width: 0; background-color: @theme_bg_color; border-radius: 8px; }
 menu.fpm-menu menuitem { padding: 6px 14px 6px 8px; min-width: 0; min-height: 0; border-radius: 6px; }
 menu.fpm-menu menuitem:hover { background-color: alpha(@theme_selected_bg_color, 0.16); color: @theme_fg_color; }
@@ -1095,9 +1096,18 @@ class Manager(Gtk.Window):
         top = Gtk.Box(spacing=6)
         self.slots_label = Gtk.Label(xalign=0)
         self.slots_label.get_style_context().add_class("fpm-slots")
-        top.pack_start(self.slots_label, True, True, 0)
+        top.pack_start(self.slots_label, False, False, 0)
         switch, self.tview_icons, self.tview_list = self._view_switch()
         top.pack_end(switch, False, False, 0)
+        # What a slot is, for anyone who wonders (the ⓘ next to Cards | List).
+        # Straight after "6 of 10 slots used": a small square button.
+        info = Gtk.Button(valign=Gtk.Align.CENTER)
+        info.get_style_context().add_class("fpm-info")
+        self._icon_or_text(info, ["help-about-symbolic", "dialog-information-symbolic",
+                                  "help-info-symbolic", "dialog-information"], "i")
+        info.set_tooltip_text("What is a slot?")
+        info.connect("clicked", self.on_slots_info)
+        top.pack_start(info, False, False, 4)
         # Slots, bar and key together in a card like the one above.
         slots_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         slots_card.get_style_context().add_class("fpm-card")
@@ -1147,9 +1157,9 @@ class Manager(Gtk.Window):
         self.wipe_btn.connect("clicked", self.on_wipe)
         row.pack_end(self.wipe_btn, False, False, 0)
         self.btn_stack.add_named(row, "sensor")
-        self.stack.add_titled(page, "sensor", "Sensor")
+        self.stack.add_titled(page, "sensor", "Sensor slots")
         self.sensor_page = page
-        self.pages = {"fingers": "Fingerprints", "sensor": "Sensor"}
+        self.pages = {"fingers": "Fingerprints", "sensor": "Sensor slots"}
 
         self._set_view(load_view(), save=False)
         self.connect("destroy", self.on_quit)
@@ -1309,7 +1319,24 @@ class Manager(Gtk.Window):
                 "noted it: another distro that hasn't run this Fingerprint Manager yet, Windows "
                 "Hello's own, or left over from a reinstall")
 
+    @staticmethod
+    def _tpl_order(t):
+        """Sensor tab order: used here, removed here, used elsewhere, unknown;
+        within each, by user and in the Fingerprints tab's hand order."""
+        if t["used_by"]:
+            user, _, finger = t["used_by"][0].partition(" ")
+            group = 0
+        elif t.get("removed"):
+            user, finger, group = t["removed"]["user"], t["removed"]["name"], 1
+        elif t.get("shared"):
+            user, finger, group = t["shared"]["user"], t["shared"]["finger"], 2
+        else:
+            user, finger, group = "", "", 3
+        hand = GRID_FINGERS.index(finger) if finger in GRID_FINGERS else len(GRID_FINGERS)
+        return (group, user, hand, t["id"])
+
     def _fill_templates(self, templates):
+        templates = sorted(templates, key=self._tpl_order)
         self.templates = templates
         for w in self.tcards.get_children() + self.trows.get_children():
             w.destroy()
@@ -1355,7 +1382,12 @@ class Manager(Gtk.Window):
             box.pack_start(self._label(card_sub, "dim-label", "fpm-small", justify=Gtk.Justification.CENTER,
                                        ellipsize=Pango.EllipsizeMode.END, max_width_chars=10),
                            False, False, 0)
-            box.pack_start(self._pill("removed" if t.get("removed") else kind, pill),
+            card_pill = pill
+            if owners and t.get("shared"):                  # "+ 4 distros" (other distros), in the pill: short, so cards keep their width
+                n = len(_uniq(o["os"] for o in t["shared"]["others"] if o["state"] == "used"))
+                if n:
+                    card_pill = f"{pill}\n+ {n} distro{'s' if n > 1 else ''}"
+            box.pack_start(self._pill("removed" if t.get("removed") else kind, card_pill),
                            False, False, 4)
             child = Gtk.FlowBoxChild()
             child.tid = t["id"]
@@ -1718,7 +1750,8 @@ class Manager(Gtk.Window):
         button.set_label(text)
 
     def _pill(self, kind, text):
-        pill = Gtk.Label(label=text, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        pill = Gtk.Label(label=text, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER,
+                         justify=Gtk.Justification.CENTER)
         for c in ("fpm-pill", "fpm-" + kind):
             pill.get_style_context().add_class(c)
         return pill
@@ -2256,20 +2289,40 @@ class Manager(Gtk.Window):
                 return False
         return True
 
+    def on_slots_info(self, *_):
+        d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.CLOSE,
+                          message_type=Gtk.MessageType.INFO, text="The sensor's slots")
+        d.format_secondary_markup(
+            f"The fingerprint sensor has <b>{SENSOR_SLOTS} slots</b>. When you enrol a finger, the "
+            "sensor stores that fingerprint in one slot, and it stays there until it's erased.\n\n"
+            "• <b>One slot holds one enrolled finger</b>: from this Linux, another Linux on this "
+            "laptop, or Windows Hello.\n"
+            "• <b>Your fingerprint never leaves the sensor.</b> Linux only notes which slot holds "
+            "which of your fingers.\n"
+            f"• <b>Removing a finger</b> on the Fingerprints tab only takes it off {GLib.markup_escape_text(OS_NAME)}: "
+            "its slot stays filled (<i>Removed here</i>), so other installs keep using it and you "
+            "can restore it.\n"
+            "• <b>Clearing a slot erases its fingerprint</b> from the sensor, for every install. "
+            "It can't be undone: that finger has to be enrolled again.\n"
+            f"• <b>When all {SENSOR_SLOTS} slots are full</b>, clear one you don't need before "
+            "enrolling another finger.")
+        d.run()
+        d.destroy()
+
     def sensor_full_dialog(self, parent=None):
         """All slots taken: say so, with a button to the Sensor tab. True when
         the user chose to open it."""
         d = MessageDialog(transient_for=parent or self, modal=True, buttons=Gtk.ButtonsType.NONE,
                           message_type=Gtk.MessageType.WARNING, text="The sensor is full")
         d.format_secondary_text(f"All {SENSOR_SLOTS} of its slots are in use, so no new finger can be "
-                                "enrolled. Delete fingerprints you no longer need on the Sensor tab, "
+                                "enrolled. Clear the slots you no longer need on the Sensor slots tab, "
                                 "then enrol again.")
         add_details(d, "The sensor keeps every fingerprint enrolled on it, from this install, other "
                        "Linux installs and Windows Hello, and has room for 10. Fingerprints shown "
-                       "in grey on the Sensor tab aren't used by this install; deleting one of yours "
+                       "in grey on the Sensor slots tab aren't used by this install; clearing one of yours "
                        "stops it working here.")
         d.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        d.add_button("Open Sensor tab", 1).get_style_context().add_class("suggested-action")
+        d.add_button("Open Sensor slots", 1).get_style_context().add_class("suggested-action")
         d.set_default_response(1)
         r = d.run()
         d.destroy()
@@ -2431,7 +2484,7 @@ class Manager(Gtk.Window):
                        "or for another user). Nothing was changed.")
             elif res == "enroll-data-full":
                 finish("failed", RED, "The sensor is full",
-                       "Delete fingerprints you no longer need on the Sensor tab, then try "
+                       "Clear the slots you no longer need on the Sensor slots tab, then try "
                        "again.")
 
                 def offer():

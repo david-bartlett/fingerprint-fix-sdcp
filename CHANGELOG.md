@@ -9,6 +9,11 @@
 
 ## Unreleased
 
+- **What is a slot?** The *Sensor* tab is now *Sensor slots*, with an ⓘ button that explains what a slot holds, and the difference between removing a finger (only from this Linux) and clearing a slot (erased from the sensor for every install)
+
+- Sensor tab: slots are listed in the same hand order as the Fingerprints tab (right index, middle, ring, little, thumb, then the left hand) within each group (used here, removed here, used by other distros, unknown), instead of by template ID
+- Sensor slots tab, cards: a slot used here and by other distros says so in its green label: *Used here / + 4 distros*
+
 - **Simpler README:** what matters first (which laptops, the Windows and multi-install warnings, install, enrol, update, uninstall), with the details and big tables in collapsible sections. The driver is presented as what you need and the Manager as optional; the maintainer's release steps moved to packaging/README.md; outdated bits (Arch updating, messages, installed files) brought up to date
 
 ## 2.6.1 — 2026-10-28
