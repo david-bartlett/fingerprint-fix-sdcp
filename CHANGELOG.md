@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Window opens centred:** the Fingerprint Manager opens in the middle of the screen on Xfce, Cinnamon and MATE
+- The Manager asks to open in the middle of the screen. Window managers on X11 (Xfce, Cinnamon, MATE) follow that; Xfce placed it off to the bottom right before. GNOME and KDE on Wayland place windows themselves, as before
+
 ## 2.5.0 — 2026-10-28
 
 - **Tidier right-click menus:** a heading with the finger, an icon for each option, and removing set apart in red

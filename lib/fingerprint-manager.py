@@ -837,6 +837,10 @@ class Manager(Gtk.Window):
     def __init__(self, application=None):
         super().__init__(title=TITLE, application=application)
         self.set_default_size(620, -1)     # height: the Sensor tab plus room for a message
+        # Opens in the middle of the screen where the window manager follows
+        # GTK's request (Xfce, Cinnamon, MATE on X11; Xfce's own placement put
+        # it off to the bottom right). Wayland desktops place windows themselves.
+        self.set_position(Gtk.WindowPosition.CENTER)
         self.set_icon_name(ICON_NAME)
         self.helper = Helper()
         self.status = None
