@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Shorter notification titles:** e.g. *fingerprint-fix-sdcp 2.6.0 is available*, which fits on one line
+- Notification titles no longer start with "Samsung Galaxy Book — ": the desktop already shows the app name, *Samsung Galaxy Book Fixes*, above each one, and on GNOME the update notification's title was cut off
+
 ## 2.6.0 — 2026-10-28
 
 - **Slots shared between installs say whose finger they are:** the Sensor tab shows which finger a slot holds and which other distro uses it

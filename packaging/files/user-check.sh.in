@@ -75,12 +75,12 @@ hint() {
 }
 if LIST=$(timeout 15 fprintd-list "$USER" 2>/dev/null); then
     if ! grep -qE '^ *- #[0-9]+:' <<< "$LIST"; then
-        hint fprint-sdcp-welcome-shown "Samsung Galaxy Book — Fingerprint Sensor Ready" \
+        hint fprint-sdcp-welcome-shown "Fingerprint Sensor Ready" \
             "Open Galaxy Book Fingerprint Manager to enrol a finger."
     else
         PAM=$(bash "@MGR_DIR@/tools/fingerprint-pam.sh" status --short 2>/dev/null)
         if [[ "${PAM%%|*}" == disabled || "${PAM%%|*}" == partial ]]; then
-            hint fprint-sdcp-pam-hint-shown "Samsung Galaxy Book — Fingerprint Login Is Off" \
+            hint fprint-sdcp-pam-hint-shown "Fingerprint Login Is Off" \
                 "Your fingerprint is set up, but fingerprint login is off, so you still type your password. Turn it on with the switch at the top of Galaxy Book Fingerprint Manager."
         fi
     fi
