@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.2.0 — 2026-10-28
 
 - **Install either part on its own:** the driver no longer needs the Fingerprint Manager, and the Manager never needed the driver
