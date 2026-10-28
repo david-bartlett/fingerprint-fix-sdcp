@@ -9,6 +9,12 @@ if [ "$1" = configure ]; then
     systemctl try-restart fprintd.service >/dev/null 2>&1 || true
     # Fingerprint login on, once per computer (whichever package comes first).
     bash /usr/lib/fingerprint-fix-sdcp/pam/pam-first-install.sh || true
+    # The hourly release check: enabled for every user once (first install, or
+    # the upgrade that brings it); after that the admin's choice is kept.
+    if [ ! -e /var/lib/samsung-galaxybook/fingerprint-fix-sdcp-update-check.timer.set-up ]; then
+        systemctl --global enable fingerprint-fix-sdcp-update-check.timer >/dev/null 2>&1 || true
+        mkdir -p /var/lib/samsung-galaxybook && touch /var/lib/samsung-galaxybook/fingerprint-fix-sdcp-update-check.timer.set-up
+    fi
 fi
 
 #DEBHELPER#

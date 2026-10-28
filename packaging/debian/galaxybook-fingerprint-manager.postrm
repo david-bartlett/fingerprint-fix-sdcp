@@ -7,6 +7,7 @@ if [ "$1" = purge ]; then
     # The Manager's own state; never fprintd's records.
     rm -f /var/lib/samsung-galaxybook/libfprint-system.sha256 \
           /var/lib/samsung-galaxybook/galaxybook-fingerprint-manager.removed \
+          /var/lib/samsung-galaxybook/galaxybook-fingerprint-manager-update-check.timer.set-up \
           /var/lib/samsung-galaxybook/fingerprint-fix-sdcp.removed
     rm -rf /var/lib/samsung-galaxybook/removed-fingerprints \
            /var/lib/samsung-galaxybook/replaced-fingerprints

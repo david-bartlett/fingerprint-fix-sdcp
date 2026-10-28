@@ -49,6 +49,10 @@ if [[ "${1:-}" == --driver-only ]]; then
     rm -f "$FPRINT_DROPIN" "${FPRINT_DROPIN}.testing" "$FPRINT_ENV_SCRIPT" "$FPRINT_ENV_FILE" "$FPRINT_OTHER_FIX"
     rmdir "$FPRINT_DROPIN_DIR" 2>/dev/null || true
     rm -rf "$FPRINT_LIB_DIR"
+    for _home in /home/*/; do
+        rm -f "${_home}.config/systemd/user/$FIX_UPDATE_SVC" "${_home}.config/systemd/user/$FIX_UPDATE_TIMER" \
+              "${_home}.config/systemd/user/graphical-session.target.wants/$FIX_UPDATE_TIMER"
+    done
     rm -f "$FPRINT_MARKER" "$FPRINT_CLEANUP"
     systemctl daemon-reload
     systemctl restart fprintd 2>/dev/null || true
@@ -129,7 +133,8 @@ for USER_HOME in /home/*/; do
     USER_NAME=$(basename "$USER_HOME")
     USER_SVC="${USER_HOME}.config/systemd/user/${FPRINT_USER_CHECK_SVC}"
     USER_TIMER="${USER_HOME}.config/systemd/user/${FPRINT_USER_CHECK_TIMER}"
-    [[ -f "$USER_SVC" || -f "$USER_TIMER" ]] || continue
+    [[ -f "$USER_SVC" || -f "$USER_TIMER" || -f "${USER_HOME}.config/systemd/user/$FIX_UPDATE_TIMER" \
+       || -f "${USER_HOME}.config/systemd/user/$MGR_UPDATE_TIMER" ]] || continue
     USER_ID=$(id -u "$USER_NAME" 2>/dev/null || true)
     if [[ -n "$USER_ID" ]]; then
         sudo -u "$USER_NAME" XDG_RUNTIME_DIR="/run/user/${USER_ID}" \
@@ -137,6 +142,10 @@ for USER_HOME in /home/*/; do
     fi
     rm -f "$USER_TIMER" "$USER_SVC" \
         "${USER_HOME}.config/systemd/user/graphical-session.target.wants/${FPRINT_USER_CHECK_TIMER}" \
+        "${USER_HOME}.config/systemd/user/$FIX_UPDATE_SVC" "${USER_HOME}.config/systemd/user/$FIX_UPDATE_TIMER" \
+        "${USER_HOME}.config/systemd/user/graphical-session.target.wants/$FIX_UPDATE_TIMER" \
+        "${USER_HOME}.config/systemd/user/$MGR_UPDATE_SVC" "${USER_HOME}.config/systemd/user/$MGR_UPDATE_TIMER" \
+        "${USER_HOME}.config/systemd/user/graphical-session.target.wants/$MGR_UPDATE_TIMER" \
         "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-boot-shown" \
         "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-welcome-shown" \
         "${USER_HOME}.cache/samsung-galaxybook/fprint-sdcp-pam-hint-shown" \

@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **Hourly update check:** a notification for each new release, with *Open GitHub* and, with the Manager, *Open Fingerprint Manager*
+- New releases are checked for about every hour while you're logged in (10 minutes after login, then hourly), not only at login, and with either package installed: each package has its own user timer, and the driver's is skipped while the Manager is installed, so only one runs. The notification comes once per version, with **Open GitHub** (that release's page) and, when the Manager is installed, **Open Fingerprint Manager**. The Manager's *Check for new versions* still turns it off
 ## 2.2.0 — 2026-10-28
 
 - **Install either part on its own:** the driver no longer needs the Fingerprint Manager, and the Manager never needed the driver

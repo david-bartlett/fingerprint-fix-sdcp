@@ -69,9 +69,18 @@ pre_install() {
     echo "      sudo pacman -R fingerprint-fix-sdcp galaxybook-fingerprint-manager"
 }
 
+# The hourly release check: enabled for every user once (first install, or
+# the upgrade that brings it); after that the admin's choice is kept.
+_update_timer() {
+    [[ -e "/var/lib/samsung-galaxybook/fingerprint-fix-sdcp-update-check.timer.set-up" ]] && return 0
+    systemctl --global enable fingerprint-fix-sdcp-update-check.timer >/dev/null 2>&1 || true
+    mkdir -p /var/lib/samsung-galaxybook && touch "/var/lib/samsung-galaxybook/fingerprint-fix-sdcp-update-check.timer.set-up"
+}
+
 post_install() {
     _takeover
     _reload_fprintd
+    _update_timer
     # Fingerprint login on, once per computer (whichever package comes first).
     bash /usr/lib/fingerprint-fix-sdcp/pam/pam-first-install.sh | sed 's/^/==> /' || true
     if [[ -f /etc/samsung-galaxybook-egismoc-sdcp.installed || -f /etc/galaxybook-fingerprint-manager.installed ]]; then
@@ -85,6 +94,12 @@ post_install() {
 post_upgrade() {
     _takeover
     _reload_fprintd
+    _update_timer
+}
+
+pre_remove() {
+    systemctl --global disable fingerprint-fix-sdcp-update-check.timer >/dev/null 2>&1 || true
+    rm -f "/var/lib/samsung-galaxybook/fingerprint-fix-sdcp-update-check.timer.set-up"
 }
 
 post_remove() {

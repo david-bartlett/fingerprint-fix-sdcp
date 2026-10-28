@@ -10,6 +10,12 @@ if [ "$1" = configure ]; then
     # before the libfprint hash below, which marks computers set up by 2.1 and
     # earlier). FPRINT_PAM=0 leaves it off.
     bash /usr/lib/galaxybook-fingerprint-manager/tools/pam-first-install.sh || true
+    # The hourly release check: enabled for every user once (first install, or
+    # the upgrade that brings it); after that the admin's choice is kept.
+    if [ ! -e /var/lib/samsung-galaxybook/galaxybook-fingerprint-manager-update-check.timer.set-up ]; then
+        systemctl --global enable galaxybook-fingerprint-manager-update-check.timer >/dev/null 2>&1 || true
+        mkdir -p /var/lib/samsung-galaxybook && touch /var/lib/samsung-galaxybook/galaxybook-fingerprint-manager-update-check.timer.set-up
+    fi
 
     # First install (including the move from fingerprint-fix-sdcp 1.x, which
     # had these units), or installing again after a removal: enable the boot
