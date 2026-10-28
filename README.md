@@ -39,7 +39,7 @@ Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first
 | --- | --- |
 | Fedora | `sudo FPRINT_PAM=0 dnf install ./fingerprint-fix-sdcp-*.rpm ./galaxybook-fingerprint-manager-*.rpm` |
 | Ubuntu, Linux Mint, Zorin OS, Debian, MX Linux | `sudo FPRINT_PAM=0 apt install ./fingerprint-fix-sdcp_*.deb ./galaxybook-fingerprint-manager_*.deb` |
-| Arch, CachyOS, EndeavourOS | `makepkg -s`, then `sudo FPRINT_PAM=0 pacman -U ./*.pkg.tar.zst` (`makepkg -si` can't pass the setting on) |
+| Arch, CachyOS, EndeavourOS | `makepkg -s`, then `sudo FPRINT_PAM=0 pacman -U ./*.pkg.tar.zst` (not `makepkg -si`: it loses `FPRINT_PAM=0` before the install) |
 | Any, with install.sh | `sudo FPRINT_PAM=0 bash install.sh` |
 
 </details>
