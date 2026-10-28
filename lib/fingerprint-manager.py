@@ -1382,7 +1382,12 @@ class Manager(Gtk.Window):
             box.pack_start(self._label(card_sub, "dim-label", "fpm-small", justify=Gtk.Justification.CENTER,
                                        ellipsize=Pango.EllipsizeMode.END, max_width_chars=10),
                            False, False, 0)
-            box.pack_start(self._pill("removed" if t.get("removed") else kind, pill),
+            card_pill = pill
+            if owners and t.get("shared"):                  # "+ 4 distros" (other distros), in the pill: short, so cards keep their width
+                n = len(_uniq(o["os"] for o in t["shared"]["others"] if o["state"] == "used"))
+                if n:
+                    card_pill = f"{pill}\n+ {n} distro{'s' if n > 1 else ''}"
+            box.pack_start(self._pill("removed" if t.get("removed") else kind, card_pill),
                            False, False, 4)
             child = Gtk.FlowBoxChild()
             child.tid = t["id"]
@@ -1745,7 +1750,8 @@ class Manager(Gtk.Window):
         button.set_label(text)
 
     def _pill(self, kind, text):
-        pill = Gtk.Label(label=text, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        pill = Gtk.Label(label=text, halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER,
+                         justify=Gtk.Justification.CENTER)
         for c in ("fpm-pill", "fpm-" + kind):
             pill.get_style_context().add_class(c)
         return pill
