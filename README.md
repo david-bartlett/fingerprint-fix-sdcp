@@ -30,7 +30,19 @@ Download the files for your distro, open a terminal in that folder and run the c
 
 </details>
 
-Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first install; updates leave it as you set it. To install with it off, add `FPRINT_PAM=0`: `sudo FPRINT_PAM=0 dnf install …` / `apt install …`, `sudo FPRINT_PAM=0 bash install.sh`, or on Arch `makepkg -s` then `sudo FPRINT_PAM=0 pacman -U ./*.pkg.tar.zst` (`makepkg -si` can't pass it on). You can also turn it off later in the Manager (see [Turning Fingerprint Login On or Off](#turning-fingerprint-login-on-or-off)).
+Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first install, and updates leave it as you set it. You can turn it off later in the Manager (see [Turning Fingerprint Login On or Off](#turning-fingerprint-login-on-or-off)).
+
+<details>
+<summary>Installing with fingerprint login off</summary>
+
+| Distro | Command |
+| --- | --- |
+| Fedora | `sudo FPRINT_PAM=0 dnf install ./fingerprint-fix-sdcp-*.rpm ./galaxybook-fingerprint-manager-*.rpm` |
+| Ubuntu, Linux Mint, Zorin OS, Debian, MX Linux | `sudo FPRINT_PAM=0 apt install ./fingerprint-fix-sdcp_*.deb ./galaxybook-fingerprint-manager_*.deb` |
+| Arch, CachyOS, EndeavourOS | `makepkg -s`, then `sudo FPRINT_PAM=0 pacman -U ./*.pkg.tar.zst` (`makepkg -si` can't pass the setting on) |
+| Any, with install.sh | `sudo FPRINT_PAM=0 bash install.sh` |
+
+</details>
 
 Once installed, **[enrol a fingerprint](#enrolling-a-fingerprint)**.
 
