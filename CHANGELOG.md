@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.6.1 — 2026-10-28
 
 - **Shorter notification titles:** e.g. *fingerprint-fix-sdcp 2.6.0 is available*, which fits on one line
 - Notification titles no longer start with "Samsung Galaxy Book — ": the desktop already shows the app name, *Samsung Galaxy Book Fixes*, above each one, and on GNOME the update notification's title was cut off
