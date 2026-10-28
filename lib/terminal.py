@@ -175,7 +175,10 @@ def pretty_name(term):
 def in_window(term):
     """'in a Konsole window', or 'in your terminal' when the name isn't known."""
     name = pretty_name(term)
-    return f"in a {name} window" if name else "in your terminal"
+    if not name:
+        return "in your terminal"
+    article = "an" if name[0] in "AEIOUX" else "a"     # an Xfce Terminal, an XTerm
+    return f"in {article} {name} window"
 
 
 if __name__ == "__main__":          # python3 terminal.py: which one would be used
