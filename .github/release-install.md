@@ -1,6 +1,13 @@
 > [!IMPORTANT]
-> **Download both files for your distro and install them together**: the driver and the Fingerprint Manager. Most people want both. Either also works on its own: the driver alone (enrol in your desktop's settings), or the Manager alone once your distro's own driver supports the reader.
-> Already have the fix? Open **Galaxy Book Fingerprint Manager** and press **Update**: it downloads the new files for whatever you have installed. Have the driver without the Manager? Download just the driver's file and install it with the same command, leaving out the Manager's file ([Only one part](https://github.com/david-bartlett/fingerprint-fix-sdcp#only-one-part)).
+> **fingerprint-fix-sdcp**: the driver. It makes the fingerprint sensor work on the Samsung Galaxy Book4 and Book5 with the 1c7a:05a1 or 1c7a:05a5 sensor.
+>
+> **galaxybook-fingerprint-manager**: an app to turn fingerprint for sudo and the lock screen on or off, enrol, test and delete fingerprints, and see which of the sensor's slots are in use. It works with the fingerprint-fix-sdcp driver, or with your distro's own libfprint once that supports the sensor.
+>
+> Most people want both: download both files for your distro and install them together. Either also works on its own.
+>
+> **Update notifications:** either one checks for a new release about every hour while you're logged in, and tells you once per version. Turn it on or off in the Fingerprint Manager (☰ → *Check for new versions*). With only the driver installed: `systemctl --user mask fingerprint-fix-sdcp-update-check.timer` (off) or `systemctl --user unmask fingerprint-fix-sdcp-update-check.timer` (on).
+>
+> **Already have the fix?** Open **Galaxy Book Fingerprint Manager** and press **Update**: it downloads the new files for whatever you have installed. Driver only? Download just the driver's file and install it with the same command, leaving out the Manager's file ([Only one part](https://github.com/david-bartlett/fingerprint-fix-sdcp#only-one-part)).
 
 ## Install
 
