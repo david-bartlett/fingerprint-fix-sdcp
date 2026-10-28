@@ -61,11 +61,14 @@ def _desktops():
 def _known(name):
     """The table's key for a terminal named by a setting or a symlink."""
     base = os.path.basename((name or "").split()[0]) if name else ""
+    base = base.split(":")[0]           # xdg-terminal-exec: "org.gnome.Ptyxis.desktop:new-window"
     for suffix in (".wrapper", ".real", ".desktop"):
         if base.endswith(suffix):
             base = base[:-len(suffix)]
     base = {"org.gnome.ptyxis": "ptyxis", "org.gnome.console": "kgx",
-            "org.kde.konsole": "konsole", "org.gnome.terminal": "gnome-terminal"}.get(base.lower(), base)
+            "org.kde.konsole": "konsole", "org.gnome.terminal": "gnome-terminal",
+            "org.codeberg.dnkl.foot": "foot", "alacritty": "alacritty",
+            "org.wezfurlong.wezterm": "wezterm", "com.gexperts.tilix": "tilix"}.get(base.lower(), base)
     return base if base in TERMINALS else None
 
 
