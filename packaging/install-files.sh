@@ -103,7 +103,7 @@ manager)
     install -Dm644 "$REPO/VERSION" "$D$MGR_DIR/VERSION"
     install -Dm755 -t "$D$MGR_DIR/lib" "$REPO/lib/fingerprint-manager.py" "$REPO/lib/fingerprint-manager-helper.py" \
         "$REPO/lib/update_check.py" "$REPO/lib/notify-open-manager.sh" "$REPO/lib/notify-update.sh" \
-        "$REPO/lib/distro-driver-check.py" \
+        "$REPO/lib/distro-driver-check.py" "$REPO/lib/terminal.py" "$REPO/lib/update-in-terminal.sh" \
         "$REPO/lib/sensor-check.py"
     install -Dm644 -t "$D$MGR_DIR/lib" "$REPO/lib/fixpaths.sh"
     install -d "$D$MGR_DIR/tools"

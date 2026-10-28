@@ -27,6 +27,7 @@ import sys
 import threading
 import json
 import re
+import tempfile
 import uuid
 
 # The application ID. It makes the window a single instance (a second launch
@@ -477,6 +478,7 @@ def save_view(view):
 # ── new releases on GitHub: lib/update_check.py, shared with the login check ─
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 import update_check  # noqa: E402
+import terminal  # noqa: E402
 
 
 # The fingerprint drawing (64×64 units): start point, then cubic segments.
@@ -2693,9 +2695,24 @@ class Manager(Gtk.Window):
         asset = (update_check.pick_asset(self._new_assets, new, fmt, dist, fix_installed)
                  if fmt else None)
         page = f"{update_check.REPO_URL}/releases/tag/v{new}"
+        # Installed in the user's terminal when one is found; otherwise the
+        # files go to ~/Downloads with the command to paste (the old way).
+        term = terminal.find_terminal() if asset else None
 
         tt = lambda t: f"<tt>{GLib.markup_escape_text(t)}</tt>"     # file names, commands
-        if asset and "files" in asset and fmt == "pacman":
+        if term:
+            where = GLib.markup_escape_text(terminal.pretty_name(term))
+            if fmt == "pacman":
+                what = (f"Downloads the release's {tt('PKGBUILD')}, then builds and installs it "
+                        f"with {tt('makepkg')} in a {where} window (needs {tt('base-devel')} "
+                        f"and {tt('git')}; it only takes seconds).")
+            else:
+                files = asset["files"] if "files" in asset else [asset]
+                names = "\n".join(f"    {tt(f['name'])}" for f in files)
+                what = f"Downloads and installs, in a {where} window:\n{names}"
+            how = (what + "\n\nType your password there, then confirm. "
+                   "The window closes itself when it's done.")
+        elif asset and "files" in asset and fmt == "pacman":
             how = (f"Download the release's {tt('PKGBUILD')} to {tt('~/Downloads/' + asset['folder'])}, "
                    f"then build and install it with {tt('makepkg')} "
                    f"(needs {tt('base-devel')} and {tt('git')}; it only takes seconds).")
@@ -2718,7 +2735,7 @@ class Manager(Gtk.Window):
         d.add_button("Close", Gtk.ResponseType.CLOSE)
         d.add_button("View on GitHub", 1)
         if asset:
-            d.add_button("Download", 2)
+            d.add_button("Install" if term else "Download", 2)
             d.set_default_response(2)
         else:
             d.set_default_response(1)
@@ -2727,7 +2744,7 @@ class Manager(Gtk.Window):
         if resp == 1:
             self._open_uri(page, "the release page")
         elif resp == 2:
-            self._download_update(asset, fmt, replace_local=not installed_fmt)
+            self._download_update(asset, fmt, replace_local=not installed_fmt, term=term, version=new)
 
     def _open_uri(self, uri, what):
         try:
@@ -2735,9 +2752,19 @@ class Manager(Gtk.Window):
         except GLib.Error as e:
             self.error(f"Could not open {what}: {e.message}")
 
-    def _download_update(self, asset, fmt, replace_local=False):
+    def _download_update(self, asset, fmt, replace_local=False, term=None, version=""):
         folder = (GLib.get_user_special_dir(GLib.UserDirectory.DIRECTORY_DOWNLOAD)
                   or os.path.expanduser("~/Downloads"))
+        self._dl_term, self._dl_tmp, self._dl_version = None, None, version
+        if term:
+            # A folder of its own in /tmp: removed once installed, and /tmp is
+            # emptied at restart. Readable by all, as apt reads the files as _apt.
+            try:
+                folder = tempfile.mkdtemp(prefix=f"galaxybook-update-{version}-", dir="/tmp")
+                os.chmod(folder, 0o755)
+                self._dl_term, self._dl_tmp = term, folder
+            except OSError:
+                pass                                 # ~/Downloads, the old way
         self.update_btn.set_sensitive(False)
         # OTHER: stays up until the download ends (INFO fades after 10 s)
         self._dl_manager_only = bool(asset.get("manager_only"))
@@ -2762,6 +2789,8 @@ class Manager(Gtk.Window):
         self.update_btn.set_sensitive(True)
         self._hide_message()
         if err:
+            if getattr(self, "_dl_tmp", None):
+                shutil.rmtree(self._dl_tmp, ignore_errors=True)
             self.error(f"Download failed: {err}")
             return False
         cmd = update_check.install_command(fmt, path, getattr(self, "_dl_manager_only", False))
@@ -2774,6 +2803,9 @@ class Manager(Gtk.Window):
             cleanups = [c for c in (LOCAL_CLEANUP, LOCAL_MGR_CLEANUP) if os.path.exists(c)]
             if cleanups:
                 cmd = " && ".join(f"sudo {c}" for c in cleanups) + f" && {cmd}"
+        self._dl_args = (path, fmt, None, replace_local)
+        if getattr(self, "_dl_term", None) and self._install_in_terminal(cmd):
+            return False
         d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE, text="Downloaded")
         tt = lambda t: f"<tt>{GLib.markup_escape_text(t)}</tt>"
@@ -2818,6 +2850,45 @@ class Manager(Gtk.Window):
             # moment's wait lets the file manager come up first.
             GLib.timeout_add(700, lambda: self.close() and False)
         return False
+
+    def _install_in_terminal(self, cmd):
+        """Run the install command in the user's terminal (update-in-terminal.sh
+        shows it, runs it, removes the download and closes the window). False
+        when the terminal can't be started: the old dialog is shown instead."""
+        term, folder = self._dl_term, self._dl_tmp
+        title = f"Updating fingerprint-fix-sdcp to {self._dl_version}"
+        argv = terminal.command_line(
+            term, ["bash", os.path.join(HERE, "update-in-terminal.sh"), title, folder, cmd])
+        env = dict(os.environ)
+        # Wayland only brings a new window to the front with a token from the click.
+        try:
+            app = Gio.AppInfo.create_from_commandline(argv[0], None, Gio.AppInfoCreateFlags.SUPPORTS_STARTUP_NOTIFICATION)
+            ctx = self.get_display().get_app_launch_context()
+            ctx.set_timestamp(Gtk.get_current_event_time())
+            token = ctx.get_startup_notify_id(app, [])
+            if token:
+                env["XDG_ACTIVATION_TOKEN"] = token
+                env["DESKTOP_STARTUP_ID"] = token
+        except Exception:
+            pass
+        try:
+            proc = subprocess.Popen(argv, start_new_session=True, env=env, stdin=subprocess.DEVNULL,
+                                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError:
+            return False
+        name = terminal.pretty_name(term)
+        self.message(f"Installing in {name}: type your password there and confirm. "
+                     "The Manager offers to restart when it's done.", Gtk.MessageType.INFO)
+
+        def check():                                 # it failed straight away: the old way
+            rc = proc.poll()
+            if rc not in (None, 0):
+                self._hide_message()
+                self._dl_term = None
+                self._downloaded(*self._dl_args)
+            return False
+        GLib.timeout_add_seconds(3, check)
+        return True
 
     def _open_folder_detached(self, folder):
         """Open a folder in the file manager as its own process, so it still
