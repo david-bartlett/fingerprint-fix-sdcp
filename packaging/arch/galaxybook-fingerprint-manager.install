@@ -81,14 +81,10 @@ post_install() {
     # files: the units stay enabled, and the hint below is shown once per user.
     systemctl enable "$_boot_check" >/dev/null 2>&1 || true
     systemctl --global enable "$_user_check" >/dev/null 2>&1 || true
-    # Fingerprint for sudo and admin prompts: turned on at the first install on
-    # this system (no libfprint hash yet: every earlier install, of 1.x too,
-    # left one). Otherwise left as the user set it. FPRINT_PAM=0 leaves it off.
-    if [[ "${FPRINT_PAM:-1}" != 0 && ! -f "$_state/libfprint-system.sha256" ]]; then
-        bash "$_tools/arch-pam.sh" enable >/dev/null \
-            && echo "==> Fingerprint is on for sudo and admin prompts (turn it off in the Manager)." \
-            || echo "==> WARNING: fingerprint for sudo wasn't turned on — turn it on in the Manager."
-    fi
+    # Fingerprint for sudo and admin prompts on, once per computer (whichever
+    # package comes first; before the libfprint hash below, which marks
+    # computers set up by 2.1 and earlier). FPRINT_PAM=0 leaves it off.
+    bash "$_tools/pam-first-install.sh" | sed 's/^/==> /' || true
     [[ -f "$_state/libfprint-system.sha256" ]] || _store_libfprint_hash
     _update_pam
     if [[ -f /etc/samsung-galaxybook-egismoc-sdcp.installed || -f /etc/galaxybook-fingerprint-manager.installed ]]; then

@@ -2,9 +2,10 @@
 #   fingerprint-fix-sdcp            the egismoc SDCP driver for fprintd (x86_64)
 #   galaxybook-fingerprint-manager  the Fingerprint Manager, its monitor and
 #                                   boot / login checks (noarch)
-# The driver requires the same version of the Manager; the Manager works
-# without the driver (with the distro's libfprint, once it has SDCP), so the
-# driver can be removed alone: sudo dnf remove fingerprint-fix-sdcp
+# The driver recommends the same version of the Manager (dnf installs it too,
+# unless told not to); either works without the other: the driver alone (enrol
+# in the desktop's settings), or the Manager alone with the distro's libfprint
+# once it has SDCP. Each can be removed alone.
 #
 # Build with packaging/rpm/build.sh, which makes the two source tarballs and
 # passes VERSION and DRIVER from the repository:
@@ -54,9 +55,12 @@ BuildRequires:  pkgconfig(openssl)
 BuildRequires:  systemd-rpm-macros
 
 # The distro's fprintd and libfprint stay installed: fprintd is only pointed at
-# this driver with a drop-in. The Manager, its monitor and checks come with it.
-Requires:       %{mgrname} = %{version}-%{release}
+# this driver with a drop-in. The Manager (window, monitor, boot and login
+# checks) is recommended, not required: dnf installs it too unless told not
+# to, and either package works without the other.
+Recommends:     %{mgrname} = %{version}-%{release}
 Requires:       fprintd
+Requires:       fprintd-pam
 Requires:       libfprint
 Requires:       glib2
 Requires:       usbutils
@@ -66,7 +70,9 @@ Requires:       usbutils
 Makes the Egis match-on-chip fingerprint reader (1c7a:05a5 on Galaxy Book4 /
 Book5 Pro, 1c7a:05a1 on Book4) work on Linux. Builds only the egismoc SDCP
 driver of libfprint and points fprintd at it; the distro's libfprint is not
-replaced. Comes with the Galaxy Book Fingerprint Manager (galaxybook-fingerprint-manager).
+replaced. Turns fingerprint login on at the first install. The Galaxy Book
+Fingerprint Manager (galaxybook-fingerprint-manager) is recommended with it, but
+the driver works on its own: enrol in your desktop's settings.
 
 %package -n %{mgrname}
 Summary:        Galaxy Book Fingerprint Manager, with boot-time and login checks
@@ -88,7 +94,7 @@ Test, enrol, export / import and tidy fingerprints on the Samsung Galaxy Book's
 Egis fingerprint reader, with a monitor and boot-time check that warn when the
 sensor loses a fingerprint (e.g. after booting Windows). Works with
 fingerprint-fix-sdcp's driver, or with the distro's own libfprint once it has
-SDCP support.
+SDCP support. Installed alone it uses whichever driver fprintd has.
 
 %prep
 %setup -q -a 1
@@ -263,6 +269,8 @@ fi
 # reload first (systemd's own reload runs at the end of the transaction).
 systemctl daemon-reload >/dev/null 2>&1 || :
 systemctl try-restart fprintd.service >/dev/null 2>&1 || :
+# Fingerprint login on, once per computer (whichever package comes first).
+bash %{pkglibdir}/pam/pam-first-install.sh || :
 
 %postun
 # Removed (not upgraded): fprintd goes back to the distro's libfprint; the
@@ -277,17 +285,10 @@ systemctl try-restart fprintd.service >/dev/null 2>&1 || :
 %post -n %{mgrname}
 %systemd_post %{boot_check}
 %systemd_user_post %{user_check}
-# Fingerprint for login, the lock screen and sudo: turned on at the first
-# install on this system, like install.sh (no libfprint hash yet: every earlier
-# install, of 1.x too, left one). Later installs and upgrades keep what the
-# user set in the Manager. FPRINT_PAM=0 leaves it off.
-# (keep-pam-setting: replacing an install.sh copy, whose cleanup deleted the hash.)
-if [ "$1" -eq 1 ] && [ ! -f /var/lib/samsung-galaxybook/libfprint-system.sha256 ] \
-        && [ ! -f /var/lib/samsung-galaxybook/keep-pam-setting ] && [ "${FPRINT_PAM:-1}" != 0 ]; then
-    bash %{mgrdir}/tools/fingerprint-pam.sh enable \
-        || echo "Fingerprint login wasn't turned on — turn it on in the Fingerprint Manager."
-fi
-rm -f /var/lib/samsung-galaxybook/keep-pam-setting
+# Fingerprint login on, once per computer (whichever package comes first;
+# before the libfprint hash below, which marks computers set up by 2.1 and
+# earlier). FPRINT_PAM=0 leaves it off.
+bash %{mgrdir}/tools/pam-first-install.sh || :
 # What the distro libfprint looked like, so the monitor tests it again only
 # once it changes.
 if [ ! -f /var/lib/samsung-galaxybook/libfprint-system.sha256 ]; then

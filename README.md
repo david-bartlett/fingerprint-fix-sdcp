@@ -7,7 +7,7 @@ Enables fingerprint authentication on Samsung Galaxy Book laptops with an EgisTe
 ## Download
 
 > [!IMPORTANT]
-> **Each distro needs two files**: the driver (`fingerprint-fix-sdcp`) and the Fingerprint Manager (`galaxybook-fingerprint-manager`). Download both from the [**latest release**](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest) and install them together, as described in [Install](#install). One file on its own isn't enough: the driver won't install without the Manager.
+> **Each distro has two files**: the driver (`fingerprint-fix-sdcp`) and the Fingerprint Manager (`galaxybook-fingerprint-manager`). Download both from the [**latest release**](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest) and install them together, as described in [Install](#install). Most people want both; either also works on its own (see [Only one part](#only-one-part)).
 > Already installed? The Manager's **Update** button downloads both for you.
 
 | Distro | The two files (`<version>` is the release, e.g. `2.0.1-1`) |
@@ -104,7 +104,7 @@ Download the two files for your distro from the [**latest release**](https://git
 
 The packages are only for a Samsung with the Egis reader (`1c7a:05a5` / `1c7a:05a1`, see `lsusb | grep 1c7a`): on other hardware the packages and the Arch `PKGBUILD` stop before installing anything (`sudo FPRINT_SDCP_FORCE=1 dnf install …` / `apt install …`, or `FPRINT_SDCP_FORCE=1 makepkg -si`, installs anyway, e.g. for a system image). Either way, fprintd only uses the fix's driver while the reader is present, so another laptop's fingerprint reader keeps working.
 
-The two packages are the driver (`fingerprint-fix-sdcp`) and the [Fingerprint Manager](#galaxy-book-fingerprint-manager) (`galaxybook-fingerprint-manager`, with the monitor and the boot and login checks); the driver needs the Manager of the same version. `dnf` and `apt` install what the fix needs from your distro (fprintd, the Manager's GTK libraries…); nothing is compiled on your laptop. Fingerprints work straight away, and on a first install fingerprint login (the lock screen, sudo and admin prompts) is turned on, as `install.sh` does: open **Galaxy Book Fingerprint Manager** from the app menu to enrol a finger. Turn it off there if you prefer, or install with `FPRINT_PAM=0` (e.g. `sudo FPRINT_PAM=0 apt install ./*.deb`). Upgrades and reinstalls keep your choice.
+The two packages are the driver (`fingerprint-fix-sdcp`) and the [Fingerprint Manager](#galaxy-book-fingerprint-manager) (`galaxybook-fingerprint-manager`, with the monitor and the boot and login checks). `dnf` and `apt` install what the fix needs from your distro (fprintd, the Manager's GTK libraries…); nothing is compiled on your laptop. Fingerprints work straight away, and on a first install fingerprint login (the lock screen, sudo and admin prompts) is turned on, as `install.sh` does: open **Galaxy Book Fingerprint Manager** from the app menu to enrol a finger. Turn it off there if you prefer, or install with `FPRINT_PAM=0` (e.g. `sudo FPRINT_PAM=0 apt install ./*.deb`). Upgrades and reinstalls keep your choice.
 
 - **Already installed with `install.sh`?** The `.rpm` and `.deb` replace it themselves, keeping your fingerprints. On Arch, run `sudo bash uninstall.sh` in the old folder first (pacman won't install over its files).
 - **Updating:** the Manager tells you when a new version is out; download the new file and install it the same way. Enrolled fingerprints are kept.
@@ -124,6 +124,17 @@ makepkg -si
 ```
 
 `makepkg` installs the build tools it needs, builds the driver commit the release was tested with, and asks for your password to install both packages. **Updating:** the Manager's **Download** fetches the new release's `PKGBUILD` into `~/Downloads/fingerprint-fix-sdcp-<version>/` and gives you the `makepkg -si` command.
+
+### Only one part
+
+Most people want both packages. Either one also works on its own:
+
+| Install only | What you get | What you don't |
+| --- | --- | --- |
+| **The driver** (`fingerprint-fix-sdcp`) | Fingerprints work, and fingerprint login is turned on. Enrol in your desktop's settings (GNOME, KDE, Mint's Fingerprints) | The Manager's window, the monitor (e.g. *your distro now supports the reader*) and the boot check (warns when Windows deletes your fingerprints) |
+| **The Manager** (`galaxybook-fingerprint-manager`) | The window, monitor and checks, using whichever driver fprintd has: for when your distro's own libfprint supports the reader with SDCP | The driver: on a distro without SDCP support the Manager can't use the reader |
+
+Install just that file, e.g. `sudo dnf install ./fingerprint-fix-sdcp-*.fc45.x86_64.rpm`, `sudo apt install ./galaxybook-fingerprint-manager_*ubuntu26.04_all.deb`, or on Arch `makepkg -s` then `sudo pacman -U ./<package>-*.pkg.tar.zst`. With `install.sh`: `sudo bash install.sh --driver-only` or `--manager-only`. The other part can be added later the same way. The Manager's **Update** updates whatever is installed: both packages, or only the Manager.
 
 ### With install.sh (other distros, or for testing)
 
@@ -192,6 +203,8 @@ sudo bash uninstall.sh
 ```
 
 **Only the driver** — e.g. once your distro's own libfprint handles the reader with SDCP (the monitor tells you, and the Manager offers it): `sudo dnf remove fingerprint-fix-sdcp` (or `apt remove` / `pacman -R` the same name), or `sudo bash uninstall.sh --driver-only`. fprintd goes back to your distro's libfprint; the Manager, its checks and fingerprint login stay.
+
+**Only the Manager:** `sudo dnf remove galaxybook-fingerprint-manager` (or `apt remove` / `pacman -R`), or `sudo bash uninstall.sh --manager-only`. The driver, fingerprint login and enrolled fingerprints stay.
 
 Either way, enrolled fingerprints are always kept — fprintd's records and the templates on the sensor — so reinstalling uses them again. To delete fingers, use the Fingerprint Manager before uninstalling (while the driver is still loaded, so the templates leave the sensor too). Both remove the drop-in, the library, the Manager and the monitor; nothing needs reinstalling because the distro libfprint was never replaced. Fingerprint login is left as you set it, on every distro, so it keeps working once your distro's libfprint has SDCP.
 
@@ -440,10 +453,11 @@ session include system-local-login
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-monitor.sh` — root monitor script
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-user-check.sh` — user login check
 - Arch-based, if you said yes: one marked line in `/etc/pam.d/sudo` and `/etc/pam.d/polkit-1` (plus `*.bak-samsung-galaxybook` backups, and `/var/lib/samsung-galaxybook/pam-polkit-1-created` if `polkit-1` was copied)
-- `/usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh` and `/usr/local/bin/galaxybook-fingerprint-manager-cleanup.sh` — remove the driver and the Manager of this copy, keeping fingerprints (used by the packages when replacing an `install.sh` copy, and by `uninstall.sh --driver-only`)
+- `/usr/local/bin/samsung-galaxybook-fprint-sdcp-cleanup.sh` and `/usr/local/bin/galaxybook-fingerprint-manager-cleanup.sh` — remove the driver and the Manager of this copy, keeping fingerprints (used by the packages when replacing an `install.sh` copy, and by `uninstall.sh --driver-only` / `--manager-only`)
 - `/etc/systemd/system/samsung-galaxybook-fprint-sdcp-monitor.service`
 - `~/.config/systemd/user/samsung-galaxybook-fprint-sdcp-user-check.{service,timer}`
 - `/etc/polkit-1/rules.d/49-samsung-galaxybook-fprint-sdcp-monitor.rules`
+- `/var/lib/samsung-galaxybook/fingerprint-login-set-up` — fingerprint login was turned on (or left alone) at the first install; it isn't turned on again
 - `/etc/samsung-galaxybook-egismoc-sdcp.installed` — the driver's marker (commit, its date, source and install date)
 - `/etc/galaxybook-fingerprint-manager.installed` — the Manager's marker (version and install date)
 - `/var/lib/samsung-galaxybook/libfprint-system.sha256` — distro libfprint hash, to spot updates

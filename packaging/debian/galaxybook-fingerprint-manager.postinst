@@ -6,17 +6,10 @@ STATE=/var/lib/samsung-galaxybook
 REMOVED="$STATE/galaxybook-fingerprint-manager.removed"
 
 if [ "$1" = configure ]; then
-    # Fingerprint for login, the lock screen and sudo: turned on at the first
-    # install on this system, like install.sh (no libfprint hash yet: every
-    # earlier install, of 1.x too, left one). Later installs and upgrades keep
-    # what the user set in the Manager. FPRINT_PAM=0 leaves it off.
-    # (keep-pam-setting: replacing an install.sh copy, whose cleanup deleted the hash.)
-    if [ ! -f "$STATE/libfprint-system.sha256" ] && [ ! -f "$STATE/keep-pam-setting" ] \
-            && [ "${FPRINT_PAM:-1}" != 0 ]; then
-        bash /usr/lib/galaxybook-fingerprint-manager/tools/fingerprint-pam.sh enable \
-            || echo "Fingerprint login wasn't turned on — turn it on in the Fingerprint Manager."
-    fi
-    rm -f "$STATE/keep-pam-setting"
+    # Fingerprint login on, once per computer (whichever package comes first;
+    # before the libfprint hash below, which marks computers set up by 2.1 and
+    # earlier). FPRINT_PAM=0 leaves it off.
+    bash /usr/lib/galaxybook-fingerprint-manager/tools/pam-first-install.sh || true
 
     # First install (including the move from fingerprint-fix-sdcp 1.x, which
     # had these units), or installing again after a removal: enable the boot

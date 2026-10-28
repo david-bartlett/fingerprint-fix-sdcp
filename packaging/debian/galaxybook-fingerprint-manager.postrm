@@ -10,6 +10,9 @@ if [ "$1" = purge ]; then
           /var/lib/samsung-galaxybook/fingerprint-fix-sdcp.removed
     rm -rf /var/lib/samsung-galaxybook/removed-fingerprints \
            /var/lib/samsung-galaxybook/replaced-fingerprints
+    # Purged with the driver gone too: a later install counts as the first again.
+    [ -e /usr/lib/fingerprint-fix-sdcp/installed ] \
+        || rm -f /var/lib/samsung-galaxybook/fingerprint-login-set-up
     rmdir /var/lib/samsung-galaxybook 2>/dev/null || true
 fi
 

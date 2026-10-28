@@ -72,6 +72,8 @@ pre_install() {
 post_install() {
     _takeover
     _reload_fprintd
+    # Fingerprint login on, once per computer (whichever package comes first).
+    bash /usr/lib/fingerprint-fix-sdcp/pam/pam-first-install.sh | sed 's/^/==> /' || true
     if [[ -f /etc/samsung-galaxybook-egismoc-sdcp.installed || -f /etc/galaxybook-fingerprint-manager.installed ]]; then
         echo "==> WARNING: a copy of fingerprint-fix-sdcp installed with install.sh is still here,"
         echo "    and its fprintd drop-in in /etc takes priority over this package."

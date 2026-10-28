@@ -1,5 +1,5 @@
 > [!IMPORTANT]
-> **Download both files for your distro and install them together**: the driver and the Fingerprint Manager. The driver won't install without the Manager, so one file on its own isn't enough.
+> **Download both files for your distro and install them together**: the driver and the Fingerprint Manager. Most people want both. Either also works on its own: the driver alone (enrol in your desktop's settings), or the Manager alone once your distro's own driver supports the reader.
 > Already have the fix? Open **Galaxy Book Fingerprint Manager** and press **Update**: it downloads both files for you.
 
 ## Install
