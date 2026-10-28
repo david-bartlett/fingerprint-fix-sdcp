@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.4.2 — 2026-10-28
 
 - **No password prompt on the login screen:** the login check no longer runs for the login screen itself
