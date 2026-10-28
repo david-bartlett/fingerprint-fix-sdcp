@@ -9,8 +9,8 @@
 
 ## Unreleased
 
-- **Update notification right after login:** the first check for a new release is 10 seconds after login, not 10 minutes
-- The hourly update check (both packages' user timers) first runs 10 seconds after login instead of 10 minutes, like the Galaxy Book update tray, without the random delay. If the network isn't up yet, it tries again every 30 seconds for up to 3 minutes. GitHub is still asked at most once an hour
+- **Update notification right after login:** the first check for a new release is 30 seconds after login, not 10 minutes
+- The hourly update check (both packages' user timers) first runs 30 seconds after login instead of 10 minutes, without the random delay. If the network isn't up yet, it tries again every 30 seconds for up to 3 minutes. GitHub is still asked at most once an hour
 
 ## 2.5.1 — 2026-10-28
 

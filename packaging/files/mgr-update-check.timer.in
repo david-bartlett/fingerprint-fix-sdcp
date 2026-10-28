@@ -1,11 +1,11 @@
 [Unit]
-Description=Galaxy Book Fingerprint Manager — check GitHub for a new release (10 s after login, then hourly)
+Description=Galaxy Book Fingerprint Manager — check GitHub for a new release (30 s after login, then hourly)
 PartOf=graphical-session.target
 After=graphical-session.target
 
 [Timer]
-OnActiveSec=10s
-# Timers fire within a minute of their time by default: 10 s means 10 s.
+OnActiveSec=30s
+# Timers fire within a minute of their time by default: 30 s means 30 s.
 AccuracySec=1s
 OnCalendar=hourly
 Unit=@MGR_UPDATE_SVC@
