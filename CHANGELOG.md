@@ -12,8 +12,6 @@
 - **Update check at login always asks GitHub:** a release made while you were logged out is noticed straight after login
 - The update check reuses GitHub's answer for an hour, but no longer one saved before the current login: the first check after logging in always asks GitHub. Before, an answer from up to an hour earlier could hide a release made since (2.5.3, released 2 minutes before logging in, went unnoticed)
 
-## 2.5.3 — 2026-10-28
-
 - **Clear all slots:** the Sensor tab's *Wipe sensor…* is now *Clear all slots…*, matching *Clear…* for selected slots
 - *Wipe sensor…* is renamed *Clear all slots…*; its confirmation asks *Clear all slots on the sensor?* and you type CLEAR (was WIPE)
 
