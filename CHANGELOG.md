@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Sooner update notification after login:** the first check for a new release is about a minute after login, not ten
+- The hourly update check (both packages' user timers) first runs 1 minute after login instead of 10, with up to 1 minute's random delay instead of 5, so a new release is noticed within about 2 minutes of logging in. GitHub is still asked at most once an hour
+
 ## 2.5.1 — 2026-10-28
 
 - **Window opens centred:** the Fingerprint Manager opens in the middle of the screen on Xfce, Cinnamon and MATE
