@@ -49,7 +49,7 @@ makepkg -si
 
 `makepkg` installs the build tools it needs, builds the driver commit the release was tested with, and asks for your password to install both packages. **Updating:** the Manager's **Update** fetches the new release's `PKGBUILD` and runs `makepkg -si` in your terminal; without the Manager, download the new files and run `makepkg -si` again.
 
-### Installing only one of the packages
+### Installing only one package
 
 Either package works on its own. Most desktops have their own fingerprint settings for enrolling, so the driver alone may be all you need:
 
