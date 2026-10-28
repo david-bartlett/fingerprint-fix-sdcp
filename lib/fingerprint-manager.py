@@ -374,7 +374,6 @@ button.fpm-update:hover { box-shadow: 0 0 0 1px rgba(231,76,60,1.0), 0 0 8px rgb
 button.fpm-update:disabled { box-shadow: none; font-weight: normal; }
 .fpm-card { border: 1px solid alpha(currentColor, 0.15); border-radius: 8px; padding: 10px 12px; }
 .fpm-hint { font-size: 100%; }
-button.fpm-info { min-width: 22px; min-height: 22px; padding: 2px; }
 menu.fpm-menu { padding: 4px; min-width: 0; background-color: @theme_bg_color; border-radius: 8px; }
 menu.fpm-menu menuitem { padding: 6px 14px 6px 8px; min-width: 0; min-height: 0; border-radius: 6px; }
 menu.fpm-menu menuitem:hover { background-color: alpha(@theme_selected_bg_color, 0.16); color: @theme_fg_color; }
@@ -1103,18 +1102,17 @@ class Manager(Gtk.Window):
         top = Gtk.Box(spacing=6)
         self.slots_label = Gtk.Label(xalign=0)
         self.slots_label.get_style_context().add_class("fpm-slots")
-        top.pack_start(self.slots_label, False, False, 0)
+        top.pack_start(self.slots_label, True, True, 0)
         switch, self.tview_icons, self.tview_list = self._view_switch()
         top.pack_end(switch, False, False, 0)
         # What a slot is, for anyone who wonders (the ⓘ next to Cards | List).
-        # Straight after "6 of 10 slots used": a small square button.
+        # Beside the Cards | List buttons, the same size as them.
         info = Gtk.Button(valign=Gtk.Align.CENTER)
-        info.get_style_context().add_class("fpm-info")
         self._icon_or_text(info, ["help-about-symbolic", "dialog-information-symbolic",
                                   "help-info-symbolic", "dialog-information"], "i")
         info.set_tooltip_text("What is a slot?")
         info.connect("clicked", self.on_slots_info)
-        top.pack_start(info, False, False, 4)
+        top.pack_end(info, False, False, 0)
         # Slots, bar and key together in a card like the one above.
         slots_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         slots_card.get_style_context().add_class("fpm-card")
