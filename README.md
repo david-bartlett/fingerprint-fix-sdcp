@@ -12,7 +12,7 @@ Makes the fingerprint reader work on Linux on the **Samsung Galaxy Book4 and Boo
 Each distro has two files in the [**latest release**](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest):
 
 - **The driver** (`fingerprint-fix-sdcp`) makes the reader work. With it alone, enrol in your desktop's own fingerprint settings.
-- **The [Fingerprint Manager](#galaxy-book-fingerprint-manager)** (`galaxybook-fingerprint-manager`) is optional: a window to enrol, test and remove fingerprints, see the sensor's slots and share fingerprints between installs, plus checks that tell you when something goes wrong (e.g. Windows deleted your fingerprints).
+- **The [Fingerprint Manager](#galaxy-book-fingerprint-manager)** (`galaxybook-fingerprint-manager`) is **optional**: a window to enrol, test and remove fingerprints, see the sensor's slots and share fingerprints between installs, plus checks that tell you when something goes wrong (e.g. Windows deleted your fingerprints).
 
 Download the files for your distro, open a terminal in that folder and run the command. It installs both; for the driver alone, leave out the Manager's file.
 
@@ -25,13 +25,13 @@ Download the files for your distro, open a terminal in that folder and run the c
 | Debian 13, MX Linux 25 | `sudo apt install ./fingerprint-fix-sdcp_*debian13_amd64.deb ./galaxybook-fingerprint-manager_*debian13_all.deb` |
 | Arch, CachyOS, EndeavourOS | see [Arch-based distros](#arch-based-distros) below |
 
-Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first install; turn it off in the Manager, or install with `FPRINT_PAM=0` (e.g. `sudo FPRINT_PAM=0 apt install ./*.deb`).
+Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first install.  You can turn it off in the Manager, or install with `FPRINT_PAM=0` (e.g. `sudo FPRINT_PAM=0 apt install ./*.deb`).
 
-### Then enrol a finger
+### To enrol a fingerprint
 
-Open **Galaxy Book Fingerprint Manager** from the app menu and click a grey finger, or use your desktop's settings: KDE: System Settings → Users → Fingerprint Authentication · GNOME: Settings → System → Users → Fingerprint Login · Mint: Menu → Fingerprints · Xfce (e.g. MX Linux) has none: use the Manager or `fprintd-enroll`. No reboot is needed. Check with `fprintd-verify`.
+Open **Galaxy Book Fingerprint Manager** from the app menu and click a grey finger, or use your desktop's settings: KDE: System Settings → Users → Fingerprint Authentication · GNOME: Settings → System → Users → Fingerprint Login · Mint: Menu → Fingerprints · Xfce (e.g. MX Linux) has none: use the Galaxy Book Fingerprint Manager or `fprintd-enroll`. No reboot is needed. Check with `fprintd-verify`.
 
-If `fprintd-verify` never matches, those fingers were enrolled with another driver (e.g. your distro's own, before this fix): the Manager marks them **Other driver** and offers to delete and enrol them again.
+If `fprintd-verify` never matches, those fingers were enrolled with another driver (e.g. your distro's own, before this fix): the Galaxy Book Fingerprint Manager marks them **Other driver** and offers to delete and enrol them again.
 
 ### Arch-based distros
 
@@ -47,7 +47,7 @@ Download `PKGBUILD`, `fingerprint-fix-sdcp.install` and `galaxybook-fingerprint-
 makepkg -si
 ```
 
-`makepkg` installs the build tools it needs, builds the driver commit the release was tested with, and asks for your password to install both packages. **Updating:** the Manager's **Update** fetches the new release's `PKGBUILD` and runs `makepkg -si` in your terminal; without the Manager, download the new files and run `makepkg -si` again.
+`makepkg` installs the build tools it needs, builds the driver commit the release was tested with, and asks for your password to install both packages. **Updating:** the Galaxy Book Fingerprint Manager's **Update** fetches the new release's `PKGBUILD` and runs `makepkg -si` in your terminal; without the Galaxy Book Fingerprint Manager, download the new files and run `makepkg -si` again.
 
 ### Only one part
 
@@ -55,10 +55,10 @@ Either package works on its own. Most desktops have their own fingerprint settin
 
 | Install only | What you get | What you don't |
 | --- | --- | --- |
-| **The driver** (`fingerprint-fix-sdcp`) | Fingerprints work, and fingerprint login is turned on. Enrol in your desktop's settings (GNOME, KDE, Mint's Fingerprints) | The Manager's window, the monitor (e.g. *your distro now supports the reader*) and the boot check (warns when Windows deletes your fingerprints) |
-| **The Manager** (`galaxybook-fingerprint-manager`) | The window, monitor and checks, using whichever driver fprintd has: for when your distro's own libfprint supports the reader with SDCP | The driver: on a distro without SDCP support the Manager can't use the reader |
+| **The driver** (`fingerprint-fix-sdcp`) | Fingerprints work, and fingerprint login is turned on. Enrol in your desktop's settings (GNOME, KDE, Mint's Fingerprints) | The Galaxy Book Fingerprint Manager's window, the monitor (e.g. *your distro now supports the reader*) and the boot check (warns when Windows deletes your fingerprints) |
+| **The Galaxy Book Fingerprint Manager** (`galaxybook-fingerprint-manager`) | The window, monitor and checks, using whichever driver fprintd has: for when your distro's own libfprint supports the reader with SDCP | The driver: on a distro without SDCP support the Galaxy Book Fingerprint Manager can't use the reader |
 
-Install just that file, e.g. `sudo dnf install ./fingerprint-fix-sdcp-*.fc45.x86_64.rpm`, `sudo apt install ./galaxybook-fingerprint-manager_*ubuntu26.04_all.deb`, or on Arch `makepkg -s` then `sudo pacman -U ./<package>-*.pkg.tar.zst`. With `install.sh`: `sudo bash install.sh --driver-only` or `--manager-only`. The other part can be added later the same way. The Manager's **Update** updates whatever is installed: both packages, or only the Manager.
+Install just that file, e.g. `sudo dnf install ./fingerprint-fix-sdcp-*.fc45.x86_64.rpm`, `sudo apt install ./galaxybook-fingerprint-manager_*ubuntu26.04_all.deb`, or on Arch `makepkg -s` then `sudo pacman -U ./<package>-*.pkg.tar.zst`. With `install.sh`: `sudo bash install.sh --driver-only` or `--manager-only`. The other part can be added later the same way. The Galaxy Book Fingerprint Manager's **Update** updates whatever is installed: both packages, or only the Galaxy Book Fingerprint Manager.
 
 ### Other distros: install.sh
 
@@ -70,22 +70,22 @@ cd fingerprint-fix-sdcp
 sudo bash install.sh
 ```
 
-The installer checks your distro, installs the build packages it needs, builds the driver and sets everything up; at the end it offers to open the Fingerprint Manager. It works on Fedora, Debian / Ubuntu and their derivatives (Linux Mint, Zorin, Pop!_OS, MX Linux…) and Arch-based distros. `/etc/samsung-galaxybook-egismoc-sdcp.installed` records the installed version, the driver commit, its date and where it came from. Each release builds one tested driver commit (see [Releases](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases) and [CHANGELOG.md](CHANGELOG.md)).
+The installer checks your distro, installs the build packages it needs, builds the driver and sets everything up; at the end it offers to open the Galaxy Book Fingerprint Manager. It works on Fedora, Debian / Ubuntu and their derivatives (Linux Mint, Zorin, Pop!_OS, MX Linux…) and Arch-based distros. `/etc/samsung-galaxybook-egismoc-sdcp.installed` records the installed version, the driver commit, its date and where it came from. Each release builds one tested driver commit (see [Releases](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases) and [CHANGELOG.md](CHANGELOG.md)).
 
 **Updating:** in the `fingerprint-fix-sdcp` folder, run `git pull`, then `sudo bash install.sh` again. Enrolled fingerprints are kept.
 
 ## Updating
 
-You're told about each new release with a notification, checked 30 seconds after login and then hourly. With the Manager, click its **Update** button: it downloads the new files and installs them in a terminal window, where you confirm with your fingerprint or password. Without it, download the new files and install them the same way. Enrolled fingerprints are always kept.
+You're told about each new release with a notification, checked 30 seconds after login and then hourly. With the Galaxy Book Fingerprint Manager, click its **Update** button: it downloads the new files and installs them in a terminal window, where you confirm with your fingerprint or password. Without it, download the new files and install them the same way. Enrolled fingerprints are always kept.
 
 <details>
 <summary>Turning the update check off, and how it works</summary>
 
-- The notification comes once per version, with **Open GitHub** (the release page) and, with the Manager, **Open Fingerprint Manager**. On GNOME, hover over it to see the buttons.
-- Only one check runs: the driver's own check is skipped while the Manager is installed.
-- With no terminal found, the Manager's **Update** saves the files to `~/Downloads` instead, with the command to paste.
-- **Turn it off** in the Manager: ☰ → *Check for new versions*. With the driver alone: `systemctl --user mask fingerprint-fix-sdcp-update-check.timer` (off) and `systemctl --user unmask fingerprint-fix-sdcp-update-check.timer` (on); for an `install.sh` copy, `systemctl --user disable` / `enable`.
-- Turning it off in the Manager also turns off the driver's check, and that stays off if you remove the Manager; removing it tells you so, with a **Turn on** button.
+- The notification comes once per version, with **Open GitHub** (the release page) and, with the Galaxy Book Fingerprint Manager, **Open Fingerprint Manager**. On GNOME, hover over it to see the buttons.
+- Only one check runs: the driver's own check is skipped while the Galaxy Book Fingerprint Manager is installed.
+- With no terminal found, the Galaxy Book Fingerprint Manager's **Update** saves the files to `~/Downloads` instead, with the command to paste.
+- **Turn it off** in the Galaxy Book Fingerprint Manager: ☰ → *Check for new versions*. With the driver alone: `systemctl --user mask fingerprint-fix-sdcp-update-check.timer` (off) and `systemctl --user unmask fingerprint-fix-sdcp-update-check.timer` (on); for an `install.sh` copy, `systemctl --user disable` / `enable`.
+- Turning it off in the Galaxy Book Fingerprint Manager also turns off the driver's check, and that stays off if you remove the Galaxy Book Fingerprint Manager; removing it tells you so, with a **Turn on** button.
 - `install.sh` copies: in the `fingerprint-fix-sdcp` folder, `git pull`, then `sudo bash install.sh` again.
 
 </details>
@@ -111,11 +111,11 @@ Enrolled fingerprints are always kept, so reinstalling uses them again, and fing
 <details>
 <summary>Removing only one part, and what's kept</summary>
 
-**Only the driver** — e.g. once your distro's own libfprint handles the reader with SDCP (the monitor tells you, and the Manager offers it): `sudo dnf remove fingerprint-fix-sdcp` (or `apt remove` / `pacman -R` the same name), or `sudo bash uninstall.sh --driver-only`. fprintd goes back to your distro's libfprint; the Manager, its checks and fingerprint login stay.
+**Only the driver** — e.g. once your distro's own libfprint handles the reader with SDCP (the monitor tells you, and the Galaxy Book Fingerprint Manager offers it): `sudo dnf remove fingerprint-fix-sdcp` (or `apt remove` / `pacman -R` the same name), or `sudo bash uninstall.sh --driver-only`. fprintd goes back to your distro's libfprint; the Galaxy Book Fingerprint Manager, its checks and fingerprint login stay.
 
-**Only the Manager:** `sudo dnf remove galaxybook-fingerprint-manager` (or `apt remove` / `pacman -R`), or `sudo bash uninstall.sh --manager-only`. The driver, fingerprint login and enrolled fingerprints stay.
+**Only the Galaxy Book Fingerprint Manager:** `sudo dnf remove galaxybook-fingerprint-manager` (or `apt remove` / `pacman -R`), or `sudo bash uninstall.sh --manager-only`. The driver, fingerprint login and enrolled fingerprints stay.
 
-Either way, enrolled fingerprints are always kept — fprintd's records and the templates on the sensor — so reinstalling uses them again. To delete fingers, use the Fingerprint Manager before uninstalling (while the driver is still loaded, so the templates leave the sensor too). Both remove the drop-in, the library, the Manager and the monitor; nothing needs reinstalling because the distro libfprint was never replaced. Fingerprint login is left as you set it, on every distro, so it keeps working once your distro's libfprint has SDCP.
+Either way, enrolled fingerprints are always kept — fprintd's records and the templates on the sensor — so reinstalling uses them again. To delete fingers, use the Galaxy Book Fingerprint Manager before uninstalling (while the driver is still loaded, so the templates leave the sensor too). Both remove the drop-in, the library, the Galaxy Book Fingerprint Manager and the monitor; nothing needs reinstalling because the distro libfprint was never replaced. Fingerprint login is left as you set it, on every distro, so it keeps working once your distro's libfprint has SDCP.
 
 To switch an `install.sh` copy off temporarily instead:
 
@@ -173,7 +173,7 @@ Only one window runs at a time: starting it again brings the open window forward
 It asks for your password once per session; the prompt says "Galaxy Book Fingerprint Manager needs administrator access to read and manage the fingerprint sensor" (a polkit policy installed for the helper). At the top is a **Use fingerprint for …** switch (its title says what it covers on this system — login, the lock screen and sudo on GNOME and Mint, the lock screen and sudo on KDE, sudo and admin prompts on Arch-based distros) and a line about the sensor, the installed version and the driver commit; below are two tabs:
 
 - **Fingerprints** — your enrolled fingers on this install, and whether the sensor still has each one, as **cards** (all ten of your fingers, right hand then left, like Linux Mint's fingerprint settings; grey dashed = not enrolled, click one to enrol that finger) or as a **list** (a row per enrolled finger, for every user, with its own Test button; other users' fingers are only in the list). The buttons at the top right switch between them (on both tabs), and the choice is remembered. Click a card or row to select it (one at a time, on both tabs) and click it again to deselect it. Double-click one of your fingers to test it. Right-click a finger for a menu: **Test**, **Enrol again…** (replace it with a fresh enrolment, if it doesn't match reliably), **Show on sensor** and **Remove from <distro>** (e.g. "Remove from Fedora", the name from /etc/os-release); for a red (dead) finger **Remove dead record…** and **Enrol this finger again…** (removes the dead record, then enrols that finger); for a grey finger **Enrol…** and **Restore removed record…** (puts back a record removed earlier, if its template is still on the sensor). On the Sensor tab, right-click a template for **Show finger** and **Clear slot…** (deletes its fingerprint from the sensor, for every install). A finger you removed from this distro still has its template on the sensor; it shows as that finger with an amber **Removed here** label (not as an unknown template), and its right-click menu has **Restore to <distro>**. Green = on the sensor; red = a dead record (its template was re-enrolled elsewhere or removed by Windows), which also shows a warning with a **Remove dead records** button; amber with ⚠ and **Other driver** = enrolled with a different fingerprint driver (e.g. your distro's own, before this fix), which can never match here — a warning offers **Delete them**, and its right-click menu has **Delete and enrol again…** (deletes its old template from the sensor too, freeing the slot) and **Delete…**.
-- **Sensor** — the sensor itself: how many of the sensor's 10 slots are used, and every template on it: green = used by this install (with the user and finger), grey = not used here, dashed = free. The sensor itself only keeps an ID for each template, so each install notes its own (finger, user, date, distro, used or removed) in a shared file on the EFI system partition, `EFI/samsung-galaxybook/fingerprint-slots.json`, which every OS on the laptop sees; a slot another install noted shows e.g. "Right little · Fedora" (list: "dave · used by Fedora · enrolled 28 Oct"), and a slot used here also says "also used by Ubuntu". One no install has noted shows as "Unknown" — another distro that hasn't run this Manager yet, Windows Hello's own (Windows wipes Linux's templates but keeps its own), or one left over from a reinstall. Templates not used here are never deleted without a warning. The file only lists what is on the sensor: cleared or wiped slots drop out of it the next time the Manager reads the sensor. Shown as cards or a list, like the Fingerprints tab; the Cards / List choice applies to both tabs.
+- **Sensor** — the sensor itself: how many of the sensor's 10 slots are used, and every template on it: green = used by this install (with the user and finger), grey = not used here, dashed = free. The sensor itself only keeps an ID for each template, so each install notes its own (finger, user, date, distro, used or removed) in a shared file on the EFI system partition, `EFI/samsung-galaxybook/fingerprint-slots.json`, which every OS on the laptop sees; a slot another install noted shows e.g. "Right little · Fedora" (list: "dave · used by Fedora · enrolled 28 Oct"), and a slot used here also says "also used by Ubuntu". One no install has noted shows as "Unknown" — another distro that hasn't run this Galaxy Book Fingerprint Manager yet, Windows Hello's own (Windows wipes Linux's templates but keeps its own), or one left over from a reinstall. Templates not used here are never deleted without a warning. The file only lists what is on the sensor: cleared or wiped slots drop out of it the next time the Galaxy Book Fingerprint Manager reads the sensor. Shown as cards or a list, like the Fingerprints tab; the Cards / List choice applies to both tabs.
 
 <details>
 <summary>Show every button and what it does</summary>
@@ -188,7 +188,7 @@ It asks for your password once per session; the prompt says "Galaxy Book Fingerp
 | Sensor | Clear all slots… | Deletes every fingerprint on the sensor (every Linux install's and Windows Hello's) after you type CLEAR; moves every record here aside |
 | ☰ menu | Export / Import fingerprints… | Runs `export-fingerprint.sh` / `import-fingerprint.sh` with all their checks; if you already have fingerprints, it asks whether to **add the missing ones** (yours are kept) or **replace all** (`--replace`) |
 | ☰ menu | Restore removed records… | Lists records moved to `removed-fingerprints/` or `replaced-fingerprints/` and puts the chosen ones back — only if their template is still on the sensor and that finger hasn't been enrolled again here |
-| ☰ menu | Test your distro's driver… | Checks whether your distro's own libfprint can replace this fix: if it has an SDCP driver for the sensor (from the distro, not another fix), fprintd is switched to it for a moment and one of your fingers is checked with it — the way login would work without the fix. A match offers **Remove fingerprint-fix-sdcp** (or **Copy command**): it removes the fix the way it was installed, keeping your fingerprints, and the Manager closes. No match: keep the fix, or delete your fingers here first (so they don't stay on the sensor) before switching. The fix is always switched back on after the test |
+| ☰ menu | Test your distro's driver… | Checks whether your distro's own libfprint can replace this fix: if it has an SDCP driver for the sensor (from the distro, not another fix), fprintd is switched to it for a moment and one of your fingers is checked with it — the way login would work without the fix. A match offers **Remove fingerprint-fix-sdcp** (or **Copy command**): it removes the fix the way it was installed, keeping your fingerprints, and the Galaxy Book Fingerprint Manager closes. No match: keep the fix, or delete your fingers here first (so they don't stay on the sensor) before switching. The fix is always switched back on after the test |
 | ☰ menu | Remind me about Windows | Shows or hides the dual-boot reminder (only in the menu when Windows is found) |
 | Fingerprints | Delete and enrol again… / Delete… (right-click an **Other driver** finger) | Deletes a finger enrolled with another driver — its template on the sensor too — and optionally enrols it again with this fix |
 
@@ -216,7 +216,7 @@ The installer installs the packages it needs. If any are missing later, the laun
 
 The sensor has a single template store shared by every OS:
 
-- **Windows** removes templates it did not create when its biometric service starts, so booting Windows with the sensor enabled deletes your Linux enrolments. Disable the fingerprint device in Windows Device Manager if you dual-boot. When Windows is installed on the laptop, the Fingerprint Manager shows this reminder at the bottom of its window (hide it with **Got it**; *Menu → Remind me about Windows* brings it back). It looks for a Windows Boot Manager boot entry whose partition still exists, and Windows' own partitions (NTFS or BitLocker, plus the Microsoft Reserved or Windows Recovery partition) — no password needed, and nothing is mounted.
+- **Windows** removes templates it did not create when its biometric service starts, so booting Windows with the sensor enabled deletes your Linux enrolments. Disable the fingerprint device in Windows Device Manager if you dual-boot. When Windows is installed on the laptop, the Galaxy Book Fingerprint Manager shows this reminder at the bottom of its window (hide it with **Got it**; *Menu → Remind me about Windows* brings it back). It looks for a Windows Boot Manager boot entry whose partition still exists, and Windows' own partitions (NTFS or BitLocker, plus the Microsoft Reserved or Windows Recovery partition) — no password needed, and nothing is mounted.
 - **fprintd** deletes an unknown template when you enrol a finger that matches it, and deletes unknown templates when the sensor is full. Enrolling the same finger in two Linux installs breaks the first one — use a different finger per install, or share one enrolment between installs (below).
 
 ## Sharing Fingerprints Between Linux Installs
