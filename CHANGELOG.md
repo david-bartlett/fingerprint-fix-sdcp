@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.5.4 — 2026-10-28
 
 - **Update check at login always asks GitHub:** a release made while you were logged out is noticed straight after login
 - The update check reuses GitHub's answer for an hour, but no longer one saved before the current login: the first check after logging in always asks GitHub. Before, an answer from up to an hour earlier could hide a release made since (2.5.3, released 2 minutes before logging in, went unnoticed)
