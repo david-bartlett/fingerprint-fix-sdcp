@@ -18,7 +18,7 @@ Download the files for your distro, open a terminal in that folder and run the c
 
 <details>
 <summary>Expand for a list of package names for each distro</summary>
-  
+
 | Distro | Command |
 | --- | --- |
 | Fedora 45 | `sudo dnf install ./fingerprint-fix-sdcp-*.fc45.x86_64.rpm ./galaxybook-fingerprint-manager-*.fc45.noarch.rpm` |
@@ -30,13 +30,9 @@ Download the files for your distro, open a terminal in that folder and run the c
 
 </details>
 
-Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first install; updates leave it as you set it. You can turn it off in the Manager, or install with `FPRINT_PAM=0`: `sudo FPRINT_PAM=0 dnf install …` / `apt install …`, `sudo FPRINT_PAM=0 bash install.sh`, or on Arch `makepkg -s` then `sudo FPRINT_PAM=0 pacman -U ./*.pkg.tar.zst` (`makepkg -si` can't pass it on).
+Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first install; updates leave it as you set it. To install with it off, add `FPRINT_PAM=0`: `sudo FPRINT_PAM=0 dnf install …` / `apt install …`, `sudo FPRINT_PAM=0 bash install.sh`, or on Arch `makepkg -s` then `sudo FPRINT_PAM=0 pacman -U ./*.pkg.tar.zst` (`makepkg -si` can't pass it on). You can also turn it off later in the Manager.
 
-### To enrol a fingerprint
-
-Open **Galaxy Book Fingerprint Manager** from the app menu and click a grey finger, or use your desktop's settings: KDE: System Settings → Users → Fingerprint Authentication · GNOME: Settings → System → Users → Fingerprint Login · Mint: Menu → Fingerprints · Xfce (e.g. MX Linux) has none: use the Manager or `fprintd-enroll`. No reboot is needed. Check with `fprintd-verify`.
-
-If `fprintd-verify` never matches, those fingers were enrolled with another driver (e.g. your distro's own, before this fix): the Manager marks them **Other driver** and offers to delete and enrol them again.
+Once installed, **[enrol a fingerprint](#enrolling-a-fingerprint)**.
 
 ### Arch-based distros
 
@@ -56,7 +52,7 @@ makepkg -si
 
 ### Installing only one package
 
-Either package works on its own. Most desktops have their own fingerprint settings for enrolling, so the driver alone may be all you need:
+Either package works on its own. Most desktops have their own fingerprint settings for ing, so the driver alone may be all you need:
 
 | Install only | What you get | What you don't |
 | --- | --- | --- |
@@ -228,6 +224,12 @@ The sensor has a single template store shared by every OS:
 
 - **Windows** removes templates it did not create when its biometric service starts, so booting Windows with the sensor enabled deletes your Linux enrolments. Disable the fingerprint device in Windows Device Manager if you dual-boot. When Windows is installed on the laptop, the Galaxy Book Fingerprint Manager shows this reminder at the bottom of its window (hide it with **Got it**; ☰ → **Remind me about Windows** brings it back). It looks for a Windows Boot Manager boot entry whose partition still exists, and Windows' own partitions (NTFS or BitLocker, plus the Microsoft Reserved or Windows Recovery partition) — no password needed, and nothing is mounted.
 - **fprintd** deletes an unknown template when you enrol a finger that matches it, and deletes unknown templates when the sensor is full. Enrolling the same finger in two Linux installs breaks the first one — use a different finger per install, or share one enrolment between installs (below).
+
+## Enrolling a Fingerprint
+
+Open **Galaxy Book Fingerprint Manager** from the app menu and click a grey finger, or use your desktop's settings: KDE: System Settings → Users → Fingerprint Authentication · GNOME: Settings → System → Users → Fingerprint Login · Mint: Menu → Fingerprints · Xfce (e.g. MX Linux) has none: use the Manager or `fprintd-enroll`. No reboot is needed. Check with `fprintd-verify`.
+
+If `fprintd-verify` never matches, those fingers were enrolled with another driver (e.g. your distro's own, before this fix): the Manager marks them **Other driver** and offers to delete and enrol them again.
 
 ## Sharing Fingerprints Between Linux Installs
 
