@@ -92,6 +92,9 @@ manager)
     # Run by the package's install script: the login check right away for users
     # already logged in.
     put notify-users.sh.in    "$MGR_SCRIPT_DIR/notify-users.sh" 755
+    # Run when the package is removed: tells anyone who turned update checking
+    # off that the driver can still check for them.
+    put checks-off-hint.sh.in "$MGR_SCRIPT_DIR/checks-off-hint.sh" 755
     put session.target.in     "$SESSION_HELPER_TARGET"
     put session-autostart.desktop.in "$SESSION_HELPER_AUTOSTART"
 

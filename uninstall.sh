@@ -66,6 +66,8 @@ if [[ "${1:-}" == --manager-only ]]; then
         || error "The Fingerprint Manager isn't installed here (by install.sh)."
     echo
     info "Removing the Galaxy Book Fingerprint Manager, its monitor and boot / login checks"
+    # Anyone who turned update checking off: the driver can still check for them.
+    bash "$SCRIPT_DIR/packaging/render.sh" local checks-off-hint.sh.in | bash || true
     "$MGR_CLEANUP"
     command -v update-desktop-database >/dev/null 2>&1 \
         && update-desktop-database -q /usr/share/applications 2>/dev/null || true

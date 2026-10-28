@@ -1,0 +1,65 @@
+#!/bin/bash
+# Samsung Galaxy Book — run as root when the Fingerprint Manager is removed
+# (not upgraded) and the driver stays: anyone who turned update checking off in
+# the Manager is told the driver can still check for them. Its switch masked
+# the driver's timer too (disabled, for install.sh), and that choice is kept;
+# without the Manager there's no switch to turn it back on.
+#   - a line in the terminal for each such user (dnf / apt / pacman output)
+#   - a notification with a "Turn on" button for each one logged in (seen
+#     however the Manager was removed, e.g. from a software centre)
+# Never fails the removal.
+TIMER=fingerprint-fix-sdcp-update-check.timer
+DRIVER_CHECK="@FIX_UPDATE_DIR@/update_check.py"
+[[ -e "$DRIVER_CHECK" ]] || exit 0          # the driver isn't installed
+
+# Started in the user's session and detached, so it outlives the Manager's
+# files. Waits a little first: if the driver is being removed in the same go,
+# there's nothing to say.
+read -r -d '' NOTIFY <<EOF
+sleep 15
+[ -e "$DRIVER_CHECK" ] || exit 0
+case "\$(systemctl --user is-enabled $TIMER 2>/dev/null)" in masked|disabled) ;; *) exit 0 ;; esac
+title="Update notifications are off"
+msg="The Fingerprint Manager has been removed. The fingerprint fix can still tell you when a new version is out, but you turned this off in the Manager."
+args=(-u critical -t 0 -a "Samsung Galaxy Book Fixes" -i software-update-available)
+if notify-send --help 2>&1 | grep -q -- '--action'; then
+    choice=\$(notify-send "\${args[@]}" --action=on="Turn on" "\$title" "\$msg" 2>/dev/null)
+    if [ "\$choice" = on ]; then
+        systemctl --user unmask $TIMER
+        systemctl --user enable --now $TIMER
+    fi
+else
+    notify-send "\${args[@]}" "\$title" "\$msg
+To turn them on: systemctl --user unmask $TIMER; systemctl --user enable --now $TIMER"
+fi
+EOF
+
+shown=" "
+_tell() {   # user state logged-in
+    local how
+    case "$2" in
+        masked)   how="systemctl --user unmask $TIMER" ;;
+        disabled) how="systemctl --user enable --now $TIMER" ;;
+        *) return 0 ;;
+    esac
+    [[ "$shown" == *" $1 "* ]] && return 0
+    shown+="$1 "
+    echo "Update notifications are off for $1 (turned off in the Fingerprint Manager)."
+    echo "  The fingerprint fix can still tell you about new versions. To turn them on, as $1:"
+    echo "    $how"
+    if [[ "$3" == yes ]]; then
+        timeout 15 systemd-run --user -M "$1@" --collect --quiet bash -c "$NOTIFY" >/dev/null 2>&1 || true
+    fi
+}
+
+# Logged in: ask their own systemd (sees a mask or a disabled install.sh timer).
+for u in $(loginctl list-users --no-legend 2>/dev/null | awk '{print $2}' | sort -u); do
+    [[ -n "$u" && "$u" != root ]] || continue
+    _tell "$u" "$(timeout 10 systemctl --user -M "$u@" is-enabled "$TIMER" 2>/dev/null)" yes
+done
+# Not logged in: a mask in their own folder.
+for home in /home/*/; do
+    [[ "$(readlink "${home}.config/systemd/user/$TIMER" 2>/dev/null)" == /dev/null ]] || continue
+    _tell "$(stat -c %U "$home" 2>/dev/null)" masked no
+done
+exit 0

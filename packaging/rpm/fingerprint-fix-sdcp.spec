@@ -331,6 +331,7 @@ fi
 %systemd_preun %{boot_check}
 %systemd_user_preun %{user_check} %{mgr_update}
 if [ "$1" -eq 0 ]; then
+    %{mgrscriptdir}/checks-off-hint.sh || :
     rm -f /var/lib/samsung-galaxybook/galaxybook-fingerprint-manager-update-check.timer.set-up
 fi
 
