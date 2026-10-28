@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Update notification stays on screen:** until you click a button or close it
+- The new-release notification is sent as critical, so desktops such as Ubuntu keep it on screen instead of shrinking it away after a moment, and its buttons keep working however long it waits (they stopped after an hour)
+
 ## 2.3.0 — 2026-10-28
 
 - **Hourly update check:** a notification for each new release, with *Open GitHub* and, with the Manager, *Open Fingerprint Manager*

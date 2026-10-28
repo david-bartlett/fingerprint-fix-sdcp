@@ -394,7 +394,7 @@ def notify_once():
                        check=True, timeout=15, capture_output=True)
     except (OSError, subprocess.SubprocessError):
         try:
-            subprocess.run(["notify-send", "-t", "0", "-a", "Samsung Galaxy Book Fixes", "-i", APP,
+            subprocess.run(["notify-send", "-u", "critical", "-t", "0", "-a", "Samsung Galaxy Book Fixes", "-i", APP,
                             title, f"{msg}\n{url}"], check=True, timeout=15)
         except (OSError, subprocess.SubprocessError):
             return                  # try again next time
