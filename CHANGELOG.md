@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.6.0 — 2026-10-28
 
 - **Slots shared between installs say whose finger they are:** the Sensor tab shows which finger a slot holds and which other distro uses it
 - With SDCP the sensor only knows a template's ID, so each install now notes its templates (finger, user, enrolment date, distro, and whether it still uses each one or removed it) in a small shared file on the EFI system partition, which every OS on the laptop shares: `EFI/samsung-galaxybook/fingerprint-slots.json`. A slot this install doesn't use then shows e.g. *Right little · Fedora* (list: *dave · used by Fedora · enrolled 28 Oct*, or *removed on Fedora*), and one it uses says *also used by Ubuntu*. Slots no install has noted (Windows Hello's, or a distro that hasn't run this Manager yet) stay *Unknown*. The file updates whenever the Manager reads the sensor, and forgets slots that are no longer on it (cleared, or wiped by Windows)
