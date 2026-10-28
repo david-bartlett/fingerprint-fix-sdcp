@@ -3231,8 +3231,29 @@ class Manager(Gtk.Window):
         is stopped first), so wait for this process to exit — up to 30 s."""
         wait = ('i=0; while kill -0 "$1" 2>/dev/null && [ $i -lt 150 ]; do sleep 0.2; i=$((i+1)); done; '
                 'sleep 0.3; exec "$0"')
+        argv = ["sh", "-c", wait, command, str(os.getpid())]
+        # Started by the user's systemd, outside this app's own cgroup: some
+        # desktops run apps as a unit that kills whatever the app left behind
+        # when it exits, which would take the restart with it.
+        if shutil.which("systemd-run"):
+            try:
+                # This session's display and desktop settings (the user's
+                # systemd may not have them all, e.g. XAUTHORITY on X11).
+                env = [f"--setenv={k}={os.environ[k]}" for k in
+                       ("DISPLAY", "WAYLAND_DISPLAY", "XAUTHORITY", "XDG_CURRENT_DESKTOP",
+                        "XDG_SESSION_TYPE", "XDG_SESSION_DESKTOP", "DESKTOP_SESSION", "GTK_THEME")
+                       if os.environ.get(k)]
+                # systemd expands $VAR in a unit's command line: $$ keeps each $.
+                unit_argv = [a.replace("$", "$$") for a in argv]
+                if subprocess.run(["systemd-run", "--user", "--collect", "--quiet", *env,
+                                   "--", *unit_argv], timeout=10,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+                    self.close()
+                    return
+            except (OSError, subprocess.SubprocessError):
+                pass
         try:
-            subprocess.Popen(["sh", "-c", wait, command, str(os.getpid())], start_new_session=True,
+            subprocess.Popen(argv, start_new_session=True,
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL)
         except OSError as e:
