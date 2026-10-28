@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.6.1 — 2026-10-28
 
 - **Shorter notification titles:** e.g. *fingerprint-fix-sdcp 2.6.0 is available*, which fits on one line
