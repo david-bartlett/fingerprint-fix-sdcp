@@ -433,7 +433,7 @@ def notify_once():
                 return
     except OSError:
         pass
-    title = f"Samsung Galaxy Book — fingerprint-fix-sdcp {new} is available"
+    title = f"fingerprint-fix-sdcp {new} is available"
     url = f"{REPO_URL}/releases/tag/v{new}"
     if any(os.access(m, os.X_OK) for m in MANAGER_BINS):
         msg = ("Open the Fingerprint Manager and click Update to install it, or see "

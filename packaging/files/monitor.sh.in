@@ -53,7 +53,7 @@ DRIVER=false
 
 # 1. The driver's files must still be there.
 if $DRIVER && [[ ! -f "$FPRINT_LIB" || ! -f "$FPRINT_DROPIN" ]]; then
-    notify_user "Samsung Galaxy Book — Fingerprint Fix Incomplete" \
+    notify_user "Fingerprint Fix Incomplete" \
         "Files of the fingerprint fix are missing, so fprintd is using the distro libfprint. Please reinstall the fingerprint fix." \
         "dialog-error"
     exit 0
@@ -77,13 +77,13 @@ if $DRIVER && [[ -n "$SYSLIB" ]]; then
         if [[ "$RESULT" == modified || "$RESULT" == foreign ]]; then
             # An SDCP libfprint from another fix, not the distro: fprintd keeps
             # using this fix's driver, and the other copy may not last.
-            notify_user "Samsung Galaxy Book — Another Fingerprint Fix Is Installed" \
+            notify_user "Another Fingerprint Fix Is Installed" \
                 "A libfprint with an SDCP driver from outside your distro is installed: ${DETAIL}. fprintd keeps using fingerprint-fix-sdcp's driver. The next distro update may replace the other copy, so keep this fix." \
                 "dialog-warning"
             exit 0
         fi
         if [[ "$RESULT" == sdcp ]]; then
-            notify_user "Samsung Galaxy Book — Your Distro Now Supports the Fingerprint Reader" \
+            notify_user "Your Distro Now Supports the Fingerprint Reader" \
                 "Your distro's libfprint now has a driver for this reader, so fingerprint-fix-sdcp may no longer be needed. Before removing it, open Galaxy Book Fingerprint Manager and choose Test your distro's driver in its menu to check your fingerprints work with it." \
                 "dialog-information" manager
             exit 0
@@ -94,11 +94,11 @@ fi
 # 3. fprintd should see the reader.
 if [[ -n "$SENSOR_ON_BUS" ]] && ! check_fprintd_functional; then
     if $DRIVER; then
-        notify_user "Samsung Galaxy Book — Fingerprint Sensor Not Working" \
+        notify_user "Fingerprint Sensor Not Working" \
             "fprintd cannot see your fingerprint sensor. Please reinstall fingerprint-fix-sdcp." \
             "dialog-error"
     else
-        notify_user "Samsung Galaxy Book — Fingerprint Sensor Not Working" \
+        notify_user "Fingerprint Sensor Not Working" \
             "fprintd cannot see your fingerprint sensor with your distro's libfprint. If a distro update changed it, install fingerprint-fix-sdcp again." \
             "dialog-error"
     fi
@@ -113,7 +113,7 @@ if $DRIVER && [[ -n "$SENSOR_ON_BUS" && -n "$FPRINTD_PID" ]] \
     OTHERS=$(bash "$OTHER_FIX" list 2>/dev/null | awk '$1 ~ /dropin/ {print $2}' | paste -sd' ')
     MSG="fprintd isn't using fingerprint-fix-sdcp's driver"
     [[ -n "$OTHERS" ]] && MSG+=" — another fingerprint fix's setting overrides it: $OTHERS"
-    notify_user "Samsung Galaxy Book — Another Fingerprint Fix Is in the Way" \
+    notify_user "Another Fingerprint Fix Is in the Way" \
         "$MSG. Reinstall fingerprint-fix-sdcp to move it aside (it is kept as a backup)." \
         "dialog-warning"
 fi
