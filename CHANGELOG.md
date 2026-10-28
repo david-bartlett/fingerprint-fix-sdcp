@@ -12,6 +12,7 @@
 - **Shorter notification titles:** e.g. *fingerprint-fix-sdcp 2.6.0 is available*, which fits on one line
 - Notification titles no longer start with "Samsung Galaxy Book — ": the desktop already shows the app name, *Samsung Galaxy Book Fixes*, above each one, and on GNOME the update notification's title was cut off
 - Sensor tab: a slot's tooltip reads *Right ring finger (dave) — also used by Fedora*, not *used by dave right-ring-finger*
+- **Restart after an update works every time:** the new Fingerprint Manager waits until the old one has fully closed. It used to start after a fixed second and, if closing took longer (it stops its helper first), found the old one still running and quit, so on Cinnamon, for one, nothing came back
 
 ## 2.6.0 — 2026-10-28
 

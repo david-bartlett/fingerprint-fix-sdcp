@@ -3226,9 +3226,13 @@ class Manager(Gtk.Window):
 
     def _restart_into(self, command):
         """Start the newly installed Manager once this one has gone (it is a
-        single instance: started sooner, it would only bring this window back)."""
+        single instance: started sooner, it would only bring this window back,
+        just before it closes). Closing can take a few seconds (the root helper
+        is stopped first), so wait for this process to exit — up to 30 s."""
+        wait = ('i=0; while kill -0 "$1" 2>/dev/null && [ $i -lt 150 ]; do sleep 0.2; i=$((i+1)); done; '
+                'sleep 0.3; exec "$0"')
         try:
-            subprocess.Popen(["sh", "-c", 'sleep 1; exec "$0"', command], start_new_session=True,
+            subprocess.Popen(["sh", "-c", wait, command, str(os.getpid())], start_new_session=True,
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL)
         except OSError as e:
