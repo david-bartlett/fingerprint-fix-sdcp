@@ -9,6 +9,13 @@ FPRINT_STATUS_FILE="/run/samsung-galaxybook/fprint-sdcp-status"
 FPRINT_BOOT_STATUS="/run/samsung-galaxybook/fprint-sdcp-boot-status"
 FPRINT_OTHER_STATUS="/run/samsung-galaxybook/fprint-sdcp-other-driver"
 [[ -f "@MGR_MARKER@" ]] || exit 0
+# People only: the timer is enabled for every user, and the login screen has a
+# desktop session of its own too (GDM's gdm-greeter users), where this would
+# ask for a password before anyone has logged in.
+_uid=$(id -u)
+_min=$(awk '$1 == "UID_MIN" {print $2}' /etc/login.defs 2>/dev/null)
+_max=$(awk '$1 == "UID_MAX" {print $2}' /etc/login.defs 2>/dev/null)
+(( _uid >= ${_min:-1000} && _uid <= ${_max:-60000} )) || exit 0
 
 show() {
     local ICON TITLE MSG NEXT
