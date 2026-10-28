@@ -147,6 +147,22 @@ def short_id(p):
     return hashlib.sha1(bytes(data)).hexdigest()[:10]
 
 
+def template_ident(p):
+    """What a template on the sensor says about itself. This driver names
+    each new template like FP1-20261028-a-3F9C21B7-dave (date, finger,
+    random, username) and reads that back when listing the sensor, so a
+    template no record here uses can still say whose finger it is and when it
+    was enrolled. None for others (e.g. Windows Hello's)."""
+    try:
+        f = int(p.get_finger())
+        name = FINGERS[f] if 0 < f < len(FINGERS) else None
+        if not name:
+            return None
+        return {"finger": name, "user": p.get_username() or "", "date": enroll_date(p)}
+    except Exception:
+        return None
+
+
 def enroll_date(p):
     try:
         d = p.get_enroll_date()
@@ -350,7 +366,7 @@ def do_status(req):
     for p in chip:
         users = [r for r in records if r["print"] is not None and p.equal(r["print"])]
         tpl = {"id": short_id(p), "used_by": [f"{r['user']} {r['name']}" for r in users],
-               "keys": [[r["user"], r["finger"]] for r in users]}
+               "keys": [[r["user"], r["finger"]] for r in users], "ident": template_ident(p)}
         if not users:
             m = next((m for m in moved if p.equal(m["print"])), None)
             if m:

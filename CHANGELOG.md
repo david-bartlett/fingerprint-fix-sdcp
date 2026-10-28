@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Unknown slots say whose finger they are:** a slot another install uses shows its finger, user and enrolment date
+- On the Sensor tab, a template this install doesn't use was shown as *Unknown — Another distro?*. This driver names each template it enrols with its date, finger and username, and the sensor keeps that name, so such a slot now shows e.g. *Right little · 28 Oct* (list: *dave · enrolled 28 Oct · on another install?*), in its tooltip and right-click heading too. Only a template without that name (Windows Hello's, or another driver's) is still *Unknown*, now labelled *Windows Hello?*
+
 ## 2.5.4 — 2026-10-28
 
 - **Update check at login always asks GitHub:** a release made while you were logged out is noticed straight after login
