@@ -307,6 +307,63 @@ class Helper:
                 pass
 
 
+# ── The information panel ─────────────────────────────────────────────────────
+class MsgPanel(Gtk.Box):
+    """The card at the bottom of the window that shows the latest message (one
+    or two lines, with an action and Details… button and ×). With nothing to
+    show it stays, saying "Information panel", so nothing moves. close: called
+    when × is pressed."""
+    KINDS = {Gtk.MessageType.INFO: "info", Gtk.MessageType.QUESTION: "info",
+             Gtk.MessageType.WARNING: "warning", Gtk.MessageType.ERROR: "error",
+             Gtk.MessageType.OTHER: "other"}
+    IDLE = "Information panel"
+
+    def __init__(self, label, buttons, close):
+        super().__init__(spacing=8)
+        self.get_style_context().add_class("fpm-msg")
+        self._kind, self._active = Gtk.MessageType.INFO, False
+        body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, valign=Gtk.Align.CENTER)
+        body.pack_start(label, False, False, 0)
+        body.pack_start(buttons, False, False, 0)
+        self.pack_start(body, True, True, 0)
+        self.close_btn = Gtk.Button.new_from_icon_name("window-close-symbolic", Gtk.IconSize.BUTTON)
+        self.close_btn.set_relief(Gtk.ReliefStyle.NONE)
+        self.close_btn.set_valign(Gtk.Align.START)
+        self.close_btn.set_tooltip_text("Close this message")
+        self.close_btn.connect("clicked", lambda *_: close())
+        self.close_btn.set_no_show_all(True)
+        self.pack_end(self.close_btn, False, False, 0)
+        self.label = label
+
+    def set_message_type(self, kind):
+        self._kind = kind
+
+    def get_message_type(self):
+        return self._kind
+
+    def _style(self, cls):
+        ctx = self.get_style_context()
+        for c in ("idle", "info", "warning", "error", "other"):
+            ctx.remove_class("fpm-msg-" + c)
+        ctx.add_class("fpm-msg-" + cls)
+
+    def show_message(self):
+        self._active = True
+        self._style(self.KINDS.get(self._kind, "info"))
+        self.close_btn.show()
+
+    def clear(self):
+        self._active = False
+        self._kind = Gtk.MessageType.INFO
+        self._style("idle")
+        self.label.set_text(self.IDLE)
+        self.label.set_tooltip_text(None)
+        self.close_btn.hide()
+
+    def has_message(self):
+        return self._active
+
+
 # ── Window ────────────────────────────────────────────────────────────────────
 CSS = b"""
 /* The Update button stands out like the suggested buttons in galaxybook-tools-gui:
@@ -345,6 +402,14 @@ list.fpm-list row { padding: 0; margin-bottom: 6px; background-color: transparen
 list.fpm-list row:selected, list.fpm-list row:hover, list.fpm-list row:active { background-color: transparent; }
 list.fpm-list row.fpm-selected .fpm-lcard { border-color: @theme_selected_bg_color;
                                         background-color: alpha(@theme_selected_bg_color, 0.10); }
+/* The information panel at the bottom: a card tinted by the message's kind */
+.fpm-msg { border: 1px solid alpha(@theme_fg_color, 0.15); border-radius: 8px; padding: 8px 8px 8px 12px; }
+.fpm-msg.fpm-msg-idle label { color: alpha(@theme_fg_color, 0.45); }
+.fpm-msg.fpm-msg-info { border-color: alpha(@theme_selected_bg_color, 0.70);
+                        background-color: alpha(@theme_selected_bg_color, 0.08); }
+.fpm-msg.fpm-msg-warning { border-color: alpha(#e5a50a, 0.85); background-color: alpha(#e5a50a, 0.10); }
+.fpm-msg.fpm-msg-error { border-color: alpha(#e01b24, 0.75); background-color: alpha(#e01b24, 0.08); }
+.fpm-msg.fpm-msg-other { border-color: alpha(@theme_fg_color, 0.30); }
 .fpm-empty { background-color: transparent; border: 1px dashed alpha(@theme_fg_color, 0.30); }
 .fpm-empty label { color: alpha(@theme_fg_color, 0.55); }
 .fpm-free { background-color: transparent; border: 1px dashed alpha(@theme_fg_color, 0.30); }
@@ -884,13 +949,9 @@ class Manager(Gtk.Window):
         self._windows = False
         outer.pack_start(card, False, False, 0)
 
-        # ── message bar: one short line, Details… for the full text ──
-        self.msg_bar = Gtk.InfoBar(show_close_button=True)
-        self.msg_bar.connect("response", self._on_msg_response)
+        # ── information panel: one short message, Details… for the full text ──
         self.msg_label = Gtk.Label(xalign=0, wrap=True, lines=2,
                                    ellipsize=Pango.EllipsizeMode.END)
-        msg_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        msg_box.pack_start(self.msg_label, False, False, 0)
         msg_btns = Gtk.Box(spacing=6)
         self.msg_action_btn = Gtk.Button(label="")
         self.msg_action_btn.connect("clicked", lambda *_: self._on_msg_response(None, 2))
@@ -898,22 +959,20 @@ class Manager(Gtk.Window):
         self.msg_details_btn = Gtk.Button(label="Details…")
         self.msg_details_btn.connect("clicked", lambda *_: self._on_msg_response(None, 1))
         msg_btns.pack_start(self.msg_details_btn, False, False, 0)
-        msg_box.pack_start(msg_btns, False, False, 0)
-        self.msg_bar.get_content_area().add(msg_box)
-        self.msg_bar.set_no_show_all(True)
-        msg_box.show_all()
+        msg_btns.set_no_show_all(True)
+        for w in (self.msg_action_btn, self.msg_details_btn):
+            w.set_no_show_all(True)
+        self.msg_bar = MsgPanel(self.msg_label, msg_btns, lambda: self._on_msg_response(None, 0))
         self._msg_action = None
 
         outer.pack_start(self.stack, True, True, 0)
-        # Messages go at the bottom, in a slot that always keeps their room, so
-        # nothing moves or resizes when one appears.
-        self.msg_slot = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.msg_slot.pack_end(self.msg_bar, False, False, 0)   # just above the buttons
-        outer.pack_start(self.msg_slot, False, False, 0)
-        # Each tab's buttons sit under the message slot, at the very bottom.
+        # Each tab's buttons under the page, then the Windows reminder, then
+        # the information panel at the very bottom. The panel is always there
+        # and keeps the room a message needs, so nothing moves when one comes.
         self.btn_stack = Gtk.Stack()
         outer.pack_start(self.btn_stack, False, False, 0)
         outer.pack_start(self.win_row, False, False, 0)
+        outer.pack_start(self.msg_bar, False, False, 0)
         self.stack.connect("notify::visible-child-name",
                            lambda st, _p: self.btn_stack.set_visible_child_name(
                                st.get_visible_child_name()))
@@ -1049,7 +1108,7 @@ class Manager(Gtk.Window):
         self.message("Measuring the message area: ",
                      Gtk.MessageType.WARNING,
                      details="x", action=("Undo", lambda: None))
-        self.msg_slot.set_size_request(-1, self.msg_bar.get_preferred_height_for_width(596)[1])
+        self.msg_bar.set_size_request(-1, self.msg_bar.get_preferred_height_for_width(596)[1])
         self._hide_message()
         self._set_view(load_view(), save=False)
         self._update_buttons()
@@ -1667,13 +1726,15 @@ class Manager(Gtk.Window):
         self.msg_action_btn.get_parent().set_visible(bool(action or self._msg_details))
         if action:
             self.msg_action_btn.set_label(action[0])
-        self.msg_bar.show()
+        self.msg_bar.show_message()
         if kind == Gtk.MessageType.INFO and not action:
             self._msg_timer = GLib.timeout_add_seconds(10, self._hide_message)
 
     def _hide_message(self):
         self._msg_timer = 0
-        self.msg_bar.hide()
+        self._msg_details = self._msg_action = None
+        self.msg_action_btn.get_parent().hide()
+        self.msg_bar.clear()
         return False
 
     def _on_msg_response(self, _bar, resp):
@@ -2367,8 +2428,28 @@ class Manager(Gtk.Window):
                         details="Their templates stay on the sensor. The records are moved to "
                                 "/var/lib/samsung-galaxybook/removed-fingerprints/; ☰ → Restore "
                                 "removed records… puts them back."):
+            self._skip_in_export([r[4] for r in rows if r[0] == (self.status or {}).get("user")])
             self.run_job("remove_records", self.after_job(f"Removed from {OS_NAME}", undo=True),
                          records=[{"user": r[0], "finger": r[4]} for r in rows])
+
+    @staticmethod
+    def _export_id():
+        """~/fingerprint-export.tgz as the helper names it (mtime-size), or None."""
+        try:
+            st = os.stat(os.path.join(os.path.expanduser("~"), EXPORT_NAME))
+            return f"{int(st.st_mtime)}-{st.st_size}"
+        except OSError:
+            return None
+
+    def _skip_in_export(self, fingers):
+        """Fingers removed here on purpose: not offered back from the export
+        file there is now (a new export file starts afresh)."""
+        eid = self._export_id()
+        if not eid or not fingers:
+            return
+        old_id, _, old = load_settings().get("export_offer_skip", "").partition(":")
+        keep = set(old.split(",")) - {""} if old_id == eid else set()
+        save_setting("export_offer_skip", f"{eid}:{','.join(sorted(keep | set(fingers)))}")
 
     def on_delete_templates(self, _btn):
         rows = self._selected_tpls()
@@ -2472,6 +2553,11 @@ class Manager(Gtk.Window):
         it that this install doesn't have and the sensor still stores."""
         if self.busy or offer["id"] in (self._export_offered, load_settings().get("export_offer_seen")):
             return False
+        skip_id, _, skip = load_settings().get("export_offer_skip", "").partition(":")
+        if skip_id == offer["id"]:                  # not the fingers removed here
+            offer = dict(offer, fingers=[f for f in offer["fingers"] if f["finger"] not in skip.split(",")])
+            if not offer["fingers"]:
+                return False
         self._export_offered = offer["id"]
         save_setting("export_offer_seen", offer["id"])
         names = ", ".join(long_finger(f["name"]).lower() for f in offer["fingers"])
@@ -2506,7 +2592,7 @@ class Manager(Gtk.Window):
         reader, say so and offer the test. Asked of the root helper: some
         libfprint builds open the reader while listing it, which needs root.
         Its messages don't replace one already shown (e.g. dead records)."""
-        if self.status is None or self.msg_bar.get_visible() or not self.status.get("fix_installed"):
+        if self.status is None or self.msg_bar.has_message() or not self.status.get("fix_installed"):
             return False
 
         def done(res, err):

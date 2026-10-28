@@ -9,6 +9,10 @@
 
 ## Unreleased
 
+- **Information panel:** the Manager's messages now appear in a panel at the bottom of the window
+- Messages (what was done, warnings, errors, Restart after an update) are in a rounded panel at the very bottom of the window, tinted blue, amber or red by kind, with their buttons and a × to close them. With nothing to say it shows *Information panel*. The space they used to keep free between the page and its buttons is gone, so the Sensor tab's buttons sit right under the slots
+- A finger you remove in the Manager is no longer offered back straight away from `~/fingerprint-export.tgz` (*Import … from another install?*): fingers removed here are left out of that file's offer. Other fingers in it are still offered once, and a new export file is offered afresh. ☰ → *Restore removed records* still brings a removed finger back
+
 ## 2.4.2 — 2026-10-28
 
 - **No password prompt on the login screen:** the login check no longer runs for the login screen itself
