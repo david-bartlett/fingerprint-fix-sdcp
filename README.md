@@ -162,8 +162,8 @@ A small window for your fingerprints and the sensor, in the app menu as **Galaxy
 > - **Clearing a slot** (Sensor slots tab) erases the fingerprint itself, for every install. It can't be undone: that finger has to be enrolled again.
 
 <p>
-  <img src="images/fingerprint-manager.png" width="350" alt="Fingerprints tab: six fingers enrolled, the information panel at the bottom">
-  <img src="images/fingerprint-manager-sensor.png" width="350" alt="Sensor slots tab: six of ten slots used; hovering one says it is also used by CachyOS, MX Linux, Linux Mint and Ubuntu">
+  <img src="images/fingerprint-manager.png" width="350" alt="Fingerprints tab: six of ten fingers enrolled, on the sensor">
+  <img src="images/fingerprint-manager-sensor.png" width="350" alt="Sensor slots tab: six of ten slots used, five of them also used by four other distros">
 </p>
 <p>
   <img src="images/fingerprint-manager-enrol.png" width="350" alt="Enrolling the left middle finger: lift and touch again, 9 of 16 touches">
