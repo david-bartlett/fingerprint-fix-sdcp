@@ -374,6 +374,10 @@ fi   # WANT_DRIVER (Steps 3–7)
 
 # ── Step 8: Record state ──────────────────────────────────────────────────────
 step "Fingerprint Step 8: Recording installed state"
+# Already installed before (this run updates it): fingerprint login is left
+# as it was set (Step 11).
+_UPDATING=false
+[[ -f "$FPRINT_MARKER" || -f "$MGR_MARKER" ]] && _UPDATING=true
 mkdir -p "$FPRINT_STATE_DIR"
 SYSLIB=$(system_libfprint)
 if [[ -n "$SYSLIB" ]]; then
@@ -515,9 +519,21 @@ step "Fingerprint Step 11: Enabling fingerprint authentication"
 # fingerprint-pam.sh does it the way each distro expects (authselect on
 # Fedora, pam-auth-update on Ubuntu/Debian/MX, Mint's fingwit profile on Mint,
 # arch-pam.sh on Arch); the Fingerprint Manager uses the same script.
+# Like the packages, only once per computer (the first install, by either):
+# after that the choice made in the Galaxy Book Fingerprint Manager stays,
+# so running install.sh again to update doesn't turn it back on.
+# FPRINT_PAM=0 leaves it off.
+_PAM_DONE=/var/lib/samsung-galaxybook/fingerprint-login-set-up
 if [[ "$DISTRO" != "arch" ]]; then
-    bash "$SCRIPT_DIR/tools/fingerprint-pam.sh" enable \
-        || warn "Could not enable fingerprint authentication — try: sudo bash $SCRIPT_DIR/tools/fingerprint-pam.sh enable"
+    if [[ "${FPRINT_PAM:-1}" == 0 ]]; then
+        info "FPRINT_PAM=0 — fingerprint login not turned on. To turn it on later: the Galaxy Book Fingerprint Manager, or sudo bash $SCRIPT_DIR/tools/fingerprint-pam.sh enable"
+    elif [[ -e "$_PAM_DONE" ]] || $_UPDATING; then
+        info "Fingerprint login left as it was set (on or off) — change it in the Galaxy Book Fingerprint Manager"
+    else
+        bash "$SCRIPT_DIR/tools/fingerprint-pam.sh" enable \
+            || warn "Could not enable fingerprint authentication — try: sudo bash $SCRIPT_DIR/tools/fingerprint-pam.sh enable"
+    fi
+    mkdir -p "$(dirname "$_PAM_DONE")" && touch "$_PAM_DONE"
 else
     # Arch-based distros have no authselect/pam-auth-update. Offer to add
     # fingerprint to sudo and polkit (pkexec, admin prompts). This edits PAM,
@@ -544,6 +560,7 @@ else
         info "PAM not changed. To enable later: sudo bash $SCRIPT_DIR/tools/fingerprint-pam.sh enable"
     fi
     info "The KDE lock screen uses the fingerprint without changes (kde-fingerprint)"
+    mkdir -p "$(dirname "$_PAM_DONE")" && touch "$_PAM_DONE"
 fi
 
 # ── Step 12: Import fingerprints exported from another install ───────────────

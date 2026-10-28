@@ -30,7 +30,7 @@ Download the files for your distro, open a terminal in that folder and run the c
 
 </details>
 
-Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first install. You can turn it off in the Manager, or install with `FPRINT_PAM=0` (e.g. `sudo FPRINT_PAM=0 apt install ./*.deb`).
+Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first install; updates leave it as you set it. You can turn it off in the Manager, or install with `FPRINT_PAM=0`: `sudo FPRINT_PAM=0 dnf install …` / `apt install …`, `sudo FPRINT_PAM=0 bash install.sh`, or on Arch `makepkg -s` then `sudo FPRINT_PAM=0 pacman -U ./*.pkg.tar.zst` (`makepkg -si` can't pass it on).
 
 ### To enrol a fingerprint
 
