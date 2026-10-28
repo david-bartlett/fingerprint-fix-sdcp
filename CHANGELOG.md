@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Window opens centred:** the Fingerprint Manager opens in the middle of the screen on Xfce, Cinnamon and MATE
+- The Manager asks to open in the middle of the screen. Window managers on X11 (Xfce, Cinnamon, MATE) follow that; Xfce placed it off to the bottom right before. GNOME and KDE on Wayland place windows themselves, as before
+
 - **Tidier right-click menus:** a heading with the finger, an icon for each option, and removing set apart in red
 - The right-click menus on both tabs start with what was clicked (e.g. *Right index finger · On the sensor*, or *Unknown template*), give each option an icon from your theme instead of a › mark, keep Remove / Delete apart at the bottom in red, and have rounded corners with a softer highlight. *Remove from …* now ends in "…", as it asks first
 
