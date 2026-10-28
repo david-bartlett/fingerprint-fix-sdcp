@@ -32,6 +32,8 @@ Download the files for your distro, open a terminal in that folder and run the c
 
 Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first install. You can turn it off in the Manager, or install with `FPRINT_PAM=0` (e.g. `sudo FPRINT_PAM=0 apt install ./*.deb`).
 
+Once installed, **[enrol a fingerprint](#enrolling-a-fingerprint)**.
+
 ### Arch-based distros
 
 Arch is rolling, so the fix is built on your laptop against your current libraries rather than downloaded ready-made (the usual way on Arch, as with the AUR). Only the one driver is built, so it takes seconds:
@@ -72,8 +74,6 @@ sudo bash install.sh
 The installer checks your distro, installs the build packages it needs, builds the driver and sets everything up; at the end it offers to open the Manager. It works on Fedora, Debian / Ubuntu and their derivatives (Linux Mint, Zorin, Pop!_OS, MX Linux…) and Arch-based distros. `/etc/samsung-galaxybook-egismoc-sdcp.installed` records the installed version, the driver commit, its date and where it came from. Each release builds one tested driver commit (see [Releases](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases) and [CHANGELOG.md](CHANGELOG.md)).
 
 **Updating:** in the `fingerprint-fix-sdcp` folder, run `git pull`, then `sudo bash install.sh` again. Enrolled fingerprints are kept.
-
-Once installed, [enrol a fingerprint](#enrolling-a-fingerprint).
 
 ## Updating
 
