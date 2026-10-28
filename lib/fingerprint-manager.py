@@ -2710,7 +2710,7 @@ class Manager(Gtk.Window):
                 files = asset["files"] if "files" in asset else [asset]
                 names = "\n".join(f"    {tt(f['name'])}" for f in files)
                 what = f"Downloads and installs, in a {where} window:\n{names}"
-            how = (what + "\n\nType your password there, then confirm. "
+            how = (what + "\n\nUse your fingerprint or type your password there, then confirm. "
                    "The window closes itself when it's done.")
         elif asset and "files" in asset and fmt == "pacman":
             how = (f"Download the release's {tt('PKGBUILD')} to {tt('~/Downloads/' + asset['folder'])}, "
@@ -2877,7 +2877,7 @@ class Manager(Gtk.Window):
         except OSError:
             return False
         name = terminal.pretty_name(term)
-        self.message(f"Installing in {name}: type your password there and confirm. "
+        self.message(f"Installing in {name}: use your fingerprint or password there, and confirm. "
                      "The Manager offers to restart when it's done.", Gtk.MessageType.INFO)
 
         def check():                                 # it failed straight away: the old way
