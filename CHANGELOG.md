@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- Release builds: GitHub Actions updated to their Node.js 24 versions (checkout v6, upload-artifact v6, download-artifact v7), and each job stops after 45 minutes instead of hanging for hours on a stuck package mirror
+
 ## 2.4.1 — 2026-10-28
 
 - The *Update* dialog names the terminal it opens when that is the system's default (`xdg-terminal-exec`, as on Ubuntu 26.04, or `x-terminal-emulator`), e.g. "in a Ptyxis window"; when it can't tell, "in your terminal" (it said "in a a terminal window")

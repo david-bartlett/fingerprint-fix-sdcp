@@ -45,8 +45,9 @@ jobs:
   check:
     name: Check the tag matches VERSION
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ env.TAG }}
       - run: |
@@ -60,6 +61,7 @@ jobs:
     name: rpm (Fedora ${{ matrix.fedora }})
     needs: check
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       matrix:
         fedora: ["44", "45"]
@@ -68,12 +70,12 @@ jobs:
       - run: >
           dnf -y install git rpm-build gcc gcc-c++ meson ninja-build patch tar gzip curl
           glib2-devel libgusb-devel openssl-devel systemd-rpm-macros
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ env.TAG }}
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: bash packaging/rpm/build.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: rpm-fedora${{ matrix.fedora }}
           path: packaging/out/*.rpm
@@ -83,6 +85,7 @@ jobs:
     name: deb (${{ matrix.image }})
     needs: check
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       matrix:
         image: ["ubuntu:24.04", "ubuntu:26.04", "debian:13"]
@@ -93,14 +96,14 @@ jobs:
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             git ca-certificates curl build-essential debhelper meson ninja-build patch \
             pkgconf libglib2.0-dev libgusb-dev libssl-dev
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ env.TAG }}
       - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: bash packaging/debian/build.sh
       - name: Name the artifact
         run: echo "ARTIFACT=deb-$(echo '${{ matrix.image }}' | tr ':' '-')" >> "$GITHUB_ENV"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: ${{ env.ARTIFACT }}
           path: packaging/out/*.deb
@@ -110,6 +113,7 @@ jobs:
     name: Arch build check and PKGBUILD
     needs: check
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     container: archlinux:base-devel
     steps:
       # The package's dependencies are installed here, so makepkg (which
@@ -118,7 +122,7 @@ jobs:
           pacman -Syu --noconfirm --needed git meson ninja pkgconf glib2-devel patch
           fprintd libfprint glib2 libgusb openssl bash systemd usbutils libnotify polkit
           python python-gobject python-cairo gtk3
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ env.TAG }}
       # Only to check that it builds: the release attaches the PKGBUILD, not
@@ -145,7 +149,7 @@ jobs:
           sed -e "s/@VERSION@/$version/g" -e "s/@DRIVER@/$driver/g" -e "s/@SHA256@/$sha/g" \
             packaging/arch/PKGBUILD.release.in > dist/PKGBUILD
           cp packaging/arch/fingerprint-fix-sdcp.install packaging/arch/galaxybook-fingerprint-manager.install dist/
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: arch
           path: dist/*
@@ -155,11 +159,12 @@ jobs:
     name: Attach to the release
     needs: [rpm, deb, arch]
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ env.TAG }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: dist
           merge-multiple: true
