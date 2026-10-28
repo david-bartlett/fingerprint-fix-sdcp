@@ -2,15 +2,18 @@
 # =============================================================================
 # Galaxy Book Fingerprint Manager — install an update, in a terminal window
 # =============================================================================
-#   update-in-terminal.sh TITLE FOLDER COMMAND
+#   update-in-terminal.sh TITLE FOLDER COMMAND [CLOSED-FILE]
 #
 # Started by the Manager's Update in the user's terminal: shows what is being
 # installed and runs COMMAND (sudo asks for the password, dnf / apt / pacman
 # ask to confirm). Afterwards FOLDER, the download in /tmp, is removed if it
 # worked; the window closes by itself 10 seconds later. If it didn't work, the
-# window and the files stay until the user closes it.
+# window and the files stay until the user closes it. CLOSED-FILE is created
+# as the window closes (however it's closed), so the Manager waits for that
+# before asking to restart into the new version.
 # =============================================================================
-title="${1:?Usage: $0 TITLE FOLDER COMMAND}"; folder="${2:?}"; cmd="${3:?}"
+title="${1:?Usage: $0 TITLE FOLDER COMMAND [CLOSED-FILE]}"; folder="${2:?}"; cmd="${3:?}"; closed="${4:-}"
+[[ -n "$closed" ]] && trap 'touch -- "$closed"; exit' EXIT HUP TERM INT
 bold=$'\e[1m'; green=$'\e[32m'; red=$'\e[31m'; off=$'\e[0m'
 printf '\e]0;%s\a' "$title"           # the window's title
 

@@ -2857,8 +2857,11 @@ class Manager(Gtk.Window):
         when the terminal can't be started: the old dialog is shown instead."""
         term, folder = self._dl_term, self._dl_tmp
         title = f"Updating fingerprint-fix-sdcp to {self._dl_version}"
+        # Made as the terminal window closes: the restart question waits for it.
+        self._term_closed = folder + ".closed"
         argv = terminal.command_line(
-            term, ["bash", os.path.join(HERE, "update-in-terminal.sh"), title, folder, cmd])
+            term, ["bash", os.path.join(HERE, "update-in-terminal.sh"), title, folder, cmd,
+                   self._term_closed])
         env = dict(os.environ)
         # Wayland only brings a new window to the front with a token from the click.
         try:
@@ -2884,7 +2887,7 @@ class Manager(Gtk.Window):
             rc = proc.poll()
             if rc not in (None, 0):
                 self._hide_message()
-                self._dl_term = None
+                self._dl_term = self._term_closed = None
                 self._downloaded(*self._dl_args)
             return False
         GLib.timeout_add_seconds(3, check)
@@ -2953,6 +2956,23 @@ class Manager(Gtk.Window):
         self._announced_version = version
         self.update_btn.hide()
         self.refresh()                              # the install restarted fprintd
+        self._offer_restart(version, command)
+        return False
+
+    def _offer_restart(self, version, command, waited=0):
+        """Ask whether to restart into the new version: once the terminal it
+        was installed in has closed (at most 10 minutes' wait), so the question
+        doesn't come up over it."""
+        closed = getattr(self, "_term_closed", None)
+        if closed and not os.path.exists(closed) and waited < 600:
+            GLib.timeout_add_seconds(1, lambda: self._offer_restart(version, command, waited + 1))
+            return False
+        if closed:
+            try:
+                os.remove(closed)
+            except OSError:
+                pass
+            self._term_closed = None
         # A window of its own, so it isn't missed; with Later, the bar stays
         # with its Restart button.
         d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
