@@ -157,8 +157,12 @@ A small window for your fingerprints and the sensor, in the app menu as **Galaxy
 - **Information panel** at the bottom: what just happened, and anything that needs your attention.
 
 <p>
-  <img src="images/fingerprint-manager.png" width="400" alt="Galaxy Book Fingerprint Manager: all ten fingers, four enrolled, with the right-click menu (Test, Remove from Fedora) open">
-  <img src="images/fingerprint-manager-enrol.png" width="400" alt="Enrolling a finger: Lift and touch again, 3 of 5 touches">
+  <img src="images/fingerprint-manager.png" width="350" alt="Fingerprints tab: six fingers enrolled, the information panel at the bottom">
+  <img src="images/fingerprint-manager-sensor.png" width="350" alt="Sensor tab: six of ten slots used; hovering one says it is also used by CachyOS, MX Linux, Linux Mint and Ubuntu">
+</p>
+<p>
+  <img src="images/fingerprint-manager-enrol.png" width="350" alt="Enrolling the left middle finger: lift and touch again, 9 of 16 touches">
+  <img src="images/fingerprint-manager-test.png" width="350" alt="Testing a fingerprint: Match — right ring finger">
 </p>
 
 <details>
