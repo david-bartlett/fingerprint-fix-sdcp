@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.7.0 — 2026-10-28
 
 - **Tidier window:** no empty space under the slots, and short, readable hover text
 - The window shrinks to fit its contents once the sensor has been read and when the Windows reminder is shown or hidden (a GTK window grows but never shrinks by itself, so it could keep empty space under the slots); not when maximised or tiled
