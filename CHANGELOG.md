@@ -17,6 +17,7 @@
 
 - **Reset says plainly what's lost:** it names the fingers erased for good and the ones kept, and isn't for reinstalling
 - **Reset <distro>…**'s confirmation lists the fingers whose slots only this distro uses (erased from the sensor; nothing can bring them back) and the ones kept for the other distros; when none are shared it asks *Delete all of <distro>'s fingerprints?*. Reinstalling a distro doesn't need it: the new install is offered your fingerprints
+- **Choose a file…** (☰ → Import from other distros…) no longer picks `~/fingerprint-export.tgz` for you: nothing writes it now, so one there is likely old
 - README: everything for one distro first; the multi-distro parts (sharing, the Sensor slots tab with other distros, reinstalling, Reset, Back up & restore, without the Manager) together in **Several Linux Distros on One Laptop** at the end. Driver-only installs: the export and import tools come with the Manager
 
 ## 2.9.0 — 2026-10-29

@@ -3330,10 +3330,10 @@ class Manager(Gtk.Window):
             self.on_restore(None)
 
     def _import_file(self):
+        # Nothing picked for you: the Manager doesn't write ~/fingerprint-export.tgz
+        # (the other distros' fingerprints come from the EFI partition), so one
+        # there may well be old. Files made by export-fingerprint.sh, or kept elsewhere.
         d = self._chooser("Import an export file", Gtk.FileChooserAction.OPEN, "Import")
-        default = os.path.expanduser(f"~/{EXPORT_NAME}")
-        if os.path.isfile(default):
-            d.set_filename(default)
         path = d.get_filename() if d.run() == Gtk.ResponseType.OK else None
         d.destroy()
         if not path:
