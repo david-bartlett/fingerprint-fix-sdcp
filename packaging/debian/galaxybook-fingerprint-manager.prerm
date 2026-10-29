@@ -2,6 +2,8 @@
 set -e
 if [ "$1" = remove ]; then
     /usr/lib/galaxybook-fingerprint-manager/checks-off-hint.sh || true
+    # The other distros on this laptop stop listing this one's fingerprint slots.
+    python3 /usr/lib/galaxybook-fingerprint-manager/lib/shared_slots.py --forget-here || true
     systemctl disable samsung-galaxybook-fprint-sdcp-boot-check.service >/dev/null 2>&1 || true
     systemctl --global disable samsung-galaxybook-fprint-sdcp-user-check.timer >/dev/null 2>&1 || true
     systemctl --global disable galaxybook-fingerprint-manager-update-check.timer >/dev/null 2>&1 || true

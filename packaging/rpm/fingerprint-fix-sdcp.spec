@@ -332,6 +332,8 @@ fi
 %systemd_user_preun %{user_check} %{mgr_update}
 if [ "$1" -eq 0 ]; then
     %{mgrscriptdir}/checks-off-hint.sh || :
+    # The other distros on this laptop stop listing this one's fingerprint slots.
+    python3 %{mgrdir}/lib/shared_slots.py --forget-here || :
     rm -f /var/lib/samsung-galaxybook/galaxybook-fingerprint-manager-update-check.timer.set-up
 fi
 
