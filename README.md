@@ -225,7 +225,7 @@ Other things it can show:
 - **Your distro's libfprint now supports the reader** — when the distro's own, unmodified libfprint gains an SDCP driver for it, a message with **Test your distro's driver** (also in the ☰ menu). If it's an SDCP libfprint from another fix instead, a warning to keep this fix. See [The Monitor](#the-monitor).
 - **No Galaxy Book reader** — started on a computer without `1c7a:05a5` / `1c7a:05a1`, it says what it's for and how to remove the fix, instead of asking for a password.
 
-Records are never deleted: removed ones go to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the last 5 are kept). Each sensor job stops fprintd for a moment, as the sensor can only be used by one program at a time.
+Records are never deleted: removed ones go to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/`, and are kept while they can still be restored: a copy goes once its slot is cleared or the finger is back in it. Each sensor job stops fprintd for a moment, as the sensor can only be used by one program at a time.
 
 The installer installs the packages it needs. If any are missing later, the launcher lists them with the command to install them (from a terminal it offers to run it) — PyGObject with GTK 3, libfprint's GObject introspection data and pkexec:
 
@@ -346,7 +346,7 @@ At every boot, a small service compares fprintd's records with the templates act
 - It runs **before fprintd starts**, so nothing else can use the sensor while it checks, and nothing needs pausing. It runs in parallel with the rest of the boot — only fprintd waits for it, and only for the second or two it takes — so boot is not slower.
 - If a fingerprint's template is gone, the login check shows **Fingerprint Removed From Sensor** (once per boot) naming the finger, at the first login after the wipe — before you try to use it.
 - It **clears only the dead fingers' records**, so your desktop's fingerprint settings show them as not enrolled and you can simply add them again. Fingerprints still on the sensor are not touched. (Windows normally removes every Linux fingerprint, so in practice that is usually all of them.)
-- Cleared records are **moved, not deleted**, to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the last 5 are kept). They are useless once the template is gone, but if the check were ever wrong they could be moved back.
+- Cleared records are **moved, not deleted**, to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the Manager deletes them once it finds their slots really gone). They are useless once the template is gone, but if the check were ever wrong they could be moved back.
 - Each Linux install that shared the fingerprint clears its own dead record at its own next boot.
 - Fingerprints **enrolled with another driver** (the distro's own egismoc driver, or another non-SDCP build) are not treated as removed: they can never match here, so the login check says so once (**Fingerprints From Another Driver**) and they are left for you to delete and enrol again in the Galaxy Book Fingerprint Manager.
 - A removed fingerprint cannot be restored from an export — the export only points at the template on the sensor, and the template is what was deleted.
@@ -443,7 +443,7 @@ sudo bash tools/export-fingerprint.sh          # writes ~/fingerprint-export.tgz
 
 When the username differs from the one that exported them, each record's owner is rewritten for the new user (by the small `sensor-check` helper). The slot on the sensor is the same either way. Exports made under the older name `fprint-<user>.tgz` import the same way.
 
-The import refuses records made on a different sensor, users who don't exist on this install, and archives containing anything other than fingerprint records. If the user already has fingerprints on this install, those are kept and only the missing fingers are imported; `--replace` replaces them all instead, after all the checks have passed. The old records are moved to `/var/lib/samsung-galaxybook/replaced-fingerprints/<date>/` (the last 5 are kept), and nothing is deleted from the sensor, so other installs sharing those fingerprints keep working. Don't use `fprintd-delete` to make room for an import: it deletes the fingerprints from the sensor too, breaking every install that shares them.
+The import refuses records made on a different sensor, users who don't exist on this install, and archives containing anything other than fingerprint records. If the user already has fingerprints on this install, those are kept and only the missing fingers are imported; `--replace` replaces them all instead, after all the checks have passed. The old records are moved to `/var/lib/samsung-galaxybook/replaced-fingerprints/<date>/`, and nothing is deleted from the sensor, so other installs sharing those fingerprints keep working. Don't use `fprintd-delete` to make room for an import: it deletes the fingerprints from the sensor too, breaking every install that shares them.
 
 **Export again after deleting or re-enrolling:** an old export points at slots that no longer exist.
 
@@ -533,8 +533,8 @@ See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh` and `/etc/systemd/system/samsung-galaxybook-fprint-sdcp-boot-check.service` — runs it at boot, before fprintd
 - `/run/samsung-galaxybook/fprint-sdcp-boot-status` — boot check result (cleared at every boot)
 - `/run/samsung-galaxybook/fprint-sdcp-other-driver` — fingers enrolled with another driver, found by the boot check
-- `/var/lib/samsung-galaxybook/removed-fingerprints/` — records cleared by the boot check (last 5 boots that cleared any)
-- `/var/lib/samsung-galaxybook/replaced-fingerprints/` — records moved aside by `import-fingerprint.sh --replace` (last 5)
+- `/var/lib/samsung-galaxybook/removed-fingerprints/` — records removed in the Manager or cleared by the boot check, kept while they can still be restored
+- `/var/lib/samsung-galaxybook/replaced-fingerprints/` — records moved aside by `import-fingerprint.sh --replace`, kept while they can still be restored
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-other-fix.sh` — finds another fingerprint fix's fprintd setup (for the installer and the monitor)
 - `/var/lib/samsung-galaxybook/other-fingerprint-fix/<date>/` — another fix's fprintd setup, moved aside at install (only if there was one), with `RESTORE.txt`
 - `~/.cache/samsung-galaxybook/fprint-sdcp-boot-shown` — remembers the boot check message was shown this boot

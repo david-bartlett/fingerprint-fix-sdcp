@@ -13,7 +13,7 @@
 # export-fingerprint.sh from ../tools, with all their checks.
 #
 # Records are never deleted: anything removed from /var/lib/fprint is moved to
-# /var/lib/samsung-galaxybook/removed-fingerprints/<date>/ (last 5 kept), the
+# /var/lib/samsung-galaxybook/removed-fingerprints/<date>/ (while usable), the
 # same folder the boot check uses.
 # =============================================================================
 import os
@@ -274,9 +274,9 @@ def move_records(paths):
         shutil.move(real, dest)
         moved.append(dest)
     subprocess.run(["chmod", "-R", "go-rwx", REMOVED_DIR], capture_output=True)
-    dirs = sorted(glob.glob(f"{REMOVED_DIR}/*/"), key=os.path.getmtime, reverse=True)
-    for old in dirs[5:]:
-        shutil.rmtree(old, ignore_errors=True)
+    # Not a fixed number of folders: removing fingers one at a time makes one
+    # each, so a cap lost the first ones. prune_moved deletes a copy once it
+    # can't be used (its slot is gone, or the finger is back in it).
     return moved
 
 
@@ -406,8 +406,8 @@ def do_status(req):
             st["enroll_stages"] = 0
         chip = dev.list_prints_sync(None) if st["features"]["STORAGE_LIST"] else []
     records = read_records(serial)
-    try:                                            # removed copies of fingers back in use
-        prune_moved(serial, records)
+    try:                                            # removed copies that can't be used any more
+        prune_moved(serial, records, chip if st["features"]["STORAGE_LIST"] else None)
     except Exception:
         pass
     # Records this install moved aside (Remove, dead records, import --replace),
@@ -805,16 +805,19 @@ def moved_records(serial):
     return out
 
 
-def prune_moved(serial, records):
-    """Delete moved-aside records that are back in use: the same user has the
-    same slot here again (imported, restored, undone). Restoring one could
-    only duplicate it. Returns how many went."""
+def prune_moved(serial, records, chip=None):
+    """Delete moved-aside records that can never be used again: back in use
+    (the same user has the same slot here again: imported, restored, undone;
+    restoring one could only duplicate it), or, given the sensor's templates
+    (chip), whose slot is gone from the sensor. Returns how many went."""
     gone = 0
     for m in moved_records(serial):
         if m["print"] is None:
             continue
-        if any(r["user"] == m["user"] and r["print"] is not None and r["print"].equal(m["print"])
-               for r in records):
+        back = any(r["user"] == m["user"] and r["print"] is not None and r["print"].equal(m["print"])
+                   for r in records)
+        cleared = chip is not None and not any(m["print"].equal(c) for c in chip)
+        if back or cleared:
             try:
                 os.remove(m["path"])
                 gone += 1
@@ -833,13 +836,14 @@ def prune_moved(serial, records):
 
 def do_list_moved(_req):
     _, serial = sensor_usb()
+    with Sensor() as dev:
+        chip = dev.list_prints_sync(None)
+        listed = dev.has_feature(FPrint.DeviceFeature.STORAGE_LIST)
     try:
-        prune_moved(serial, read_records(serial))
+        prune_moved(serial, read_records(serial), chip if listed else None)
     except Exception:
         pass
     recs = moved_records(serial)
-    with Sensor() as dev:
-        chip = dev.list_prints_sync(None)
     result = []
     for r in recs:
         dest = f"{STORE}/{r['user']}/egismoc/{serial}/{r['finger']}"

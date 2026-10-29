@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Removed fingers can always be restored:** removing several one at a time lost the first ones' copies
+- Removed and replaced records were kept in dated folders, only the newest 5. Removing six fingers one at a time made six, so the first finger's copy was deleted and **Restore <distro> fingerprints** couldn't bring it back. Now a copy is kept while it can be restored, and deleted only when its slot is gone from the sensor or the finger is back in it (the Manager, the boot check and `import-fingerprint.sh`)
+
 - **One distro? The Manager keeps it simple:** the Sensor slots tab and the multi-distro options only appear when other distros use the sensor
 - With just this distro, the ☰ menu has **Restore <distro> fingerprints…**, **Show sensor slots**, the switches and About. When the shared file on the EFI partition lists another distro, the **Sensor slots** tab and **Import from other distros…**, **Back up & restore…** and **Reset <distro>…** appear, with a message the first time naming the other distros. The offer of the other distros' fingers when the Manager opens is always on (it's what makes a reinstall painless)
 
