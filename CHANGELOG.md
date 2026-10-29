@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.8.1 — 2026-10-29
 
 - **The open tab stands out:** Fingerprints / Sensor slots, and it blinks twice when a menu switches tabs
 - The tab you're on is filled with the theme's accent colour. **Show on sensor**, **Show finger** and the sensor-full dialog's **Open Sensor slots** switch tabs and the new tab blinks twice, so the switch is noticed
