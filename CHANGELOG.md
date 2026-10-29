@@ -25,7 +25,7 @@
 - **New messages blink and stay:** the information panel at the bottom blinks for a few seconds when a message appears, and keeps it until you close it
 - A message stays until × is pressed or a newer one replaces it (information used to go after 10 seconds). The panel blinks like the tabs, for about 2.5 seconds (`MSG_BLINK_S`). Both blink more slowly than the tabs did in 2.8.1: plain for 0.4 s each time, 0.8 s per blink (`BLINK_MS`)
 
-- ☰ → **Restore removed records…** is now **Restore fingerprints removed from <distro>…** (e.g. *from CachyOS*), so it's clear it only brings back what was removed on this distro; **Import from other distros…** is for the others' fingers. A grey finger's right-click menu says **Restore removed fingerprint…**
+- ☰ → **Restore removed records…** is now **Restore <distro> fingerprints…** (e.g. *Restore CachyOS fingerprints…*), so it's clear it only brings back fingers removed on this distro; **Import from other distros…** is for the others' fingers. A grey finger's right-click menu says **Restore removed fingerprint…**
 
 ## 2.8.1 — 2026-10-29
 
