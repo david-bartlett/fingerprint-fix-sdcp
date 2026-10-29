@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.10.0 — 2026-10-29
 
 - **Removed fingers can always be restored:** removing several one at a time lost the first ones' copies
