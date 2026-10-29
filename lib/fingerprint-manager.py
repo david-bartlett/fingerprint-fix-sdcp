@@ -963,7 +963,7 @@ class Manager(Gtk.Window):
         menu = Gtk.Menu()
         menu.get_style_context().add_class("fpm-menu")      # styled like the right-click menus
         menu.set_reserve_toggle_size(False)    # no empty tick-box column
-        self.import_item = self._menu_item(menu, "Import fingerprints…", self.on_import,
+        self.import_item = self._menu_item(menu, "Import from other distros…", self.on_import,
                                            "document-open-symbolic")
         self.import_item.set_tooltip_text(
             "Fingerprints the other distros on this laptop use (their records on the EFI "
@@ -3057,7 +3057,7 @@ class Manager(Gtk.Window):
         self.run_job("restore_slots", done, data=data)
 
     def on_import(self, _btn):
-        """☰ → Import fingerprints…: the fingers this install could use from
+        """☰ → Import from other distros…: the fingers this install could use from
         the EFI partition (also ones turned down before), with Choose a file…
         for an export file; straight to the file when there are none."""
         offer = (self.status or {}).get("import_offer")
@@ -3067,7 +3067,7 @@ class Manager(Gtk.Window):
             self._import_file()
 
     def _import_file(self):
-        d = self._chooser("Import fingerprints", Gtk.FileChooserAction.OPEN, "Import")
+        d = self._chooser("Import an export file", Gtk.FileChooserAction.OPEN, "Import")
         default = os.path.expanduser(f"~/{EXPORT_NAME}")
         if os.path.isfile(default):
             d.set_filename(default)

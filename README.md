@@ -210,7 +210,7 @@ It asks for your password once per session; the prompt says "Galaxy Book Fingerp
 | Fingerprints | Remove from <distro> (right-click a finger, or select it and press Delete) | Moves the record off this install; the template stays, so installs sharing it keep working |
 | Sensor slots | Clear… (or right-click → Clear slot…) | Clears the selected slots: deletes their fingerprints from the sensor (and moves aside any record here that used them) |
 | Sensor slots | Clear all slots… | Deletes every fingerprint on the sensor (every Linux install's and Windows Hello's) after you type CLEAR; moves every record here aside |
-| ☰ menu | Import fingerprints… | The fingers this install could use from the other distros on the laptop (also ones you turned down before), with **Choose a file…** for an export file (`export-fingerprint.sh`). A file goes through `import-fingerprint.sh` with all its checks; if you already have fingerprints, it asks whether to **add the missing ones** (yours are kept) or **replace all** (`--replace`) |
+| ☰ menu | Import from other distros… | The fingers this install could use from the other distros on the laptop (also ones you turned down before), with **Choose a file…** for an export file (`export-fingerprint.sh`). A file goes through `import-fingerprint.sh` with all its checks; if you already have fingerprints, it asks whether to **add the missing ones** (yours are kept) or **replace all** (`--replace`) |
 | Sensor slots | Other distros… | Every distro in the shared slots file, with the date it last opened the Manager and its slots. **Forget…** takes a wiped or reinstalled one out; **Forget and clear N slots** also erases the slots only it used. Also in the ⓘ dialog. Only shown when other distros are listed |
 | ☰ menu | Reset <distro>… | Starts this distro again (e.g. before reinstalling it): deletes every fingerprint record on it for good (and those moved aside), clears the slots only it uses, keeps the ones other distros also use, and takes it out of the shared slots file |
 | ☰ menu | Back up & restore… | Says how many records the EFI partition has; **Back up…** saves a copy of `fingerprint-slots.json` from the EFI partition (every distro's records) as a `.json` file; **Restore…** merges one back (adds what's missing, changes nothing there) and the Manager offers the fingers again |
@@ -278,7 +278,7 @@ sudo bash tools/export-fingerprint.sh          # writes ~/fingerprint-export.tgz
   - otherwise the installer asks `Do you have fingerprints exported from another install to import? [y/N]` (skipped after 30 seconds, or when run without a terminal, e.g. from the GUI app). Answer `y` and it asks for the path, with no time limit;
   - `FPRINT_IMPORT=/path/to/file.tgz` imports a file kept anywhere else without asking.
 - **Before importing**, the fingerprints are checked against the sensor (fprintd is paused for a moment). Fingers whose template is gone — re-enrolled since, or wiped by Windows — are left out (an export with none left is refused), so you never end up with a fingerprint that can't match. `--no-check` skips this.
-- **In the Galaxy Book Fingerprint Manager:** ☰ → **Import fingerprints…** → **Choose a file…** imports an export file.
+- **In the Galaxy Book Fingerprint Manager:** ☰ → **Import from other distros…** → **Choose a file…** imports an export file.
 - **With the fix already installed:**
 
   ```bash
