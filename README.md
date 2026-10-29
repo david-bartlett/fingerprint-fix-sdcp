@@ -54,9 +54,13 @@ Arch is rolling, so the fix is built on your laptop against your current librari
 sudo pacman -S --needed base-devel git
 ```
 
-Download `PKGBUILD`, `fingerprint-fix-sdcp.install` and `galaxybook-fingerprint-manager.install` from the release into an empty folder, then in that folder:
+Download `PKGBUILD`, `fingerprint-fix-sdcp.install` and `galaxybook-fingerprint-manager.install` from the release into an empty folder, then in that folder run `makepkg -si`. Or, all in one go:
 
 ```bash
+mkdir -p ~/fingerprint-pkg && cd ~/fingerprint-pkg
+for f in PKGBUILD fingerprint-fix-sdcp.install galaxybook-fingerprint-manager.install; do
+  curl -LO "https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest/download/$f"
+done
 makepkg -si
 ```
 
@@ -64,7 +68,7 @@ makepkg -si
 
 ### Installing only one package
 
-Either package works on its own. Most desktops have their own fingerprint settings for ing, so the driver alone may be all you need:
+Either package works on its own. Most desktops have their own fingerprint settings for enrolling, so the driver alone may be all you need:
 
 | Install only | What you get | What you don't |
 | --- | --- | --- |
