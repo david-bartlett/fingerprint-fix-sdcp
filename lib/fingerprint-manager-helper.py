@@ -150,7 +150,7 @@ def short_id(p):
 
 # Slots shared with the laptop's other installs: see shared_slots.py.
 from shared_slots import (share_slots, forget_installs, install_key, used_elsewhere,  # noqa: E402
-                          esp_records, read_file, merge_backup)
+                          esp_records, read_file, merge_backup, esp_summary)
 import io  # noqa: E402
 
 
@@ -438,6 +438,10 @@ def do_status(req):
     except Exception:
         st["installs"] = None
     st["pam"] = pam_state()
+    try:
+        st["esp"] = esp_summary(serial)
+    except Exception:
+        st["esp"] = {"path": None, "records": 0}
     if req.get("export"):
         try:
             st["import_offer"] = import_offer(st["user"], serial, chip, records, moved)

@@ -200,6 +200,15 @@ def esp_records(serial):
     return out
 
 
+def esp_summary(serial):
+    """Where the shared file is and how many records it has for this sensor:
+    {"path": "/boot/efi/EFI/…/fingerprint-slots.json" or None, "records": n}."""
+    path = _path()
+    sensor = ((_load(path).get("sensors") or {}).get(serial) or {}) if path else {}
+    n = sum(1 for e in sensor.values() if isinstance(e, dict) and e.get("record"))
+    return {"path": path, "records": n}
+
+
 def read_file():
     """The whole shared file, for a backup ({} without one)."""
     path = _path()
