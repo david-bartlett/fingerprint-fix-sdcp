@@ -15,6 +15,9 @@
 - **The import offer shows on a fresh install:** a new install with `~/fingerprint-export.tgz` wasn't offered the import
 - The Manager checks for an export as it reads the sensor at start, but on a new install it straight away also checks the distro's own driver, and the offer, finding the Manager busy, was dropped. It now waits until that check is done
 
+- **After Reset <distro>…, import again or start empty:** if `~/fingerprint-export.tgz` has fingers whose slots are still on the sensor, you're asked straight away
+- Reset now forgets which export files were already offered on this distro, then asks **Import your fingerprints again?** with **Import** or **Start empty** (the file can still be imported later from ☰). With no such file, it just says what was reset. The Reset dialog says which fingers can be imported again (those in slots kept for other distros) and which can't (cleared slots)
+
 ## 2.8.1 — 2026-10-29
 
 - **The open tab stands out:** Fingerprints / Sensor slots, and it blinks twice when a menu switches tabs
