@@ -58,11 +58,13 @@ Download `PKGBUILD`, `fingerprint-fix-sdcp.install` and `galaxybook-fingerprint-
 
 ```bash
 mkdir -p ~/fingerprint-pkg && cd ~/fingerprint-pkg
-for f in PKGBUILD fingerprint-fix-sdcp.install galaxybook-fingerprint-manager.install; do
-  curl -LO "https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest/download/$f"
-done
+curl -L -O https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest/download/PKGBUILD \
+     -O https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest/download/fingerprint-fix-sdcp.install \
+     -O https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest/download/galaxybook-fingerprint-manager.install
 makepkg -si
 ```
+
+(This works in bash, zsh and fish, CachyOS's default shell.)
 
 `makepkg` installs the build tools it needs, builds the driver commit the release was tested with, and asks for your password to install both packages. **Updating:** the Manager's **Update** fetches the new release's `PKGBUILD` and runs `makepkg -si` in your terminal; without the Manager, download the new files and run `makepkg -si` again.
 
