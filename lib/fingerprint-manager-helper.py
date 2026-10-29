@@ -760,11 +760,15 @@ def do_restore(req):
 
 
 def do_forget_install(req):
-    """Take another install, one that's gone, out of the shared slots file."""
+    """Take another install, one that's gone, out of the shared slots file,
+    and clear the slots ("ids") only it used, when asked to."""
     key = str(req.get("key") or "")
     if not re.fullmatch(r"[0-9a-f]{12}", key) or key == install_key():
         raise Fail("That install can't be forgotten.")
-    return {"forgotten": forget_installs([key])}
+    out = {"forgotten": forget_installs([key])}
+    if req.get("ids"):
+        out.update(do_delete_templates({"ids": req["ids"]}))
+    return out
 
 
 def do_export(req):
