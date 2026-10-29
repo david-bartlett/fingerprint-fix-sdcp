@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.8.0 — 2026-10-29
 
 - **Updating with install.sh no longer turns fingerprint login back on:** if you turned it off, it stays off
 - `install.sh` on Fedora, Ubuntu, Mint, Debian and MX turned fingerprint login on every time it ran, so updating with `git pull` and `sudo bash install.sh` undid turning it off in the Manager. Now, like the packages, it only turns it on at the first install on the computer, and `sudo FPRINT_PAM=0 bash install.sh` leaves it off there too. README: how to pass `FPRINT_PAM=0` with each install method (with Arch's `makepkg -si` it can't be: `makepkg -s`, then `sudo FPRINT_PAM=0 pacman -U`)
