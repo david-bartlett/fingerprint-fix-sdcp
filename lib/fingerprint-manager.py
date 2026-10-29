@@ -970,6 +970,15 @@ class Manager(Gtk.Window):
                                            "document-save-symbolic")
         self.restore_backup_item = self._menu_item(menu, "Restore from a backup…",
                                                    self.on_restore_backup, "document-revert-symbolic")
+        self.import_item.set_tooltip_text(
+            "Fingerprints the other distros on this laptop use (their records on the EFI "
+            "partition), or an export file")
+        self.backup_item.set_tooltip_text(
+            "Save a copy of EFI/samsung-galaxybook/fingerprint-slots.json from the EFI partition: "
+            "every distro's fingerprint records, should that partition ever be formatted")
+        self.restore_backup_item.set_tooltip_text(
+            "Put a backup's fingerprint records back into EFI/samsung-galaxybook/"
+            "fingerprint-slots.json on the EFI partition (nothing there is changed)")
         menu.append(Gtk.SeparatorMenuItem())
         self.restore_item = self._menu_item(menu, "Restore removed records…", self.on_restore,
                                             "edit-undo-symbolic")
@@ -2981,7 +2990,10 @@ class Manager(Gtk.Window):
             n = sum(1 for tpls in res["data"].get("sensors", {}).values()
                     for e in tpls.values() if isinstance(e, dict) and e.get("record"))
             self.message(f"Backed up {n} fingerprint record{'s' if n != 1 else ''} to "
-                         f"{path.replace(os.path.expanduser('~') + '/', '~/')}.")
+                         f"{path.replace(os.path.expanduser('~') + '/', '~/')}.",
+                         details="A copy of EFI/samsung-galaxybook/fingerprint-slots.json on the EFI "
+                                 "partition: every distro's fingerprint records. ☰ → Restore from a "
+                                 "backup… puts them back should that partition ever be formatted.")
         self.run_job("backup_slots", got)
 
     def on_restore_backup(self, _btn):
@@ -3004,6 +3016,15 @@ class Manager(Gtk.Window):
                 data = json.load(fh)
         except (OSError, ValueError) as e:
             return self.error(f"Couldn't read {path}: {e}")
+        short = path.replace(os.path.expanduser("~") + "/", "~/")
+        if not self.confirm("Restore fingerprint records from this backup?",
+                            f"The records in {short} are added to EFI/samsung-galaxybook/"
+                            "fingerprint-slots.json on the EFI partition, the file every distro "
+                            "on this laptop shares. Nothing already there is changed.\n\n"
+                            "Then the fingers this distro can use are offered, and the other "
+                            "distros offer theirs the next time the Galaxy Book Fingerprint "
+                            "Manager opens.", "Restore", destructive=False):
+            return
 
         def done(res, err):
             if err:
@@ -3012,7 +3033,8 @@ class Manager(Gtk.Window):
             self._offered = set()
             n = res.get("added", 0)
             self.refresh(lambda: self.message(
-                f"Restored {n} fingerprint record{'s' if n != 1 else ''}." if n else
+                f"Restored {n} fingerprint record{'s' if n != 1 else ''} to the EFI partition "
+                "(EFI/samsung-galaxybook/fingerprint-slots.json)." if n else
                 "Nothing new: the EFI partition already had everything in that backup."))
         self.run_job("restore_slots", done, data=data)
 
