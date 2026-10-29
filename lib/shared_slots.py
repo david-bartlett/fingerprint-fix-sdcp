@@ -7,15 +7,23 @@ each install notes what it knows about its templates in one small file on the
 EFI system partition, which every OS on the laptop shares:
   <ESP>/EFI/samsung-galaxybook/fingerprint-slots.json
 {"version": 1, "sensors": {SERIAL: {TEMPLATE: {"finger", "user", "enrolled",
-  "enrolled_on", "installs": {INSTALL: {"os", "state": used|removed, "seen"}}}}}}
+  "enrolled_on", "record", "installs": {INSTALL: {"os", "state": used|removed, "seen"}}}}}}
 TEMPLATE is the short ID the Sensor slots tab shows; INSTALL a hash of the
 install's machine-id. The helper updates it whenever the Manager reads the
 sensor; best effort only.
+
+"record" is the fprintd record of that template (base64), from the first
+install that noted it: what another install imports to use the same slot (the
+Manager offers it). It only points to the slot (an ID and the sensor's MAC):
+the fingerprint itself never leaves the sensor, and a record is no use without
+this laptop's sensor and the finger. It goes with its template when the slot
+is cleared.
 
 Run as root when the Manager is removed (not upgraded), so the other installs
 stop listing this one:
   shared_slots.py --forget-here
 """
+import base64
 import datetime
 import hashlib
 import json
@@ -145,6 +153,14 @@ def share_slots(serial, templates, records_by_tid):
             if "enrolled_on" not in e:              # the first install to note it
                 e.update(enrolled_on=here, enrolled=r["enrolled"])
             e.update(finger=r["name"], user=r["user"])
+            if "record" not in e:                   # for the other installs to import
+                try:
+                    with open(r["path"], "rb") as f:
+                        raw = f.read()
+                    if len(raw) <= 65536:
+                        e["record"] = base64.b64encode(raw).decode()
+                except (OSError, KeyError):
+                    pass
             installs[me] = {"os": here, "state": "used", "seen": today}
         elif t.get("removed"):
             rm = t["removed"]
@@ -163,6 +179,76 @@ def share_slots(serial, templates, records_by_tid):
                            "others": others}
     _save(path, data, before)
     return _installs(sensor, me)
+
+
+def esp_records(serial):
+    """Records the installs noted for templates on this sensor: {template:
+    {"finger", "user", "data" (bytes), "os": [distros using it]}}."""
+    path = _path()
+    sensor = ((_load(path).get("sensors") or {}).get(serial) or {}) if path else {}
+    out = {}
+    for tid, e in sensor.items():
+        if not isinstance(e, dict) or not e.get("record") or not e.get("finger"):
+            continue
+        try:
+            data = base64.b64decode(e["record"], validate=True)
+        except (ValueError, TypeError):
+            continue
+        oses = sorted({v.get("os", "?") for v in (e.get("installs") or {}).values()
+                       if isinstance(v, dict) and v.get("state", "used") == "used"})
+        out[tid] = {"finger": e["finger"], "user": e.get("user", ""), "data": data, "os": oses}
+    return out
+
+
+def esp_summary(serial):
+    """Where the shared file is and how many records it has for this sensor:
+    {"path": "/boot/efi/EFI/…/fingerprint-slots.json" or None, "records": n}."""
+    path = _path()
+    sensor = ((_load(path).get("sensors") or {}).get(serial) or {}) if path else {}
+    n = sum(1 for e in sensor.values() if isinstance(e, dict) and e.get("record"))
+    return {"path": path, "records": n}
+
+
+def read_file():
+    """The whole shared file, for a backup ({} without one)."""
+    path = _path()
+    return _load(path) if path else {}
+
+
+def merge_backup(backup):
+    """Merge a backup of the shared file into it: templates, records and
+    installs it doesn't have are added; nothing already there is changed.
+    Templates no longer on the sensor drop out the next time the Manager
+    reads it. Returns how many records were added, or None without an EFI
+    partition."""
+    path = _path()
+    if not path:
+        return None
+    if not isinstance(backup, dict) or backup.get("version") != 1 \
+            or not isinstance(backup.get("sensors"), dict):
+        raise ValueError("not a backup of fingerprint-slots.json")
+    data = _load(path)
+    before = json.dumps(data, sort_keys=True)
+    data["version"] = 1
+    added = 0
+    for serial, tpls in backup["sensors"].items():
+        if not isinstance(tpls, dict):
+            continue
+        sensor = data.setdefault("sensors", {}).setdefault(str(serial), {})
+        for tid, e in tpls.items():
+            if not isinstance(e, dict):
+                continue
+            cur = sensor.setdefault(str(tid), {})
+            for k in ("finger", "user", "enrolled", "enrolled_on", "record"):
+                if k in e and k not in cur and isinstance(e[k], str):
+                    cur[k] = e[k]
+                    added += k == "record"
+            inst = cur.setdefault("installs", {})
+            for k, v in (e.get("installs") or {}).items():
+                if isinstance(v, dict) and k not in inst:
+                    inst[k] = v
+    _save(path, data, before)
+    return added
 
 
 def used_elsewhere(serial):

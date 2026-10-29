@@ -12,14 +12,26 @@
 - **Arch / CachyOS: builds on a fresh install:** `makepkg -si` failed with *Dependency "gusb" not found* when fprintd wasn't installed yet
 - The PKGBUILD's build dependencies now include `libgusb` and `openssl` (the driver links them; before, they only came with fprintd). The release workflow's Arch check installs only the PKGBUILD's build dependencies, as a fresh system has, so a missing one fails there
 
-- **The import offer shows on a fresh install:** a new install with `~/fingerprint-export.tgz` wasn't offered the import
-- The Manager checks for an export as it reads the sensor at start, but on a new install it straight away also checks the distro's own driver, and the offer, finding the Manager busy, was dropped. It now waits until that check is done
+- **The import offer shows on a fresh install:** it could be skipped when the Manager opened
+- The Manager looks for fingers to offer as it reads the sensor at start, but on a new install it straight away also checks the distro's own driver, and the offer, finding the Manager busy, was dropped. It now waits until that check is done
 
-- **After Reset <distro>…, import again or start empty:** if `~/fingerprint-export.tgz` has fingers whose slots are still on the sensor, you're asked straight away
-- Reset now forgets which export files were already offered on this distro, then asks **Import your fingerprints again?** with **Import** or **Start empty** (the file can still be imported later from ☰). With no such file, it just says what was reset. The Reset dialog says which fingers can be imported again (those in slots kept for other distros) and which can't (cleared slots)
+- **After Reset <distro>…, import again or start empty:** if your fingers' slots are still on the sensor, you're asked straight away
+- Reset forgets which fingers were turned down on this distro, then asks **Import your fingerprints again?** with **Import** or **Start empty** (they can still be imported later from ☰). With nothing to offer, it just says what was reset. The Reset dialog says which fingers can be imported again (those in slots kept for other distros) and which can't (cleared slots)
 
-- **Export keeps your old export if you like:** Backup & Replace, Replace or Cancel when the file already exists
-- When the export file already exists, the Manager asks instead of GTK's plain overwrite question: **Backup & Replace** (the default) renames the old one after the date it was exported, e.g. `fingerprint-export-2026-10-28_1003.tgz`, then exports; **Replace** overwrites it; **Cancel** exports nothing. The import offer only ever reads `~/fingerprint-export.tgz`, so backups are never offered; import one with ☰ → Import fingerprints…
+- **Your fingerprints follow you between distros:** a new or reset distro offers the fingers the others already use, from the EFI partition, with nothing to copy
+- Each install keeps its fingers' fprintd records in `fingerprint-slots.json` on the EFI partition (only an ID and the sensor's signature; a record goes when its slot is cleared). When the Manager opens, it offers the fingers this install could use straight away, in one list with a tick box each and the distros it's from (another user name is shown and, with more than one, left unticked). One turned down isn't asked about again until **Reset**; ☰ → **Import from other distros…** lists them all again, with **Choose a file…** for an export file; with nothing to offer it says so, and points to **Restore <distro> fingerprints…** for fingers removed here. ☰ → **Back up & restore…** explains the file and how many records it has: **Back up…** saves a copy as `.json`, **Restore…** merges one back (adds what's missing, changes nothing there) should the EFI partition be formatted. ☰ → **Export fingerprints…** is gone (`tools/export-fingerprint.sh` still makes an export file, e.g. for an install with only the driver)
+- Importing a file with the right little finger in it failed ("Unexpected entry in archive"): fprintd's name for it is `a`, which the check read as a number
+
+- **Click a slot or a finger to see its details:** who it is, which distro enrolled it, which distros use it and its template, in the information panel
+- On the Fingerprints tab, clicking a finger shows when and on which distro it was enrolled, which distros use it (or, for a red one, why it can't match) and its template. On the Sensor slots tab, clicking a slot shows its details in the information panel, in a quieter grey and without blinking (the slots have no tooltips now); they go after 5 seconds (`PLAIN_MSG_S`), when it's clicked again, or when you leave the tab, and an alert they covered comes back. Alerts (warnings, errors, what an action did) blink and stay; plain information like this doesn't blink and goes by itself
+
+- **The Sensor slots tab is off by default:** turn it on with ☰ → Show sensor slots; most people only have one distro
+- ☰ → **Show sensor slots** (off unless you turn it on; an old `sensor_tab=1` setting keeps it on). While it's off the header shows just *Fingerprints*; **Show on sensor**, or **Open Sensor slots** when the sensor is full, brings the tab up for that visit (it blinks), and going back to Fingerprints hides it again
+
+- **New messages blink and stay:** the information panel at the bottom blinks for a few seconds when a message appears, and keeps it until you close it
+- A message stays until × is pressed or a newer one replaces it (information used to go after 10 seconds). The panel blinks like the tabs, for about 2.5 seconds (`MSG_BLINK_S`). Both blink more slowly than the tabs did in 2.8.1: plain for 0.4 s each time, 0.8 s per blink (`BLINK_MS`)
+
+- ☰ → **Restore removed records…** is now **Restore <distro> fingerprints…** (e.g. *Restore CachyOS fingerprints…*), so it's clear it only brings back fingers removed on this distro; **Import from other distros…** is for the others' fingers. A grey finger's right-click menu has **Restore removed fingerprint…** only when a removed copy of that finger can come back. A removed finger's kept copy is deleted once that finger is back in the same slot (imported from another distro, restored or undone), so the list only shows ones that can still be useful; it uses finger names (*Left index finger*) and says plainly why one can't come back (*Finger enrolled again since*, *Slot cleared*)
 
 ## 2.8.1 — 2026-10-29
 

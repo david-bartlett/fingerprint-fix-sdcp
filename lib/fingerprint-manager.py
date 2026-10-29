@@ -352,6 +352,7 @@ class MsgPanel(Gtk.Box):
         super().__init__(spacing=8)
         self.get_style_context().add_class("fpm-msg")
         self._kind, self._active = Gtk.MessageType.INFO, False
+        self._blink_gen = 0                 # a newer message (or clear) stops an older blink
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, valign=Gtk.Align.CENTER)
         body.pack_start(label, False, False, 0)
         body.pack_start(buttons, False, False, 0)
@@ -377,12 +378,35 @@ class MsgPanel(Gtk.Box):
             ctx.remove_class("fpm-msg-" + c)
         ctx.add_class("fpm-msg-" + cls)
 
-    def show_message(self):
+    def show_message(self, blink=True):
         self._active = True
         self._style(self.KINDS.get(self._kind, "info"))
         self.close_btn.show()
+        if blink:
+            self._blink()
+        else:
+            self._blink_gen += 1                    # stop an older one
+            self.get_style_context().remove_class("fpm-msg-blink")
+
+    def _blink(self):
+        """Blink like a tab opened from a menu (plain for a moment, lit again),
+        for about MSG_BLINK_S seconds, so a new message is noticed."""
+        self._blink_gen += 1
+        gen = self._blink_gen
+        ctx = self.get_style_context()
+        ctx.remove_class("fpm-msg-blink")
+
+        def step(on):
+            if gen == self._blink_gen:
+                (ctx.add_class if on else ctx.remove_class)("fpm-msg-blink")
+            return False
+        for i in range(max(1, round(MSG_BLINK_S * 1000 / (2 * BLINK_MS)))):
+            GLib.timeout_add(BLINK_MS * (2 * i + 1), step, True)
+            GLib.timeout_add(BLINK_MS * (2 * i + 2), step, False)
 
     def clear(self):
+        self._blink_gen += 1
+        self.get_style_context().remove_class("fpm-msg-blink")
         self._active = False
         self._kind = Gtk.MessageType.INFO
         self._style("idle")
@@ -404,7 +428,7 @@ button.fpm-update:hover { box-shadow: 0 0 0 1px rgba(231,76,60,1.0), 0 0 8px rgb
 button.fpm-update:disabled { box-shadow: none; font-weight: normal; }
 .fpm-card { border: 1px solid alpha(currentColor, 0.15); border-radius: 8px; padding: 10px 12px; }
 .fpm-hint { font-size: 100%; }
-stackswitcher.fpm-tabs button { transition: background-color 120ms; }
+stackswitcher.fpm-tabs button { transition: background-color 200ms; }
 stackswitcher.fpm-tabs button:checked { background-image: none; background-color: @theme_selected_bg_color;
     color: @theme_selected_fg_color; border-color: shade(@theme_selected_bg_color, 0.85); }
 stackswitcher.fpm-tabs button:checked label { color: @theme_selected_fg_color; }
@@ -457,6 +481,8 @@ list.fpm-list row.fpm-selected .fpm-lcard { border-color: @theme_selected_bg_col
 .fpm-msg.fpm-msg-warning { border-color: alpha(#e5a50a, 0.85); background-color: alpha(#e5a50a, 0.10); }
 .fpm-msg.fpm-msg-error { border-color: alpha(#e01b24, 0.75); background-color: alpha(#e01b24, 0.08); }
 .fpm-msg.fpm-msg-other { border-color: alpha(@theme_fg_color, 0.30); }
+.fpm-msg { transition: background-color 200ms, border-color 200ms; }
+.fpm-msg.fpm-msg-blink { background-color: transparent; border-color: alpha(@theme_fg_color, 0.15); }
 .fpm-empty { background-color: transparent; border: 1px dashed alpha(@theme_fg_color, 0.30); }
 .fpm-empty label { color: alpha(@theme_fg_color, 0.55); }
 .fpm-free { background-color: transparent; border: 1px dashed alpha(@theme_fg_color, 0.30); }
@@ -832,6 +858,9 @@ def shared_where(sh, short=False, full=False):
 
 STALE_DAYS = 30
 BLINKS = 2          # how often a tab blinks when a menu opens it
+BLINK_MS = 400      # how long it goes plain each time; one blink takes twice as long
+MSG_BLINK_S = 2.5   # how long the information panel blinks for a new alert
+PLAIN_MSG_S = 5     # how long plain information (a slot's details) stays
 
 
 def stale_note(sh):
@@ -949,10 +978,21 @@ class Manager(Gtk.Window):
         self.set_titlebar(hb)
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         # every page as tall as the tallest, so the window never changes height
-        # The tabs, always both: Fingerprints (this install) and Sensor (its 10 slots)
+        # The tabs: Fingerprints (this install) and Sensor slots (the sensor's 10).
+        # With Sensor slots off (☰, the default) just a title; the tab appears
+        # for a visit when something opens it (Show on sensor, sensor full).
         self.switcher = Gtk.StackSwitcher(stack=self.stack)
         self.switcher.get_style_context().add_class("fpm-tabs")     # the open tab stands out
-        hb.set_custom_title(self.switcher)
+        self.title_lbl = Gtk.Label(label="Fingerprints")
+        self.title_lbl.get_style_context().add_class("title")
+        title_box = Gtk.Box()
+        title_box.pack_start(self.switcher, False, False, 0)
+        title_box.pack_start(self.title_lbl, False, False, 0)
+        for w in (self.switcher, self.title_lbl):     # shown by _apply_sensor_tab, not show_all
+            w.set_no_show_all(True)
+        hb.set_custom_title(title_box)
+        self._sensor_on = load_settings().get("sensor_tab") == "1"
+        self._sensor_visit = False          # shown for now, by Show on sensor and the like
         self.refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.BUTTON)
         self.refresh_btn.set_tooltip_text("Read the sensor again")
         self.refresh_btn.connect("clicked", lambda *_: self.refresh())
@@ -963,12 +1003,18 @@ class Manager(Gtk.Window):
         menu = Gtk.Menu()
         menu.get_style_context().add_class("fpm-menu")      # styled like the right-click menus
         menu.set_reserve_toggle_size(False)    # no empty tick-box column
-        self.export_item = self._menu_item(menu, "Export fingerprints…", self.on_export,
-                                           "document-save-symbolic")
-        self.import_item = self._menu_item(menu, "Import fingerprints…", self.on_import,
+        self.import_item = self._menu_item(menu, "Import from other distros…", self.on_import,
                                            "document-open-symbolic")
+        self.import_item.set_tooltip_text(
+            "Fingerprints the other distros on this laptop use (their records on the EFI "
+            "partition), or an export file")
+        # A copy of the records on the EFI partition, should it ever be formatted.
+        self.backup_item = self._menu_item(menu, "Back up & restore…", self.on_backup_restore,
+                                           "document-save-symbolic")
+        self.backup_item.set_tooltip_text("Keep a copy of every distro's fingerprint records, "
+                                          "or put one back")
         menu.append(Gtk.SeparatorMenuItem())
-        self.restore_item = self._menu_item(menu, "Restore removed records…", self.on_restore,
+        self.restore_item = self._menu_item(menu, f"Restore {OS_NAME} fingerprints…", self.on_restore,
                                             "edit-undo-symbolic")
         menu.append(Gtk.SeparatorMenuItem())
         self.reset_item = self._menu_item(menu, f"Reset {OS_NAME}…", self.on_reset_install,
@@ -977,6 +1023,13 @@ class Manager(Gtk.Window):
         self.reset_item.set_tooltip_text(f"Delete every fingerprint on {OS_NAME} and free the slots "
                                          "only it uses: before reinstalling it, or to start again")
         menu.append(Gtk.SeparatorMenuItem())
+        self.sensor_item = ToggleMenuItem("Show sensor slots", "view-grid-symbolic",
+                                          active=self._sensor_on)
+        self.sensor_item.set_tooltip_text("The Sensor slots tab: the sensor's 10 slots, which "
+                                          "distros use each, and clearing them. Useful with "
+                                          "several distros on this laptop")
+        self.sensor_item.connect("toggled", self._on_sensor_toggled)
+        menu.append(self.sensor_item)
         self.update_item = ToggleMenuItem("Check for new versions", "software-update-available-symbolic")
         self.update_item.set_tooltip_text("Asks GitHub when the Manager starts and about every hour "
                                           "whether a newer fingerprint-fix-sdcp has been released "
@@ -1018,8 +1071,8 @@ class Manager(Gtk.Window):
         self.update_btn.set_no_show_all(True)
         self._new_version = None
         self._new_assets = []
-        self._export_offered = None
-        self._after_reset = False           # Reset <distro> just ran: ask about the export
+        self._offered = set()               # templates offered for import this session
+        self._after_reset = False           # Reset <distro> just ran: import or start empty
         hb.pack_end(self.update_btn)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin=12)
@@ -1068,7 +1121,7 @@ class Manager(Gtk.Window):
         outer.pack_start(card, False, False, 0)
 
         # ── information panel: one short message, Details… for the full text ──
-        self.msg_label = Gtk.Label(xalign=0, wrap=True, lines=2,
+        self.msg_label = Gtk.Label(xalign=0, wrap=True, lines=3,
                                    ellipsize=Pango.EllipsizeMode.END)
         msg_btns = Gtk.Box(spacing=6)
         self.msg_action_btn = Gtk.Button(label="")
@@ -1082,6 +1135,10 @@ class Manager(Gtk.Window):
             w.set_no_show_all(True)
         self.msg_bar = MsgPanel(self.msg_label, msg_btns, lambda: self._on_msg_response(None, 0))
         self._msg_action = None
+        self._msg_details = None
+        self._slot_info = None          # (tab, key, text) of the details the panel shows
+        self._msg_alert = True          # the panel's message is an alert (not plain information)
+        self._saved_msg = None          # the message they covered, back on deselecting
 
         outer.pack_start(self.stack, True, True, 0)
         # Each tab's buttons under the page, then the Windows reminder, then
@@ -1094,6 +1151,15 @@ class Manager(Gtk.Window):
         self.stack.connect("notify::visible-child-name",
                            lambda st, _p: self.btn_stack.set_visible_child_name(
                                st.get_visible_child_name()))
+        # Leaving a Sensor slots tab shown for a visit hides it again.
+        self.stack.connect("notify::visible-child-name",
+                           lambda st, _p: self._sensor_visit
+                           and st.get_visible_child_name() != "sensor" and self._end_visit())
+        # A tab's details (a slot, a finger) are gone when leaving it.
+        self.stack.connect("notify::visible-child-name",
+                           lambda st, _p: self._slot_info is not None
+                           and st.get_visible_child_name() != self._slot_info[0]
+                           and self._end_slot_info())
 
         # ── page 1: fingerprints on this install — cards (icons) or rows (list) ──
         self.records = []                 # the status records shown, in order
@@ -1189,7 +1255,7 @@ class Manager(Gtk.Window):
         slots_card.pack_start(self.slots_bar, False, False, 0)
         hint = Gtk.Label(label=f"Green: used by {OS_NAME} · Grey: another distro, Windows Hello "
                                "or a reinstall · Removed here: can be restored · Dashed: free · "
-                               "More: right-click", xalign=0, wrap=True)
+                               "Details: click · More: right-click", xalign=0, wrap=True)
         hint.get_style_context().add_class("fpm-hint")
         slots_card.pack_start(hint, False, False, 0)
         page.pack_start(slots_card, False, False, 0)
@@ -1241,6 +1307,7 @@ class Manager(Gtk.Window):
         self.stack.add_titled(page, "sensor", "Sensor slots")
         self.sensor_page = page
         self.pages = {"fingers": "Fingerprints", "sensor": "Sensor slots"}
+        self._apply_sensor_tab()
 
         self._set_view(load_view(), save=False)
         self.connect("destroy", self.on_quit)
@@ -1378,6 +1445,69 @@ class Manager(Gtk.Window):
         for w in self.tcards.get_children() + self.trows.get_children():
             self._mark(w, getattr(w, "tid", None) in self.tsel)
         self._update_buttons()
+        self._show_slot_info()
+
+    def _show_slot_info(self):
+        """The selected slot's details (who, where it's used, its template)."""
+        t = next((t for t in self.templates if t["id"] in self.tsel), None) \
+            if len(self.tsel) == 1 else None
+        text = None
+        if t is not None:
+            lines = self._tpl_tip(t).split("\n")
+            if lines[-1].startswith("Template "):    # onto the first line: fewer lines, less jumping
+                lines = [f"{lines[0]} · {lines[-1][0].lower()}{lines[-1][1:]}"] + lines[1:-1]
+            text = "\n".join(lines)
+        self._show_details("sensor", t and t["id"], text)
+
+    def _show_finger_info(self):
+        """The selected finger's details: whose it is, when and where it was
+        enrolled, which distros use it, its template."""
+        r = next((r for r in self.records if (r["user"], r["finger"]) in self.sel_keys), None) \
+            if len(self.sel_keys) == 1 else None
+        text = None
+        if r is not None:
+            t = next((t for t in self.templates if t["id"] == r.get("template")), None) or {}
+            sh = t.get("shared") or {}
+            first = f"{long_finger(r['name'])} ({r['user']})"
+            if r.get("enrolled"):
+                first += f" · enrolled {nice_date(r['enrolled'], True)}"
+                if sh.get("enrolled_on"):
+                    first += f" on {sh['enrolled_on']}"
+            if r.get("template"):
+                first += f" · template {r['template']}"
+            kind = rec_kind(r)[0]
+            if kind == "ok":
+                also = shared_where(sh, full=True) if sh else ""
+                where = (f"Used here and by {also[8:]}" if also.startswith("used by")
+                         else f"Used on {OS_NAME} only")
+            elif kind == "dead":
+                where = ("Gone from the sensor: enrolled again on another install, or deleted "
+                         "by Windows. It can never match: remove it, or enrol it again")
+            elif kind == "other":
+                where = "Enrolled with a different fingerprint driver: it can't match here"
+            else:
+                where = "Its record can't be read"
+            stale = stale_note(sh) if sh and kind == "ok" else ""
+            text = "\n".join(x for x in (first, where, stale) if x)
+        self._show_details("fingers", r and (r["user"], r["finger"]), text)
+
+    def _show_details(self, page, key, text):
+        """Details of what's selected on a tab, in the information panel as plain
+        information (no blink, gone after PLAIN_MSG_S, when deselected or when
+        leaving the tab). An alert they cover comes back afterwards."""
+        if text is None or self.stack.get_visible_child_name() != page:
+            if self._slot_info is not None and self._slot_info[0] == page:
+                self._end_slot_info()
+            return
+        if self._slot_info == (page, key, text):
+            return
+        saved = self._saved_msg
+        if self._slot_info is None and self.msg_bar.has_message() and self._msg_alert:
+            saved = (self.msg_label.get_text(), self.msg_bar.get_message_type(),
+                     self._msg_details, self._msg_action)
+        self.message(text, Gtk.MessageType.OTHER, alert=False)
+        self.msg_label.set_tooltip_text(None)
+        self._slot_info, self._saved_msg = (page, key, text), saved
 
     def _tpl_tip(self, t):
         """Hover text for a slot: who it is, where it's used, its template ID,
@@ -1487,7 +1617,6 @@ class Manager(Gtk.Window):
                            False, False, 4)
             child = Gtk.FlowBoxChild()
             child.tid = t["id"]
-            child.set_tooltip_text(tip(self._tpl_tip(t)))
             child.add(box)
             self.tcards.add(child)
             # row
@@ -1507,7 +1636,6 @@ class Manager(Gtk.Window):
                           False, False, 0)
             row = Gtk.ListBoxRow()
             row.tid = t["id"]
-            row.set_tooltip_text(tip(self._tpl_tip(t)))
             row.add(hb)
             self.trows.add(row)
         # free slots (cards only)
@@ -1652,9 +1780,11 @@ class Manager(Gtk.Window):
             title = (long_finger(empty), "Not enrolled")
             item("Enrol…", lambda: self.on_enrol(None, finger=empty), self.enrol_ok,
                  icon="list-add-symbolic")
-            item("Restore removed record…", lambda: self.restore_finger(empty), icon="edit-undo-symbolic",
-                 tip="Put back a record of this finger that was removed earlier, "
-                     "if its template is still on the sensor")
+            if self._restorable(empty):     # only when there's one that can come back
+                item("Restore removed fingerprint…", lambda: self.restore_finger(empty),
+                     icon="edit-undo-symbolic",
+                     tip=f"Put back this finger, removed from {OS_NAME} earlier: its slot is "
+                         "still on the sensor")
         elif rec is not None:
             self._set_selection({key})
             mine = rec["user"] == self.status["user"]
@@ -1680,8 +1810,8 @@ class Manager(Gtk.Window):
                     item("Show on sensor", lambda: self.show_template(rec["template"]),
                          icon="find-location-symbolic")
                 item(f"Remove from {OS_NAME}…", lambda: self.on_remove_selected(None),
-                     tip="Its template stays on the sensor; Undo or ☰ → Restore removed "
-                         "records brings it back", icon="list-remove-symbolic", danger=True)
+                     tip=f"Its template stays on the sensor; Undo or ☰ → Restore {OS_NAME} "
+                         "fingerprints… brings it back", icon="list-remove-symbolic", danger=True)
             else:
                 if mine:
                     item("Enrol this finger again…", lambda: self.reenrol(rec),
@@ -1735,17 +1865,45 @@ class Manager(Gtk.Window):
                         "user-trash-symbolic", True))
         return self._popup(entries, event, title=title)
 
+    def _apply_sensor_tab(self):
+        """Tab buttons with Sensor slots on (or for a visit); just a title without."""
+        show = self._sensor_on or self._sensor_visit
+        if not show and self.stack.get_visible_child_name() == "sensor":
+            self.stack.set_visible_child_name("fingers")
+        # The page stays (unreachable) so the window keeps its height either way.
+        if show:
+            self.switcher.show()                    # (show_all skips a no_show_all widget)
+            for b in self.switcher.get_children():
+                b.show_all()
+        else:
+            self.switcher.hide()
+        self.title_lbl.set_visible(not show)
+
+    def _on_sensor_toggled(self, item):
+        self._sensor_on = item.get_active()
+        self._sensor_visit = False
+        save_setting("sensor_tab", 1 if self._sensor_on else 0)
+        self._apply_sensor_tab()
+
+    def _end_visit(self):
+        self._sensor_visit = False
+        self._apply_sensor_tab()
+
     def go_tab(self, name):
         """Open a tab from a menu or button. Its tab blinks (lit, plain for a
-        moment, lit again; BLINKS times) so the switch is noticed."""
+        moment, lit again; BLINKS times) so the switch is noticed. Sensor slots
+        while it's off: shown for this visit, gone when leaving it."""
+        if name == "sensor" and not self._sensor_on:
+            self._sensor_visit = True
+            self._apply_sensor_tab()
         self.stack.set_visible_child_name(name)
         names = [self.stack.child_get_property(c, "name") for c in self.stack.get_children()]
         buttons = self.switcher.get_children()
         if name in names and names.index(name) < len(buttons):
             ctx = buttons[names.index(name)].get_style_context()
             for i in range(BLINKS):
-                GLib.timeout_add(250 + i * 500, lambda: ctx.add_class("fpm-tab-blink") and False)
-                GLib.timeout_add(500 + i * 500, lambda: ctx.remove_class("fpm-tab-blink") and False)
+                GLib.timeout_add(BLINK_MS * (2 * i + 1), lambda: ctx.add_class("fpm-tab-blink") and False)
+                GLib.timeout_add(BLINK_MS * (2 * i + 2), lambda: ctx.remove_class("fpm-tab-blink") and False)
 
     def show_template(self, tid):
         """From a finger: the Sensor tab with its template selected."""
@@ -1777,6 +1935,13 @@ class Manager(Gtk.Window):
                 return self.refresh(lambda: self.error(err))
             self.refresh(lambda: self.status and self.on_enrol(None, finger=rec["name"]))
         self.run_job("delete_templates", done, ids=[rec["template"]])
+
+    def _restorable(self, name=None):
+        """Your fingers removed here whose slot is still on the sensor and that
+        aren't enrolled here again (one finger, or any when name is None)."""
+        me = (self.status or {}).get("user")
+        return [t for t in self.templates if (t.get("removed") or {}).get("user") == me
+                and t["removed"].get("restorable") and (name is None or t["removed"]["name"] == name)]
 
     def restore_finger(self, name):
         """Put back the newest removed record of one of your fingers, if its
@@ -1846,6 +2011,7 @@ class Manager(Gtk.Window):
         for w in self.cards.get_children() + self.rows.get_children():
             self._mark(w, getattr(w, "key", None) in self.sel_keys)
         self._update_buttons()
+        self._show_finger_info()
 
     def _icon_or_text(self, button, names, text):
         """The first of these icons the theme has (themes name them differently),
@@ -1982,8 +2148,8 @@ class Manager(Gtk.Window):
         self.del_btn.set_sensitive(bool(ready and st["features"].get("STORAGE_DELETE", False)
                                         and self.tsel))
         self.wipe_btn.set_sensitive(bool(ready and (st["templates"] or recs)))
-        self.export_item.set_sensitive(ready and any(r["on_sensor"] for r in mine))
         self.import_item.set_sensitive(ready)
+        self.backup_item.set_sensitive(ready)
         self.restore_item.set_sensitive(ready)
         self.distros_btn.set_visible(bool(self._other_installs()))
         self.distros_btn.set_sensitive(ready)
@@ -1992,9 +2158,16 @@ class Manager(Gtk.Window):
         self.pam_switch.set_sensitive(ready and pam in ("enabled", "disabled", "partial"))
 
     # ── messages ──
-    def message(self, text, kind=Gtk.MessageType.INFO, details=None, action=None):
+    def message(self, text, kind=Gtk.MessageType.INFO, details=None, action=None,
+                alert=True, blink=None):
         """Show a short message. details: full text behind a Details… button.
-        action: (label, callback) for a button. Plain info messages fade after 10 s."""
+        action: (label, callback) for a button. An alert (warnings, errors,
+        what an action did) blinks and stays until × is pressed or a newer
+        message replaces it. alert=False: plain information, like a slot's
+        details: no blink, gone after PLAIN_MSG_S seconds. blink=False shows
+        an alert again without blinking."""
+        self._slot_info, self._saved_msg = None, None
+        self._msg_alert = alert
         if self._msg_timer:
             GLib.source_remove(self._msg_timer)
             self._msg_timer = 0
@@ -2008,11 +2181,29 @@ class Manager(Gtk.Window):
         self.msg_action_btn.get_parent().set_visible(bool(action or self._msg_details))
         if action:
             self.msg_action_btn.set_label(action[0])
-        self.msg_bar.show_message()
-        if kind == Gtk.MessageType.INFO and not action:
-            self._msg_timer = GLib.timeout_add_seconds(10, self._hide_message)
+        self.msg_bar.show_message(alert if blink is None else blink)
+        if not alert:
+            self._msg_timer = GLib.timeout_add(int(PLAIN_MSG_S * 1000), self._plain_timeout)
+
+    def _plain_timeout(self):
+        self._msg_timer = 0
+        self._end_slot_info() if self._slot_info is not None else self._hide_message()
+        return False
+
+    def _end_slot_info(self):
+        """Clear a slot's details; the alert they covered comes back (no blink)."""
+        saved = self._saved_msg
+        if self._msg_timer:
+            GLib.source_remove(self._msg_timer)
+            self._msg_timer = 0
+        self._hide_message()
+        if saved:
+            self.message(*saved, blink=False)
 
     def _hide_message(self):
+        self._slot_info, self._saved_msg = None, None
+        if self._msg_timer:                         # a plain message's timeout
+            GLib.source_remove(self._msg_timer)
         self._msg_timer = 0
         self._msg_details = self._msg_action = None
         self.msg_action_btn.get_parent().hide()
@@ -2147,14 +2338,16 @@ class Manager(Gtk.Window):
 
     def show_status(self, st):
         self.status = st
-        if st.get("export_offer"):
-            GLib.idle_add(self._offer_export, st["export_offer"])
+        if st.get("import_offer"):
+            GLib.idle_add(self._offer_import, st["import_offer"])
         self._fill_records(st["records"], st["user"])
         self._fill_templates(st["templates"])
         GLib.idle_add(self._fit_height)
         for name, n in (("fingers", len(st["records"])), ("sensor", len(st["templates"]))):
             self.stack.child_set_property(self.stack.get_child_by_name(name), "title",
                                           f"{self.pages[name]} ({n})")
+            if name == "fingers":
+                self.title_lbl.set_text(f"{self.pages[name]} ({n})")
         marker = st.get("marker")
         _version, driver, _date = parse_marker(marker)
         self.info.set_text(f"Sensor: {st['usb_id']} · Serial: {st['serial']} · "
@@ -2482,16 +2675,15 @@ class Manager(Gtk.Window):
                 return self.refresh(lambda: self.error(err))
             n, k = len(res["deleted"]), len(res["kept"])
             # A fresh start: exports already offered here are offered again.
-            save_setting("export_offer_seen", "")
-            save_setting("export_offer_skip", "")
-            self._export_offered = None
+            save_setting("offer_declined", "")     # a fresh start: offer everything again
+            self._offered = set()
             self._after_reset = True
 
             def after():
                 self.message(f"{OS_NAME} reset: {res['records']} fingerprint{'s' if res['records'] != 1 else ''} "
                              f"deleted, {n} slot{'s' if n != 1 else ''} cleared"
                              + (f", {k} kept for other distros." if k else "."))
-                if not (self.status or {}).get("export_offer"):
+                if not (self.status or {}).get("import_offer"):
                     self._after_reset = False       # nothing to import: empty it is
             self.refresh(after)
         self.run_job("reset_install", done)
@@ -2806,8 +2998,9 @@ class Manager(Gtk.Window):
     def _restore_dialog(self, recs):
         if not recs:
             return self.show_output("Nothing to restore",
-                                    "No records have been moved aside on this install.")
-        d = Gtk.Dialog(title="Restore fingerprint records", transient_for=self, modal=True)
+                                    f"No fingerprint removed from {OS_NAME} is waiting to come back: "
+                                    "none were removed, or they're all back in use.")
+        d = Gtk.Dialog(title=f"Restore {OS_NAME} fingerprints", transient_for=self, modal=True)
         d.set_default_size(680, 380)
         d.add_button("Cancel", Gtk.ResponseType.CANCEL)
         ok = d.add_button("Restore", Gtk.ResponseType.OK)
@@ -2815,26 +3008,27 @@ class Manager(Gtk.Window):
         area = d.get_content_area()
         area.set_spacing(8)
         area.set_border_width(12)
-        area.pack_start(Gtk.Label(wrap=True, xalign=0, label=(
-            "Records moved aside by the boot check, this tool, or an import with --replace. "
-            "Only a record whose template is still on the sensor can work, so only those "
-            "can be restored.")), False, False, 0)
+        area.pack_start(Gtk.Label(wrap=True, xalign=0, max_width_chars=70, label=(
+            f"Fingers removed from {OS_NAME}, or replaced by an import: a copy was kept. One "
+            "can come back while its slot is still on the sensor and that finger hasn't been "
+            "enrolled here again. For the fingers the other distros use: ☰ → Import from "
+            "other distros.")), False, False, 0)
         # moved: date, user, finger, why, status, path, restorable
         store = Gtk.ListStore(str, str, str, str, str, str, bool)
         for r in recs:
             if not r["user_ok"]:
-                status, ok_ = "✗ No such user here", False
+                status, ok_ = f"✗ No such user on {OS_NAME}", False
             elif r["exists"]:
-                status, ok_ = "Enrolled here again", False
+                status, ok_ = "✗ Finger enrolled again since", False
             elif r["on_sensor"]:
-                status, ok_ = "✓ Template on the sensor", True
+                status, ok_ = "✓ Can be restored", True
             else:
-                status, ok_ = "✗ Template gone", False
-            why = "Replaced by import" if r["kind"] == "replaced" else "Removed"
+                status, ok_ = "✗ Slot cleared", False
+            why = "Replaced by an import" if r["kind"] == "replaced" else "Removed"
             day, _, hms = r["date"].partition("_")       # 2026-10-25_123333
             when = f"{day} {hms[:2]}:{hms[2:4]}" if len(hms) >= 4 else day
-            store.append([when, r["user"], r["name"], why, status, r["path"], ok_])
-        view = self._table(store, ["Moved", "User", "Finger", "Why", "Status"])
+            store.append([when, r["user"], long_finger(r["name"]), why, status, r["path"], ok_])
+        view = self._table(store, ["When", "User", "Finger", "How", "Status"])
         sw = Gtk.ScrolledWindow(shadow_type=Gtk.ShadowType.IN)
         sw.add(view)
         area.pack_start(sw, True, True, 0)
@@ -2888,29 +3082,9 @@ class Manager(Gtk.Window):
                         "keep working.", "Remove",
                         details="Their templates stay on the sensor. The records are moved to "
                                 "/var/lib/samsung-galaxybook/removed-fingerprints/; ☰ → Restore "
-                                "removed records… puts them back."):
-            self._skip_in_export([r[4] for r in rows if r[0] == (self.status or {}).get("user")])
+                                f"{OS_NAME} fingerprints… puts them back."):
             self.run_job("remove_records", self.after_job(f"Removed from {OS_NAME}", undo=True),
                          records=[{"user": r[0], "finger": r[4]} for r in rows])
-
-    @staticmethod
-    def _export_id():
-        """~/fingerprint-export.tgz as the helper names it (mtime-size), or None."""
-        try:
-            st = os.stat(os.path.join(os.path.expanduser("~"), EXPORT_NAME))
-            return f"{int(st.st_mtime)}-{st.st_size}"
-        except OSError:
-            return None
-
-    def _skip_in_export(self, fingers):
-        """Fingers removed here on purpose: not offered back from the export
-        file there is now (a new export file starts afresh)."""
-        eid = self._export_id()
-        if not eid or not fingers:
-            return
-        old_id, _, old = load_settings().get("export_offer_skip", "").partition(":")
-        keep = set(old.split(",")) - {""} if old_id == eid else set()
-        save_setting("export_offer_skip", f"{eid}:{','.join(sorted(keep | set(fingers)))}")
 
     def on_delete_templates(self, _btn):
         rows = self._selected_tpls()
@@ -2966,56 +3140,149 @@ class Manager(Gtk.Window):
         d.set_current_folder(os.path.expanduser("~"))
         return d
 
-    def on_export(self, _btn):
-        d = self._chooser("Export fingerprints", Gtk.FileChooserAction.SAVE, "Export")
-        d.set_current_name(EXPORT_NAME)
-        path = d.get_filename() if d.run() == Gtk.ResponseType.OK else None
-        d.destroy()
-        if path:
-            if not path.endswith((".tgz", ".tar.gz")):
-                path += ".tgz"
-            if os.path.exists(path) and not self._replace_export(path):
-                return
-            self.run_job("export", self.after_job("Exported"), file=path)
-
-    def _replace_export(self, path):
-        """The export file exists: Backup & Replace (the old one renamed after
-        its own date, e.g. fingerprint-export-2026-10-28_1003.tgz), Replace, or
-        Cancel. True to go on with the export."""
-        import datetime
-        name = os.path.basename(path)
-        stem = name[:-7] if name.endswith(".tar.gz") else name[:-4]
-        try:
-            when = datetime.datetime.fromtimestamp(os.path.getmtime(path))
-        except OSError:
-            when = datetime.datetime.now()
-        backup = os.path.join(os.path.dirname(path), f"{stem}-{when:%Y-%m-%d_%H%M}.tgz")
-        n = 2
-        while os.path.exists(backup):                   # two exports in the same minute
-            backup = os.path.join(os.path.dirname(path), f"{stem}-{when:%Y-%m-%d_%H%M}-{n}.tgz")
-            n += 1
+    def on_backup_restore(self, _btn):
+        """☰ → Back up & restore…: what the records on the EFI partition are,
+        with Back up… and Restore…."""
+        esp = (self.status or {}).get("esp") or {}
+        n = esp.get("records", 0)
+        where = esp.get("path")
         d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
-                          message_type=Gtk.MessageType.QUESTION, text=f"{name} already exists")
-        d.format_secondary_text(
-            f"It was exported {when:%-d %b %Y at %H:%M}. Keep it as a backup "
-            f"({os.path.basename(backup)}), or replace it?")
-        d.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        d.add_button("Replace", 2)
-        d.add_button("Backup & Replace", 1).get_style_context().add_class("suggested-action")
-        d.set_default_response(1)
+                          message_type=Gtk.MessageType.INFO, text="Back up & restore")
+        d.format_secondary_markup(
+            "Every distro on this laptop that runs the Galaxy Book Fingerprint Manager keeps its "
+            "fingerprint records in one file on the EFI partition. That's how a new or reinstalled "
+            "distro is offered the fingers the others already use, with no enrolling. The records "
+            "only point to the sensor's slots: your fingerprints never leave the sensor.\n\n"
+            + (f"<b>Now:</b> {n} record{'s' if n != 1 else ''} in "
+               f"<tt>{GLib.markup_escape_text(where)}</tt>.\n\n" if where else
+               "<b>Now:</b> the EFI partition wasn't found, so there's nothing to back up.\n\n")
+            + "<b>Back up…</b> saves a copy of that file, e.g. to your home folder or a USB stick.\n"
+            "<b>Restore…</b> puts a backup's records back, should the EFI partition ever be "
+            "formatted (by reinstalling Windows, say). Records already there are kept as they "
+            "are; only missing ones are added. Then the fingers this distro can use are offered.")
+        d.add_button("Close", Gtk.ResponseType.CLOSE)
+        d.add_button("Restore…", 2)
+        b = d.add_button("Back up…", 1)
+        b.set_sensitive(bool(where and n))
+        b.get_style_context().add_class("suggested-action")
+        d.set_default_response(1 if where and n else Gtk.ResponseType.CLOSE)
         r = d.run()
         d.destroy()
         if r == 1:
+            self.on_backup(None)
+        elif r == 2:
+            self.on_restore_backup(None)
+
+    def on_backup(self, _btn):
+        """Back up & restore → Back up…: a copy of the shared slots file on
+        the EFI partition (every distro's records), to put back with Restore
+        if that partition is ever formatted."""
+        import datetime
+
+        def got(res, err):
+            if err:
+                return self.error(err)
+            d = self._chooser("Back up fingerprint records", Gtk.FileChooserAction.SAVE, "Save")
+            f = Gtk.FileFilter()
+            f.set_name("Fingerprint records (*.json)")
+            f.add_pattern("*.json")
+            d.add_filter(f)
+            d.set_filter(f)
+            d.set_current_name(f"galaxybook-fingerprints-{datetime.date.today():%Y-%m-%d}.json")
+            d.set_do_overwrite_confirmation(True)
+            path = d.get_filename() if d.run() == Gtk.ResponseType.OK else None
+            d.destroy()
+            if not path:
+                return
+            if not path.endswith(".json"):
+                path += ".json"
             try:
-                os.rename(path, backup)
+                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w") as fh:
+                    json.dump(res["data"], fh, indent=1, sort_keys=True)
             except OSError as e:
-                self.error(f"Couldn't keep the old export as {backup}: {e.strerror}. Nothing was exported.")
-                return False
-            return True
-        return r == 2
+                return self.error(f"Couldn't save {path}: {e.strerror}")
+            n = sum(1 for tpls in res["data"].get("sensors", {}).values()
+                    for e in tpls.values() if isinstance(e, dict) and e.get("record"))
+            self.message(f"Backed up {n} fingerprint record{'s' if n != 1 else ''} to "
+                         f"{path.replace(os.path.expanduser('~') + '/', '~/')}.",
+                         details="A copy of EFI/samsung-galaxybook/fingerprint-slots.json on the EFI "
+                                 "partition: every distro's fingerprint records. ☰ → Back up & "
+                                 "restore… → Restore… puts them back should that partition ever be "
+                                 "formatted.")
+        self.run_job("backup_slots", got)
+
+    def on_restore_backup(self, _btn):
+        """Back up & restore → Restore…: merge a backup into the shared slots
+        file (nothing there is replaced), then offer what this install can use."""
+        d = self._chooser("Restore from a backup", Gtk.FileChooserAction.OPEN, "Restore")
+        f = Gtk.FileFilter()
+        f.set_name("Fingerprint records (*.json)")
+        f.add_pattern("*.json")
+        d.add_filter(f)
+        d.set_filter(f)
+        path = d.get_filename() if d.run() == Gtk.ResponseType.OK else None
+        d.destroy()
+        if not path:
+            return
+        try:
+            if os.path.getsize(path) > (1 << 20):
+                raise ValueError("too big")
+            with open(path) as fh:
+                data = json.load(fh)
+        except (OSError, ValueError) as e:
+            return self.error(f"Couldn't read {path}: {e}")
+
+        def done(res, err):
+            if err:
+                return self.error(err)
+            save_setting("offer_declined", "")     # offer what came back, even if turned down
+            self._offered = set()
+            n = res.get("added", 0)
+            self.refresh(lambda: self.message(
+                f"Restored {n} fingerprint record{'s' if n != 1 else ''} to the EFI partition "
+                "(EFI/samsung-galaxybook/fingerprint-slots.json)." if n else
+                "Nothing new: the EFI partition already had everything in that backup."))
+        self.run_job("restore_slots", done, data=data)
 
     def on_import(self, _btn):
-        d = self._chooser("Import fingerprints", Gtk.FileChooserAction.OPEN, "Import")
+        """☰ → Import from other distros…: the fingers this install could use from
+        the EFI partition (also ones turned down before), with Choose a file…
+        for an export file; straight to the file when there are none."""
+        # Not fingers removed here: those are ☰ → Restore <distro> fingerprints….
+        offer = [o for o in (self.status or {}).get("import_offer") or [] if not o.get("removed")]
+        if offer:
+            return self._offer_import(offer, manual=True)
+        removed = self._restorable()
+        n = len(removed)
+        d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
+                          message_type=Gtk.MessageType.INFO,
+                          text=f"Nothing new to import" if removed else "Nothing to import")
+        d.format_secondary_text(
+            (f"The {'fingers' if n != 1 else 'finger'} you removed from {OS_NAME} "
+             f"({', '.join(long_finger(t['removed']['name']).lower() for t in removed)}) "
+             f"{'come' if n != 1 else 'comes'} back with Restore {OS_NAME} fingerprints. The "
+             "other distros have no other fingerprint for it.\n\n" if removed else
+             f"No other distro on this laptop has a fingerprint that {OS_NAME} could use: "
+             f"{OS_NAME} already has every finger whose record is on the EFI partition, or "
+             "there are none there yet (a distro adds its fingers when its Galaxy Book "
+             "Fingerprint Manager opens).\n\n")
+            + "An export file made with export-fingerprint.sh can still be imported.")
+        d.add_button("Close", Gtk.ResponseType.CLOSE)
+        d.add_button("Choose a file…", 3)
+        if removed:
+            d.add_button(f"Restore {OS_NAME} fingerprints…", 4).get_style_context().add_class(
+                "suggested-action")
+        d.set_default_response(4 if removed else Gtk.ResponseType.CLOSE)
+        r = d.run()
+        d.destroy()
+        if r == 3:
+            self._import_file()
+        elif r == 4:
+            self.on_restore(None)
+
+    def _import_file(self):
+        d = self._chooser("Import an export file", Gtk.FileChooserAction.OPEN, "Import")
         default = os.path.expanduser(f"~/{EXPORT_NAME}")
         if os.path.isfile(default):
             d.set_filename(default)
@@ -3049,50 +3316,74 @@ class Manager(Gtk.Window):
             replace = r == 2
         self.run_job("import", self.after_job("Imported"), file=path, replace=replace, dead=dead)
 
-    # ── fingerprints in ~/fingerprint-export.tgz that this install lacks ──
-    def _offer_export(self, offer):
-        """Once per export file (a new export asks again): offer the fingers in
-        it that this install doesn't have and the sensor still stores."""
-        if offer["id"] in (self._export_offered, load_settings().get("export_offer_seen")):
-            return False
-        if self.busy:                   # e.g. the start-up check of the distro's driver
-            GLib.timeout_add(500, self._offer_export, offer)
-            return False
-        skip_id, _, skip = load_settings().get("export_offer_skip", "").partition(":")
-        if skip_id == offer["id"]:                  # not the fingers removed here
-            offer = dict(offer, fingers=[f for f in offer["fingers"] if f["finger"] not in skip.split(",")])
-            if not offer["fingers"]:
+    # ── fingerprints this install could use: the export file, other distros ──
+    def _offer_import(self, offer, manual=False):
+        """Offer the fingers this install could use straight away: the other
+        distros' on this laptop, from the records kept on the EFI partition.
+        Each slot is offered once: ones turned down aren't asked about again
+        (until a Reset)."""
+        declined = set(load_settings().get("offer_declined", "").split(",")) - {""}
+        if not manual:                  # not ones turned down, nor removed here on purpose
+            offer = [o for o in offer if o["tid"] not in declined | self._offered
+                     and not o.get("removed")]
+            if not offer:
+                self._after_reset = False
                 return False
-        self._export_offered = offer["id"]
-        save_setting("export_offer_seen", offer["id"])
-        names = ", ".join(long_finger(f["name"]).lower() for f in offer["fingers"])
-        n = len(offer["fingers"])
-        short = offer["file"].replace(os.path.expanduser("~") + "/", "~/")
-        if self._after_reset:               # straight after Reset: import, or start empty
-            self._after_reset = False
-            d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
-                              message_type=Gtk.MessageType.QUESTION,
-                              text="Import your fingerprints again?")
-            d.format_secondary_text(
-                f"{short} has {names}. Their slots are still on the sensor, so they work again "
-                f"straight away.\n\nOr start {OS_NAME} with no fingerprints and enrol afresh "
-                "(the file can still be imported later: ☰ → Import fingerprints…).")
-            d.add_button("Start empty", Gtk.ResponseType.CANCEL)
-            d.add_button("Import", Gtk.ResponseType.OK).get_style_context().add_class("suggested-action")
-            d.set_default_response(Gtk.ResponseType.OK)
-            ok = d.run() == Gtk.ResponseType.OK
-            d.destroy()
-            if ok:
-                self.run_job("import", self.after_job("Imported"), file=offer["file"],
-                             fingers=[f["finger"] for f in offer["fingers"]], dead=[])
+            if self.busy:               # e.g. the start-up check of the distro's driver
+                GLib.timeout_add(500, self._offer_import, offer)
+                return False
+        self._offered |= {o["tid"] for o in offer}
+        me = (self.status or {}).get("user")
+        owners = {o["user"] for o in offer}
+        after_reset, self._after_reset = self._after_reset, False
+
+        def where(o):
+            src = list(o.get("from") or []) or ["another install"]
+            return " and ".join(src) if len(src) <= 2 else f"{len(src)} distros"
+        d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
+                          message_type=Gtk.MessageType.QUESTION,
+                          text="Import your fingerprints again?" if after_reset else
+                          f"Use {'this fingerprint' if len(offer) == 1 else 'these fingerprints'} "
+                          f"on {OS_NAME} too?")
+        d.format_secondary_text(
+            "Already on the sensor, so they work straight away, with no enrolling. "
+            + ("Only tick fingers that are yours. " if owners - {me} else "")
+            + (f"Or start {OS_NAME} with none and enrol afresh." if after_reset else ""))
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_start=12)
+        checks = []
+        for o in offer:
+            who = "" if o["user"] == me else f"{o['user']}, "
+            c = Gtk.CheckButton(label=f"{long_finger(o['name'])}  ({who}from {where(o)})")
+            # Ticked when it's the user's, or one person's under another name
+            # (dave on Fedora, davidb here); left for them to tick otherwise.
+            c.set_active(o["user"] == me or len(owners) == 1)
+            box.pack_start(c, False, False, 0)
+            checks.append((c, o))
+        d.get_message_area().pack_start(box, False, False, 6)
+        if manual:
+            d.add_button("Choose a file…", 3)
+        d.add_button("Start empty" if after_reset else "Cancel" if manual else "Not now",
+                     Gtk.ResponseType.CANCEL)
+        imp = d.add_button("Import", Gtk.ResponseType.OK)
+        imp.get_style_context().add_class("suggested-action")
+        for c, _ in checks:
+            c.connect("toggled", lambda *_: imp.set_sensitive(any(c.get_active() for c, _ in checks)))
+        d.set_default_response(Gtk.ResponseType.OK)
+        d.show_all()
+        r = d.run()
+        ok = r == Gtk.ResponseType.OK
+        chosen = [o for c, o in checks if c.get_active()] if ok else []
+        d.destroy()
+        if r == 3:
+            self._import_file()
             return False
-        if self.confirm(f"Import {n} fingerprint{'s' if n > 1 else ''} from another install?",
-                        f"{short} has {names}, missing or gone from the sensor on this install. "
-                        "Your others stay as they are.",
-                        "Import", destructive=False):
-            mine = [r for r in self.status["records"] if r["user"] == self.status["user"]]
-            self.run_job("import", self.after_job("Imported"), file=offer["file"],
-                         fingers=[f["finger"] for f in offer["fingers"]],
+        no = [o["tid"] for o in offer if o not in chosen]
+        if no and not manual:                       # not asked again
+            save_setting("offer_declined", ",".join(sorted(declined | set(no))))
+        if chosen:
+            mine = [r for r in self.status["records"] if r["user"] == me]
+            self.run_job("import_offer", self.after_job("Imported"),
+                         tids=[o["tid"] for o in chosen],
                          dead=[r["finger"] for r in mine if r["on_sensor"] is False])
         return False
 
