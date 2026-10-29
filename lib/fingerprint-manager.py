@@ -352,6 +352,7 @@ class MsgPanel(Gtk.Box):
         super().__init__(spacing=8)
         self.get_style_context().add_class("fpm-msg")
         self._kind, self._active = Gtk.MessageType.INFO, False
+        self._blink_gen = 0                 # a newer message (or clear) stops an older blink
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6, valign=Gtk.Align.CENTER)
         body.pack_start(label, False, False, 0)
         body.pack_start(buttons, False, False, 0)
@@ -381,8 +382,27 @@ class MsgPanel(Gtk.Box):
         self._active = True
         self._style(self.KINDS.get(self._kind, "info"))
         self.close_btn.show()
+        self._blink()
+
+    def _blink(self):
+        """Blink like a tab opened from a menu (BLINKS times: plain for a
+        moment, lit again), so a new message is noticed."""
+        self._blink_gen += 1
+        gen = self._blink_gen
+        ctx = self.get_style_context()
+        ctx.remove_class("fpm-msg-blink")
+
+        def step(on):
+            if gen == self._blink_gen:
+                (ctx.add_class if on else ctx.remove_class)("fpm-msg-blink")
+            return False
+        for i in range(BLINKS):
+            GLib.timeout_add(250 + i * 500, step, True)
+            GLib.timeout_add(500 + i * 500, step, False)
 
     def clear(self):
+        self._blink_gen += 1
+        self.get_style_context().remove_class("fpm-msg-blink")
         self._active = False
         self._kind = Gtk.MessageType.INFO
         self._style("idle")
@@ -457,6 +477,8 @@ list.fpm-list row.fpm-selected .fpm-lcard { border-color: @theme_selected_bg_col
 .fpm-msg.fpm-msg-warning { border-color: alpha(#e5a50a, 0.85); background-color: alpha(#e5a50a, 0.10); }
 .fpm-msg.fpm-msg-error { border-color: alpha(#e01b24, 0.75); background-color: alpha(#e01b24, 0.08); }
 .fpm-msg.fpm-msg-other { border-color: alpha(@theme_fg_color, 0.30); }
+.fpm-msg { transition: background-color 120ms, border-color 120ms; }
+.fpm-msg.fpm-msg-blink { background-color: transparent; border-color: alpha(@theme_fg_color, 0.15); }
 .fpm-empty { background-color: transparent; border: 1px dashed alpha(@theme_fg_color, 0.30); }
 .fpm-empty label { color: alpha(@theme_fg_color, 0.55); }
 .fpm-free { background-color: transparent; border: 1px dashed alpha(@theme_fg_color, 0.30); }
