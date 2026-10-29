@@ -18,6 +18,9 @@
 - **After Reset <distro>…, import again or start empty:** if `~/fingerprint-export.tgz` has fingers whose slots are still on the sensor, you're asked straight away
 - Reset now forgets which export files were already offered on this distro, then asks **Import your fingerprints again?** with **Import** or **Start empty** (the file can still be imported later from ☰). With no such file, it just says what was reset. The Reset dialog says which fingers can be imported again (those in slots kept for other distros) and which can't (cleared slots)
 
+- **Export keeps your old export if you like:** Backup & Replace, Replace or Cancel when the file already exists
+- When the export file already exists, the Manager asks instead of GTK's plain overwrite question: **Backup & Replace** (the default) renames the old one after the date it was exported, e.g. `fingerprint-export-2026-10-28_1003.tgz`, then exports; **Replace** overwrites it; **Cancel** exports nothing. The import offer only ever reads `~/fingerprint-export.tgz`, so backups are never offered; import one with ☰ → Import fingerprints…
+
 ## 2.8.1 — 2026-10-29
 
 - **The open tab stands out:** Fingerprints / Sensor slots, and it blinks twice when a menu switches tabs
