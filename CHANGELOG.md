@@ -23,7 +23,7 @@
 - Importing a file with the right little finger in it failed ("Unexpected entry in archive"): fprintd's name for it is `a`, which the check read as a number
 
 - **Click a slot to see its details:** who it is, which distros use it and its template, in the information panel instead of a tooltip
-- On the Sensor slots tab, clicking a slot shows its details in the information panel, in a quieter grey and without blinking (the slots have no tooltips now); clicking it again clears them, and a message they covered comes back. Alerts (warnings, errors, what an action did) blink; plain information like this doesn't
+- On the Sensor slots tab, clicking a slot shows its details in the information panel, in a quieter grey and without blinking (the slots have no tooltips now); they go after 5 seconds (`PLAIN_MSG_S`), when it's clicked again, or when you leave the tab, and an alert they covered comes back. Alerts (warnings, errors, what an action did) blink and stay; plain information like this doesn't blink and goes by itself
 
 - **New messages blink and stay:** the information panel at the bottom blinks for a few seconds when a message appears, and keeps it until you close it
 - A message stays until × is pressed or a newer one replaces it (information used to go after 10 seconds). The panel blinks like the tabs, for about 2.5 seconds (`MSG_BLINK_S`). Both blink more slowly than the tabs did in 2.8.1: plain for 0.4 s each time, 0.8 s per blink (`BLINK_MS`)

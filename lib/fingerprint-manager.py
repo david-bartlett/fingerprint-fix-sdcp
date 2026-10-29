@@ -859,7 +859,8 @@ def shared_where(sh, short=False, full=False):
 STALE_DAYS = 30
 BLINKS = 2          # how often a tab blinks when a menu opens it
 BLINK_MS = 400      # how long it goes plain each time; one blink takes twice as long
-MSG_BLINK_S = 2.5   # how long the information panel blinks for a new message
+MSG_BLINK_S = 2.5   # how long the information panel blinks for a new alert
+PLAIN_MSG_S = 5     # how long plain information (a slot's details) stays
 
 
 def stale_note(sh):
@@ -1118,6 +1119,7 @@ class Manager(Gtk.Window):
         self._msg_action = None
         self._msg_details = None
         self._slot_info = None          # the slot whose details the panel shows
+        self._msg_alert = True          # the panel's message is an alert (not plain information)
         self._saved_msg = None          # the message they covered, back on deselecting
 
         outer.pack_start(self.stack, True, True, 0)
@@ -1131,6 +1133,10 @@ class Manager(Gtk.Window):
         self.stack.connect("notify::visible-child-name",
                            lambda st, _p: self.btn_stack.set_visible_child_name(
                                st.get_visible_child_name()))
+        # A slot's details belong to the Sensor slots tab: gone when leaving it.
+        self.stack.connect("notify::visible-child-name",
+                           lambda st, _p: st.get_visible_child_name() != "sensor"
+                           and self._slot_info is not None and self._end_slot_info())
 
         # ── page 1: fingerprints on this install — cards (icons) or rows (list) ──
         self.records = []                 # the status records shown, in order
@@ -1423,12 +1429,9 @@ class Manager(Gtk.Window):
         cover comes back when the slot is deselected."""
         t = next((t for t in self.templates if t["id"] in self.tsel), None) \
             if len(self.tsel) == 1 else None
-        if t is None:
+        if t is None or self.stack.get_visible_child_name() != "sensor":
             if self._slot_info is not None:
-                saved = self._saved_msg
-                self._hide_message()
-                if saved:
-                    self.message(*saved, blink=False)
+                self._end_slot_info()
             return
         lines = self._tpl_tip(t).split("\n")
         if lines[-1].startswith("Template "):        # onto the first line: fewer lines, less jumping
@@ -1437,10 +1440,10 @@ class Manager(Gtk.Window):
         if self._slot_info == (t["id"], text):
             return
         saved = self._saved_msg
-        if self._slot_info is None and self.msg_bar.has_message():
+        if self._slot_info is None and self.msg_bar.has_message() and self._msg_alert:
             saved = (self.msg_label.get_text(), self.msg_bar.get_message_type(),
                      self._msg_details, self._msg_action)
-        self.message(text, Gtk.MessageType.OTHER, blink=False)
+        self.message(text, Gtk.MessageType.OTHER, alert=False)
         self.msg_label.set_tooltip_text(None)
         self._slot_info, self._saved_msg = (t["id"], text), saved
 
@@ -2064,12 +2067,16 @@ class Manager(Gtk.Window):
         self.pam_switch.set_sensitive(ready and pam in ("enabled", "disabled", "partial"))
 
     # ── messages ──
-    def message(self, text, kind=Gtk.MessageType.INFO, details=None, action=None, blink=True):
+    def message(self, text, kind=Gtk.MessageType.INFO, details=None, action=None,
+                alert=True, blink=None):
         """Show a short message. details: full text behind a Details… button.
-        action: (label, callback) for a button. It stays until × is pressed or a
-        newer message replaces it. Alerts (warnings, errors, what an action did)
-        blink; blink=False for plain information, like a slot's details."""
+        action: (label, callback) for a button. An alert (warnings, errors,
+        what an action did) blinks and stays until × is pressed or a newer
+        message replaces it. alert=False: plain information, like a slot's
+        details: no blink, gone after PLAIN_MSG_S seconds. blink=False shows
+        an alert again without blinking."""
         self._slot_info, self._saved_msg = None, None
+        self._msg_alert = alert
         if self._msg_timer:
             GLib.source_remove(self._msg_timer)
             self._msg_timer = 0
@@ -2083,10 +2090,29 @@ class Manager(Gtk.Window):
         self.msg_action_btn.get_parent().set_visible(bool(action or self._msg_details))
         if action:
             self.msg_action_btn.set_label(action[0])
-        self.msg_bar.show_message(blink)
+        self.msg_bar.show_message(alert if blink is None else blink)
+        if not alert:
+            self._msg_timer = GLib.timeout_add(int(PLAIN_MSG_S * 1000), self._plain_timeout)
+
+    def _plain_timeout(self):
+        self._msg_timer = 0
+        self._end_slot_info() if self._slot_info is not None else self._hide_message()
+        return False
+
+    def _end_slot_info(self):
+        """Clear a slot's details; the alert they covered comes back (no blink)."""
+        saved = self._saved_msg
+        if self._msg_timer:
+            GLib.source_remove(self._msg_timer)
+            self._msg_timer = 0
+        self._hide_message()
+        if saved:
+            self.message(*saved, blink=False)
 
     def _hide_message(self):
         self._slot_info, self._saved_msg = None, None
+        if self._msg_timer:                         # a plain message's timeout
+            GLib.source_remove(self._msg_timer)
         self._msg_timer = 0
         self._msg_details = self._msg_action = None
         self.msg_action_btn.get_parent().hide()
