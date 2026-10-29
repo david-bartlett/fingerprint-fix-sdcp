@@ -2834,7 +2834,8 @@ class Manager(Gtk.Window):
     def _restore_dialog(self, recs):
         if not recs:
             return self.show_output("Nothing to restore",
-                                    "No records have been moved aside on this install.")
+                                    f"No fingerprint removed from {OS_NAME} is waiting to come back: "
+                                    "none were removed, or they're all back in use.")
         d = Gtk.Dialog(title=f"Restore {OS_NAME} fingerprints", transient_for=self, modal=True)
         d.set_default_size(680, 380)
         d.add_button("Cancel", Gtk.ResponseType.CANCEL)
@@ -2843,26 +2844,27 @@ class Manager(Gtk.Window):
         area = d.get_content_area()
         area.set_spacing(8)
         area.set_border_width(12)
-        area.pack_start(Gtk.Label(wrap=True, xalign=0, label=(
-            "Records moved aside by the boot check, this tool, or an import with --replace. "
-            "Only a record whose template is still on the sensor can work, so only those "
-            "can be restored.")), False, False, 0)
+        area.pack_start(Gtk.Label(wrap=True, xalign=0, max_width_chars=70, label=(
+            f"Fingers removed from {OS_NAME}, or replaced by an import: a copy was kept. One "
+            "can come back while its slot is still on the sensor and that finger hasn't been "
+            "enrolled here again. For the fingers the other distros use: ☰ → Import from "
+            "other distros.")), False, False, 0)
         # moved: date, user, finger, why, status, path, restorable
         store = Gtk.ListStore(str, str, str, str, str, str, bool)
         for r in recs:
             if not r["user_ok"]:
-                status, ok_ = "✗ No such user here", False
+                status, ok_ = f"✗ No such user on {OS_NAME}", False
             elif r["exists"]:
-                status, ok_ = "Enrolled here again", False
+                status, ok_ = "✗ Finger enrolled again since", False
             elif r["on_sensor"]:
-                status, ok_ = "✓ Template on the sensor", True
+                status, ok_ = "✓ Can be restored", True
             else:
-                status, ok_ = "✗ Template gone", False
-            why = "Replaced by import" if r["kind"] == "replaced" else "Removed"
+                status, ok_ = "✗ Slot cleared", False
+            why = "Replaced by an import" if r["kind"] == "replaced" else "Removed"
             day, _, hms = r["date"].partition("_")       # 2026-10-25_123333
             when = f"{day} {hms[:2]}:{hms[2:4]}" if len(hms) >= 4 else day
-            store.append([when, r["user"], r["name"], why, status, r["path"], ok_])
-        view = self._table(store, ["Moved", "User", "Finger", "Why", "Status"])
+            store.append([when, r["user"], long_finger(r["name"]), why, status, r["path"], ok_])
+        view = self._table(store, ["When", "User", "Finger", "How", "Status"])
         sw = Gtk.ScrolledWindow(shadow_type=Gtk.ShadowType.IN)
         sw.add(view)
         area.pack_start(sw, True, True, 0)

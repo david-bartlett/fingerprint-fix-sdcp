@@ -406,6 +406,10 @@ def do_status(req):
             st["enroll_stages"] = 0
         chip = dev.list_prints_sync(None) if st["features"]["STORAGE_LIST"] else []
     records = read_records(serial)
+    try:                                            # removed copies of fingers back in use
+        prune_moved(serial, records)
+    except Exception:
+        pass
     # Records this install moved aside (Remove, dead records, import --replace),
     # newest first: an unused template that matches one is "removed here",
     # not an unknown template from another distro.
@@ -799,8 +803,38 @@ def moved_records(serial):
     return out
 
 
+def prune_moved(serial, records):
+    """Delete moved-aside records that are back in use: the same user has the
+    same slot here again (imported, restored, undone). Restoring one could
+    only duplicate it. Returns how many went."""
+    gone = 0
+    for m in moved_records(serial):
+        if m["print"] is None:
+            continue
+        if any(r["user"] == m["user"] and r["print"] is not None and r["print"].equal(m["print"])
+               for r in records):
+            try:
+                os.remove(m["path"])
+                gone += 1
+            except OSError:
+                pass
+    if gone:
+        for root in (REMOVED_DIR, REPLACED_DIR):    # empty dated folders
+            for d in sorted(glob.glob(f"{root}/**/", recursive=True), key=len, reverse=True):
+                if d.rstrip("/") != root:
+                    try:
+                        os.rmdir(d)
+                    except OSError:
+                        pass
+    return gone
+
+
 def do_list_moved(_req):
     _, serial = sensor_usb()
+    try:
+        prune_moved(serial, read_records(serial))
+    except Exception:
+        pass
     recs = moved_records(serial)
     with Sensor() as dev:
         chip = dev.list_prints_sync(None)
