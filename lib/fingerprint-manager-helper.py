@@ -148,7 +148,7 @@ def short_id(p):
 
 
 # Slots shared with the laptop's other installs: see shared_slots.py.
-from shared_slots import share_slots, forget_installs, install_key  # noqa: E402
+from shared_slots import share_slots, forget_installs, install_key, used_elsewhere  # noqa: E402
 
 
 def enroll_date(p):
@@ -450,6 +450,42 @@ def do_wipe(_req):
         left = len(dev.list_prints_sync(None))
     moved = move_records([r["path"] for r in read_records(serial)])
     return {"deleted": len(chip), "left": left, "moved": moved}
+
+
+def do_reset_install(_req):
+    """Start this install again (before reinstalling it, say): clear the slots
+    only it uses, delete every user's fingerprint records here for good (and
+    the ones moved aside, so nothing shows as "Removed here"), and take it out
+    of the shared slots file. Slots another distro still uses stay."""
+    _, serial = sensor_usb()
+    keep = used_elsewhere(serial)
+    records = read_records(serial)
+    moved = moved_records(serial)
+    prints = [r["print"] for r in records + moved if r["print"] is not None]
+    deleted, kept = [], []
+    with Sensor() as dev:
+        can_delete = dev.has_feature(FPrint.DeviceFeature.STORAGE_DELETE)
+        for p in dev.list_prints_sync(None):
+            if not any(p.equal(q) for q in prints):
+                continue                            # not this install's
+            if short_id(p) in keep or not can_delete:
+                kept.append(short_id(p))
+            else:
+                dev.delete_print_sync(p, None)
+                deleted.append(short_id(p))
+    for r in records + moved:
+        try:
+            os.remove(r["path"])
+        except OSError:
+            pass
+    for root in (REMOVED_DIR, REPLACED_DIR):        # empty dated folders
+        for d in sorted(glob.glob(f"{root}/**/", recursive=True), key=len, reverse=True):
+            try:
+                os.rmdir(d)
+            except OSError:
+                pass
+    forget_installs([install_key()])
+    return {"deleted": deleted, "kept": kept, "records": len(records)}
 
 
 def do_test(req):
@@ -798,7 +834,8 @@ ACTIONS = {"status": do_status, "remove_records": do_remove_records,
            "delete_other_driver": do_delete_other_driver,
            "delete_templates": do_delete_templates, "wipe": do_wipe,
            "export": do_export, "import": do_import, "test": do_test,
-           "pam": do_pam, "forget_install": do_forget_install, "list_moved": do_list_moved, "restore": do_restore}
+           "pam": do_pam, "forget_install": do_forget_install,
+           "reset_install": do_reset_install, "list_moved": do_list_moved, "restore": do_restore}
 
 
 def handle(req):

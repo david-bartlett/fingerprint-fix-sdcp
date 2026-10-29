@@ -962,10 +962,12 @@ class Manager(Gtk.Window):
         menu.append(Gtk.SeparatorMenuItem())
         self.restore_item = self._menu_item(menu, "Restore removed records…", self.on_restore,
                                             "edit-undo-symbolic")
-        # Only when the shared slots file lists other distros (see _update_buttons).
-        self.distros_item = self._menu_item(menu, "Distros sharing the sensor…", self.on_distros,
-                                            "computer-symbolic")
-        self.distros_item.set_no_show_all(True)
+        menu.append(Gtk.SeparatorMenuItem())
+        self.reset_item = self._menu_item(menu, f"Reset {OS_NAME}…", self.on_reset_install,
+                                          "edit-clear-all-symbolic")
+        self.reset_item.get_style_context().add_class("fpm-danger")
+        self.reset_item.set_tooltip_text(f"Delete every fingerprint on {OS_NAME} and free the slots "
+                                         "only it uses: before reinstalling it, or to start again")
         menu.append(Gtk.SeparatorMenuItem())
         self.update_item = ToggleMenuItem("Check for new versions", "software-update-available-symbolic")
         self.update_item.set_tooltip_text("Asks GitHub when the Manager starts and about every hour "
@@ -1962,9 +1964,9 @@ class Manager(Gtk.Window):
         self.export_item.set_sensitive(ready and any(r["on_sensor"] for r in mine))
         self.import_item.set_sensitive(ready)
         self.restore_item.set_sensitive(ready)
-        for w in (self.distros_item, self.distros_btn):
-            w.set_visible(bool(self._other_installs()))
-            w.set_sensitive(ready)
+        self.distros_btn.set_visible(bool(self._other_installs()))
+        self.distros_btn.set_sensitive(ready)
+        self.reset_item.set_sensitive(ready)
         pam = (st or {}).get("pam", {}).get("state")
         self.pam_switch.set_sensitive(ready and pam in ("enabled", "disabled", "partial"))
 
@@ -2417,6 +2419,49 @@ class Manager(Gtk.Window):
     def _other_installs(self):
         """The other installs in the shared slots file (see shared_slots.py)."""
         return [i for i in ((self.status or {}).get("installs") or []) if not i["here"]]
+
+    def on_reset_install(self, *_):
+        """Start this distro again: its fingerprints deleted, the slots only it
+        uses cleared, and its notes taken out of the shared slots file."""
+        st = self.status
+        os_ = GLib.markup_escape_text(OS_NAME)
+        mine = [t for t in self.templates if t["used_by"] or t.get("removed")]
+        shared = [t for t in mine if t.get("shared")
+                  and any(o["state"] == "used" for o in t["shared"]["others"])]
+        clear = len(mine) - len(shared)
+        users = sorted({r["user"] for r in st["records"]})
+        recs = len(st["records"])
+        parts = [f"Every fingerprint on {os_} is deleted: <b>{recs} finger{'s' if recs != 1 else ''}</b>"
+                 + (f" ({', '.join(users)})" if len(users) > 1 else "") + ", and any removed earlier."]
+        if clear:
+            parts.append(f"<b>{clear} slot{'s are' if clear != 1 else ' is'} cleared</b> from the sensor: "
+                         f"only {os_} uses {'them' if clear != 1 else 'it'}.")
+        if shared:
+            parts.append(f"{len(shared)} slot{'s' if len(shared) != 1 else ''} other distros also use "
+                         f"{'stay' if len(shared) != 1 else 'stays'} for them.")
+        parts.append(f"{os_} is taken out of the file the distros share, as if it had never used "
+                     "the sensor. Use this before reinstalling it, or to enrol your fingers again from "
+                     "scratch. It can't be undone.")
+        d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
+                          message_type=Gtk.MessageType.WARNING, text=f"Reset {OS_NAME}?")
+        d.format_secondary_markup("\n\n".join(parts))
+        d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        d.add_button(f"Reset {OS_NAME}", 1).get_style_context().add_class("destructive-action")
+        d.set_default_response(Gtk.ResponseType.CANCEL)
+        r = d.run()
+        d.destroy()
+        if r != 1:
+            return
+
+        def done(res, err):
+            if err:
+                return self.refresh(lambda: self.error(err))
+            n, k = len(res["deleted"]), len(res["kept"])
+            self.refresh(lambda: self.message(
+                f"{OS_NAME} reset: {res['records']} fingerprint{'s' if res['records'] != 1 else ''} "
+                f"deleted, {n} slot{'s' if n != 1 else ''} cleared"
+                + (f", {k} kept for other distros." if k else ".")))
+        self.run_job("reset_install", done)
 
     def on_distros(self, *_):
         """The installs that share the sensor, from the file on the EFI
