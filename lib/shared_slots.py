@@ -200,6 +200,48 @@ def esp_records(serial):
     return out
 
 
+def read_file():
+    """The whole shared file, for a backup ({} without one)."""
+    path = _path()
+    return _load(path) if path else {}
+
+
+def merge_backup(backup):
+    """Merge a backup of the shared file into it: templates, records and
+    installs it doesn't have are added; nothing already there is changed.
+    Templates no longer on the sensor drop out the next time the Manager
+    reads it. Returns how many records were added, or None without an EFI
+    partition."""
+    path = _path()
+    if not path:
+        return None
+    if not isinstance(backup, dict) or backup.get("version") != 1 \
+            or not isinstance(backup.get("sensors"), dict):
+        raise ValueError("not a backup of fingerprint-slots.json")
+    data = _load(path)
+    before = json.dumps(data, sort_keys=True)
+    data["version"] = 1
+    added = 0
+    for serial, tpls in backup["sensors"].items():
+        if not isinstance(tpls, dict):
+            continue
+        sensor = data.setdefault("sensors", {}).setdefault(str(serial), {})
+        for tid, e in tpls.items():
+            if not isinstance(e, dict):
+                continue
+            cur = sensor.setdefault(str(tid), {})
+            for k in ("finger", "user", "enrolled", "enrolled_on", "record"):
+                if k in e and k not in cur and isinstance(e[k], str):
+                    cur[k] = e[k]
+                    added += k == "record"
+            inst = cur.setdefault("installs", {})
+            for k, v in (e.get("installs") or {}).items():
+                if isinstance(v, dict) and k not in inst:
+                    inst[k] = v
+    _save(path, data, before)
+    return added
+
+
 def used_elsewhere(serial):
     """Templates on this sensor that another install still uses (state "used")."""
     me, path = install_key(), _path()

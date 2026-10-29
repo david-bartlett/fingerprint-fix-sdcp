@@ -965,6 +965,11 @@ class Manager(Gtk.Window):
         menu.set_reserve_toggle_size(False)    # no empty tick-box column
         self.import_item = self._menu_item(menu, "Import fingerprints…", self.on_import,
                                            "document-open-symbolic")
+        # A copy of the records on the EFI partition, should it ever be formatted.
+        self.backup_item = self._menu_item(menu, "Back up fingerprint records…", self.on_backup,
+                                           "document-save-symbolic")
+        self.restore_backup_item = self._menu_item(menu, "Restore from a backup…",
+                                                   self.on_restore_backup, "document-revert-symbolic")
         menu.append(Gtk.SeparatorMenuItem())
         self.restore_item = self._menu_item(menu, "Restore removed records…", self.on_restore,
                                             "edit-undo-symbolic")
@@ -1981,6 +1986,8 @@ class Manager(Gtk.Window):
                                         and self.tsel))
         self.wipe_btn.set_sensitive(bool(ready and (st["templates"] or recs)))
         self.import_item.set_sensitive(ready)
+        self.backup_item.set_sensitive(ready)
+        self.restore_backup_item.set_sensitive(ready)
         self.restore_item.set_sensitive(ready)
         self.distros_btn.set_visible(bool(self._other_installs()))
         self.distros_btn.set_sensitive(ready)
@@ -2942,10 +2949,77 @@ class Manager(Gtk.Window):
         d.set_current_folder(os.path.expanduser("~"))
         return d
 
+    def on_backup(self, _btn):
+        """☰ → Back up fingerprint records…: a copy of the shared slots file on
+        the EFI partition (every distro's records), to put back with Restore
+        if that partition is ever formatted."""
+        import datetime
+
+        def got(res, err):
+            if err:
+                return self.error(err)
+            d = self._chooser("Back up fingerprint records", Gtk.FileChooserAction.SAVE, "Save")
+            f = Gtk.FileFilter()
+            f.set_name("Fingerprint records (*.json)")
+            f.add_pattern("*.json")
+            d.add_filter(f)
+            d.set_filter(f)
+            d.set_current_name(f"galaxybook-fingerprints-{datetime.date.today():%Y-%m-%d}.json")
+            d.set_do_overwrite_confirmation(True)
+            path = d.get_filename() if d.run() == Gtk.ResponseType.OK else None
+            d.destroy()
+            if not path:
+                return
+            if not path.endswith(".json"):
+                path += ".json"
+            try:
+                fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w") as fh:
+                    json.dump(res["data"], fh, indent=1, sort_keys=True)
+            except OSError as e:
+                return self.error(f"Couldn't save {path}: {e.strerror}")
+            n = sum(1 for tpls in res["data"].get("sensors", {}).values()
+                    for e in tpls.values() if isinstance(e, dict) and e.get("record"))
+            self.message(f"Backed up {n} fingerprint record{'s' if n != 1 else ''} to "
+                         f"{path.replace(os.path.expanduser('~') + '/', '~/')}.")
+        self.run_job("backup_slots", got)
+
+    def on_restore_backup(self, _btn):
+        """☰ → Restore from a backup…: merge a backup into the shared slots
+        file (nothing there is replaced), then offer what this install can use."""
+        d = self._chooser("Restore from a backup", Gtk.FileChooserAction.OPEN, "Restore")
+        f = Gtk.FileFilter()
+        f.set_name("Fingerprint records (*.json)")
+        f.add_pattern("*.json")
+        d.add_filter(f)
+        d.set_filter(f)
+        path = d.get_filename() if d.run() == Gtk.ResponseType.OK else None
+        d.destroy()
+        if not path:
+            return
+        try:
+            if os.path.getsize(path) > (1 << 20):
+                raise ValueError("too big")
+            with open(path) as fh:
+                data = json.load(fh)
+        except (OSError, ValueError) as e:
+            return self.error(f"Couldn't read {path}: {e}")
+
+        def done(res, err):
+            if err:
+                return self.error(err)
+            save_setting("offer_declined", "")     # offer what came back, even if turned down
+            self._offered = set()
+            n = res.get("added", 0)
+            self.refresh(lambda: self.message(
+                f"Restored {n} fingerprint record{'s' if n != 1 else ''}." if n else
+                "Nothing new: the EFI partition already had everything in that backup."))
+        self.run_job("restore_slots", done, data=data)
+
     def on_import(self, _btn):
-        """☰ → Import fingerprints…: the fingers this install could use (also
-        ones turned down before), with Choose a file… for a backup or a file
-        from elsewhere; straight to the file when there are none."""
+        """☰ → Import fingerprints…: the fingers this install could use from
+        the EFI partition (also ones turned down before), with Choose a file…
+        for an export file; straight to the file when there are none."""
         offer = (self.status or {}).get("import_offer")
         if offer:
             self._offer_import(offer, manual=True)
@@ -2989,10 +3063,10 @@ class Manager(Gtk.Window):
 
     # ── fingerprints this install could use: the export file, other distros ──
     def _offer_import(self, offer, manual=False):
-        """Offer the fingers this install could use straight away: from
-        ~/fingerprint-export.tgz or from the other distros on this laptop (the
-        records they keep on the EFI partition). Each slot is offered once:
-        ones turned down aren't asked about again (until a Reset)."""
+        """Offer the fingers this install could use straight away: the other
+        distros' on this laptop, from the records kept on the EFI partition.
+        Each slot is offered once: ones turned down aren't asked about again
+        (until a Reset)."""
         declined = set(load_settings().get("offer_declined", "").split(",")) - {""}
         if not manual:
             offer = [o for o in offer if o["tid"] not in declined | self._offered]
@@ -3008,9 +3082,8 @@ class Manager(Gtk.Window):
         after_reset, self._after_reset = self._after_reset, False
 
         def where(o):
-            if o["from"] == "file":
-                return "~/fingerprint-export.tgz"
-            return " and ".join(o["from"]) if len(o["from"]) <= 2 else f"{len(o['from'])} distros"
+            src = list(o.get("from") or []) or ["another install"]
+            return " and ".join(src) if len(src) <= 2 else f"{len(src)} distros"
         d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
                           message_type=Gtk.MessageType.QUESTION,
                           text="Import your fingerprints again?" if after_reset else
