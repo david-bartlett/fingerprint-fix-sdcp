@@ -5,7 +5,7 @@ Makes the fingerprint reader work on Linux on the **Samsung Galaxy Book4 and Boo
 > [!IMPORTANT]
 > - **Only for the Galaxy Book4 and Book5** with an Egis reader: check with `lsusb | grep 1c7a` (`05a5` or `05a1`). Not the Galaxy Book3, nor the ARM-based Book4 Edge: the packages refuse to install there.
 > - **Windows on the same laptop?** Disable its fingerprint reader in Windows Device Manager. Otherwise every time Windows starts, it deletes your Linux fingerprints from the sensor.
-> - **Several Linux installs?** Don't enrol the same finger on each: that deletes it from the others. Enrol once and [share it](#sharing-fingerprints-between-linux-installs): the Galaxy Book Fingerprint Manager offers it on your other installs by itself.
+> - **Several Linux distros on the laptop?** Don't enrol the same finger on each: that deletes it from the others. Enrol once and share it: the Galaxy Book Fingerprint Manager offers it on your other distros by itself. See [Several Linux Distros on One Laptop](#several-linux-distros-on-one-laptop).
 
 ## Install
 
@@ -169,11 +169,11 @@ Got it working on a model or distro not listed here? Please tell us with the [**
 
 A small window for your fingerprints and the sensor, in the app menu as **Galaxy Book Fingerprint Manager** (or run `galaxybook-fingerprint-manager`, as yourself, not with sudo). It asks for your password once per session.
 
-- **Fingerprints tab:** your ten fingers. Click a grey one to enrol it, double-click one to test it, right-click for more (enrol again, remove).
-- **Sensor slots tab** (turn it on with ☰ → **Show sensor slots**; useful with several distros): the sensor's 10 slots: which this install uses, which other distros on the laptop use, and which are free. Clear slots you don't need. The ⓘ button explains what a slot is. While it's off, **Show on sensor** (or a full sensor) opens it just for that visit.
+- **Fingerprints tab:** your ten fingers. Click a grey one to enrol it, double-click one to test it, click one for its details, right-click for more (enrol again, remove). **Remove all from <distro>…** takes all your fingers off this distro at once; their slots stay on the sensor, so ☰ → **Restore <distro> fingerprints…** brings them back.
+- **Sensor slots tab** (off unless you turn it on with ☰ → **Show sensor slots**; there by itself when other distros use the sensor): the sensor's 10 slots, which are used and which are free. Clear slots you don't need. The ⓘ button explains what a slot is. While it's off, **Show on sensor** (or a full sensor) opens it just for that visit.
 - **The switch at the top** turns fingerprint login on or off.
-- **☰ menu:** import fingerprints from your other distros, [back up & restore](#back-up--restore) every distro's fingerprint records, reset this distro (before reinstalling it), test whether your distro's own driver now works, check for updates.
-- **Information panel** at the bottom: what just happened, and anything that needs your attention.
+- **☰ menu:** restore fingerprints removed here, show the sensor slots, test whether your distro's own driver now works, check for updates. With other distros on the laptop, more appear: importing their fingerprints, back up & restore, and reset (see [Several Linux Distros](#several-linux-distros-on-one-laptop)).
+- **Information panel** at the bottom: what just happened (it blinks, and stays until you close it), and the details of a finger or slot you click (gone after 5 seconds).
 
 > [!NOTE]
 > **What's a slot?** The sensor has 10 slots, and each holds one enrolled fingerprint: from this Linux, another Linux on the laptop, or Windows Hello. Your fingerprint never leaves the sensor; Linux only notes which slot holds which finger.
@@ -192,12 +192,12 @@ A small window for your fingerprints and the sensor, in the app menu as **Galaxy
 <details>
 <summary>How it works, in detail</summary>
 
-Only one window runs at a time: starting it again brings the open window forward (or makes it flash in the taskbar, depending on the desktop). The installed copy is owned by root (`/usr/local/lib/galaxybook-fingerprint-manager/`, or `/usr/lib/galaxybook-fingerprint-manager/` from a package), because its helper runs as root: a copy in your home folder could be changed by any program running as you. ☰ → **About** shows its version, the installed version and driver commit, and where it came from.
+`galaxybook-fingerprint-manager --single-distro` shows the window as if this were the only distro on the laptop (to see the single-distro layout on a multi-distro one; only what's shown changes). Only one window runs at a time, so close it first: starting it again brings the open window forward (or makes it flash in the taskbar, depending on the desktop). The installed copy is owned by root (`/usr/local/lib/galaxybook-fingerprint-manager/`, or `/usr/lib/galaxybook-fingerprint-manager/` from a package), because its helper runs as root: a copy in your home folder could be changed by any program running as you. ☰ → **About** shows its version, the installed version and driver commit, and where it came from.
 
 It asks for your password once per session; the prompt says "Galaxy Book Fingerprint Manager needs administrator access to read and manage the fingerprint sensor" (a polkit policy installed for the helper). At the top is a **Use fingerprint for …** switch (its title says what it covers on this system — login, the lock screen and sudo on GNOME and Mint, the lock screen and sudo on KDE, sudo and admin prompts on Arch-based distros) and a line about the sensor, the installed version and the driver commit; below are two tabs:
 
 - **Fingerprints** — your enrolled fingers on this install, and whether the sensor still has each one, as **cards** (all ten of your fingers, right hand then left, like Linux Mint's fingerprint settings; grey dashed = not enrolled, click one to enrol that finger) or as a **list** (a row per enrolled finger, for every user, with its own Test button; other users' fingers are only in the list). The buttons at the top right switch between them (on both tabs), and the choice is remembered. Click a card or row to select it (one at a time, on both tabs) and see its details in the information panel: when and on which distro it was enrolled, which distros use it and its template; click it again to deselect it. Double-click one of your fingers to test it. Right-click a finger for a menu: **Test**, **Enrol again…** (replace it with a fresh enrolment, if it doesn't match reliably), **Show on sensor** and **Remove from <distro>** (e.g. "Remove from Fedora", the name from /etc/os-release); for a red (dead) finger **Remove dead record…** and **Enrol this finger again…** (removes the dead record, then enrols that finger); for a grey finger **Enrol…** and **Restore removed fingerprint…** (puts back a record removed earlier, if its template is still on the sensor). On the Sensor slots tab, right-click a template for **Show finger** and **Clear slot…** (deletes its fingerprint from the sensor, for every install). A finger you removed from this distro still has its template on the sensor; it shows as that finger with an amber **Removed here** label (not as an unknown template), and its right-click menu has **Restore to <distro>**. Green = on the sensor; red = a dead record (its template was re-enrolled elsewhere or removed by Windows), which also shows a warning with a **Remove dead records** button; amber with ⚠ and **Other driver** = enrolled with a different fingerprint driver (e.g. your distro's own, before this fix), which can never match here — a warning offers **Delete them**, and its right-click menu has **Delete and enrol again…** (deletes its old template from the sensor too, freeing the slot) and **Delete…**.
-- **Sensor slots** (off by default: ☰ → **Show sensor slots**; while it's off it appears just for a visit when something opens it, e.g. **Show on sensor**) — the sensor itself: how many of the sensor's 10 slots are used, and every template on it: green = used by this install (with the user and finger), grey = not used here, dashed = free. The sensor itself only keeps an ID for each template, so each install notes its own (finger, user, date, distro, used or removed) in a shared file on the EFI system partition, `EFI/samsung-galaxybook/fingerprint-slots.json`, which every OS on the laptop sees; a slot another install noted shows e.g. "Right little · Fedora" (list: "dave · used by Fedora · enrolled 28 Oct"), and a slot used here also says "also used by Ubuntu". One no install has noted shows as "Unknown" — another distro that hasn't run the Manager yet, Windows Hello's own (Windows wipes Linux's templates but keeps its own), or one left over from a reinstall. Templates not used here are never deleted without a warning. The file only lists what is on the sensor: cleared or wiped slots drop out of it the next time the Manager reads the sensor. Removing the Manager (not updating it) takes this install out of the file. For a distro that was wiped or reinstalled without that, press **Other distros…** at the bottom of the tab: it lists each distro with the date it last opened the Manager, and **Forget…** takes one out (a still-installed one adds itself back next time). Click a slot to see its details in the information panel (who it is, which distros use it, its template, and any distro not seen for a month); click it again to clear them. Shown as cards or a list, like the Fingerprints tab; the Cards / List choice applies to both tabs.
+- **Sensor slots** (off by default, unless other distros use the sensor: ☰ → **Show sensor slots**; while it's off it appears just for a visit when something opens it, e.g. **Show on sensor**) — the sensor itself: how many of the sensor's 10 slots are used, and every template on it: green = used by this install (with the user and finger), grey = not used here, dashed = free. A slot no install has noted shows as "Unknown": Windows Hello's own (Windows wipes Linux's templates but keeps its own), another distro, or one left over from a reinstall. Templates not used here are never deleted without a warning. With other distros, slots also say which of them use each ([more](#several-linux-distros-on-one-laptop)). Click a slot to see its details in the information panel (who it is, which distros use it, its template, and any distro not seen for a month); click it again to clear them. Shown as cards or a list, like the Fingerprints tab; the Cards / List choice applies to both tabs.
 
 <details>
 <summary>Show every button and what it does</summary>
@@ -208,12 +208,9 @@ It asks for your password once per session; the prompt says "Galaxy Book Fingerp
 | Fingerprints | Test any fingerprint (or double-click a finger) | The button checks your touch against all your fingers (as login and sudo do); double-clicking a finger tests just that one. Shows a clear Match / No match with the finger that matched. It asks the sensor directly (fprintd pauses for a moment), because fprintd doesn't report which finger matched |
 | Fingerprints | Enrol a finger (a grey card, or the last row) | Enrols a new finger for you with `fprintd-enroll`, with a progress bar. It warns first that enrolling a finger already stored for another install or Windows Hello deletes it from there — useful on desktops without a fingerprint settings page, such as Xfce (MX Linux) |
 | Fingerprints | Remove from <distro> (right-click a finger, or select it and press Delete) | Moves the record off this install; the template stays, so installs sharing it keep working |
+| Fingerprints | Remove all from <distro>… | **Remove from <distro>** for all your fingers at once: the records are moved aside, their slots stay on the sensor, and ☰ → **Restore <distro> fingerprints…** (with **Select all**) brings them back |
 | Sensor slots | Clear… (or right-click → Clear slot…) | Clears the selected slots: deletes their fingerprints from the sensor (and moves aside any record here that used them) |
 | Sensor slots | Clear all slots… | Deletes every fingerprint on the sensor (every Linux install's and Windows Hello's) after you type CLEAR; moves every record here aside |
-| ☰ menu | Import from other distros… | The fingers this install could use from the other distros on the laptop (also ones you turned down before), with **Choose a file…** for an export file (`export-fingerprint.sh`). A file goes through `import-fingerprint.sh` with all its checks; if you already have fingerprints, it asks whether to **add the missing ones** (yours are kept) or **replace all** (`--replace`) |
-| Sensor slots | Other distros… | Every distro in the shared slots file, with the date it last opened the Manager and its slots. **Forget…** takes a wiped or reinstalled one out; **Forget and clear N slots** also erases the slots only it used. Also in the ⓘ dialog. Only shown when other distros are listed |
-| ☰ menu | Reset <distro>… | Starts this distro again (e.g. before reinstalling it): deletes every fingerprint record on it for good (and those moved aside), clears the slots only it uses, keeps the ones other distros also use, and takes it out of the shared slots file |
-| ☰ menu | Back up & restore… | Says how many records the EFI partition has; **Back up…** saves a copy of `fingerprint-slots.json` from the EFI partition (every distro's records) as a `.json` file; **Restore…** merges one back (adds what's missing, changes nothing there) and the Manager offers the fingers again |
 | ☰ menu | Restore <distro> fingerprints… | Lists records moved to `removed-fingerprints/` or `replaced-fingerprints/` and puts the chosen ones back — only if their template is still on the sensor and that finger hasn't been enrolled again here |
 | ☰ menu | Test your distro's driver… | Checks whether your distro's own libfprint can replace this fix: if it has an SDCP driver for the sensor (from the distro, not another fix), fprintd is switched to it for a moment and one of your fingers is checked with it — the way login would work without the fix. A match offers **Remove fingerprint-fix-sdcp** (or **Copy command**): it removes the fix the way it was installed, keeping your fingerprints, and the Galaxy Book Fingerprint Manager closes. No match: keep the fix, or delete your fingers here first (so they don't stay on the sensor) before switching. The fix is always switched back on after the test |
 | ☰ menu | Remind me about Windows | Shows or hides the dual-boot reminder (only in the menu when Windows is found) |
@@ -221,7 +218,7 @@ It asks for your password once per session; the prompt says "Galaxy Book Fingerp
 
 </details>
 
-Results appear in the **information panel** at the bottom of the window — blue for information, amber for warnings, red for errors — with the full script output behind **Details…**; information messages clear after 10 seconds.
+Results appear in the **information panel** at the bottom of the window — blue for information, amber for warnings, red for errors — with the full script output behind **Details…**. They blink to catch your eye and stay until you close them or a newer one replaces them. The details of a finger or slot you click show in grey, without blinking, and go after 5 seconds or when you change tabs.
 
 Other things it can show:
 
@@ -229,7 +226,7 @@ Other things it can show:
 - **Your distro's libfprint now supports the reader** — when the distro's own, unmodified libfprint gains an SDCP driver for it, a message with **Test your distro's driver** (also in the ☰ menu). If it's an SDCP libfprint from another fix instead, a warning to keep this fix. See [The Monitor](#the-monitor).
 - **No Galaxy Book reader** — started on a computer without `1c7a:05a5` / `1c7a:05a1`, it says what it's for and how to remove the fix, instead of asking for a password.
 
-Records are never deleted: removed ones go to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the last 5 are kept). Each sensor job stops fprintd for a moment, as the sensor can only be used by one program at a time.
+Records are never deleted: removed ones go to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/`, and are kept while they can still be restored: a copy goes once its slot is cleared or the finger is back in it. Each sensor job stops fprintd for a moment, as the sensor can only be used by one program at a time.
 
 The installer installs the packages it needs. If any are missing later, the launcher lists them with the command to install them (from a terminal it offers to run it) — PyGObject with GTK 3, libfprint's GObject introspection data and pkexec:
 
@@ -244,87 +241,13 @@ The installer installs the packages it needs. If any are missing later, the laun
 The sensor has a single template store shared by every OS:
 
 - **Windows** removes templates it did not create when its biometric service starts, so booting Windows with the sensor enabled deletes your Linux enrolments. Disable the fingerprint device in Windows Device Manager if you dual-boot. When Windows is installed on the laptop, the Galaxy Book Fingerprint Manager shows this reminder at the bottom of its window (hide it with **Got it**; ☰ → **Remind me about Windows** brings it back). It looks for a Windows Boot Manager boot entry whose partition still exists, and Windows' own partitions (NTFS or BitLocker, plus the Microsoft Reserved or Windows Recovery partition) — no password needed, and nothing is mounted.
-- **fprintd** deletes an unknown template when you enrol a finger that matches it, and deletes unknown templates when the sensor is full. Enrolling the same finger in two Linux installs breaks the first one — use a different finger per install, or share one enrolment between installs (below).
+- **fprintd** deletes an unknown template when you enrol a finger that matches it, and deletes unknown templates when the sensor is full. Enrolling the same finger in two Linux installs breaks the first one — use a different finger per install, or share one enrolment between installs ([Several Linux Distros](#several-linux-distros-on-one-laptop)).
 
 ## Enrolling a Fingerprint
 
 Open **Galaxy Book Fingerprint Manager** from the app menu and click a grey finger, or use your desktop's settings: KDE: System Settings → Users → Fingerprint Authentication · GNOME: Settings → System → Users → Fingerprint Login · Mint: Menu → Fingerprints · Xfce (e.g. MX Linux) has none: use the Manager or `fprintd-enroll`. No reboot is needed. Check with `fprintd-verify`.
 
 If `fprintd-verify` never matches, those fingers were enrolled with another driver (e.g. your distro's own, before this fix): the Manager marks them **Other driver** and offers to delete and enrol them again.
-
-## Sharing Fingerprints Between Linux Installs
-
-With several Linux installs on the laptop, enrol each finger **once** and share it, instead of enrolling it again on every install. Sharing keeps the sensor's 10 slots free, and enrolling the same finger on another install deletes it from the others. fprintd's record for a finger holds only the ID of its slot on the sensor (no fingerprint image, no secret), so the same record works on every install that runs this fix.
-
-### With the Galaxy Book Fingerprint Manager
-
-It happens by itself:
-
-1. Each install notes its fingers' records in one file on the EFI partition, `EFI/samsung-galaxybook/fingerprint-slots.json`, which every OS on the laptop shares and which survives reinstalling a distro.
-2. When the Galaxy Book Fingerprint Manager opens on another install (a new one, a reinstalled one, or one you've just reset), it asks *Use these fingerprints on CachyOS too?* and lists the fingers it could use, each with the distros it's from.
-3. Untick any that aren't yours, then **Import**. They work straight away, with no enrolling.
-
-Turned one down? It isn't offered again by itself, but ☰ → **Import from other distros…** always lists them all. A finger you removed here comes back with ☰ → **Restore <distro> fingerprints…** (or right-click it → **Restore removed fingerprint…**). A record goes when its slot is cleared, so you're never offered a finger that can't match.
-
-**Once installs share fingerprints:**
-
-- **Don't enrol the same finger on another install.** Import it instead.
-- **Remove** (Fingerprints tab) takes a finger off one install only; the others keep it. **Clear slot** (Sensor slots tab) erases it from the sensor, for every install.
-- **Reinstalling a distro?** ☰ → **Reset <distro>…** first, if you can, then reinstall: the new install is offered your fingers when the Manager opens.
-
-### Back Up & Restore
-
-The file on the EFI partition holds every distro's records. Formatting that partition (reinstalling Windows can) loses them: your fingerprints are still on the sensor, but no install knows which slot is whose. A backup puts them back.
-
-☰ → **Back up & restore…** says how many records the file has, and:
-
-- **Back up…** saves a copy of it, e.g. `~/galaxybook-fingerprints-2026-10-29.json`. Keep it somewhere safe, such as a USB stick. Make a new one after enrolling new fingers.
-- **Restore…** puts a backup's records back. Records already there are kept as they are; only missing ones are added. Then the Manager offers the fingers this install can use, and the other installs offer theirs the next time it opens there.
-
-A backup holds no fingerprints, only which slot is whose: it's useless without this laptop's sensor and your finger. A finger whose slot has been cleared since the backup can't be restored; enrol it again.
-
-### Without the Manager
-
-An install with only the driver doesn't use the file on the EFI partition. Share fingerprints with an export file instead.
-
-**Tested:** a finger enrolled on Fedora 45, exported and imported on Linux Mint 27 (beta) (via `FPRINT_IMPORT` during install), verified on Mint and still verified on Fedora afterwards (940XHA, 2026-10-24). Importing for a different username (exported by `dave`, imported for `daveb` on MX Linux) also verified (2026-10-25).
-
-<details>
-<summary>Show how to share fingerprints with an export file</summary>
-
-**On the install where the fingers are enrolled:**
-
-```bash
-sudo bash tools/export-fingerprint.sh          # writes ~/fingerprint-export.tgz (all your fingers)
-```
-
-**On the other install**, copy it to your home folder as `~/fingerprint-export.tgz`. The username there does not have to match: the fingerprints are imported for whoever imports them.
-
-- **While installing the fix with install.sh** (only when you have nothing enrolled on this install):
-  - if `~/fingerprint-export.tgz` exists, it is **imported automatically**;
-  - otherwise the installer asks `Do you have fingerprints exported from another install to import? [y/N]` (skipped after 30 seconds, or when run without a terminal). Answer `y` and it asks for the path, with no time limit;
-  - `FPRINT_IMPORT=/path/to/file.tgz` imports a file kept anywhere else without asking.
-- **In the Galaxy Book Fingerprint Manager:** ☰ → **Import from other distros…** → **Choose a file…**.
-- **From the command line:**
-
-  ```bash
-  sudo bash tools/import-fingerprint.sh                           # uses ~/fingerprint-export.tgz
-  sudo bash tools/import-fingerprint.sh /path/to/file.tgz         # a file kept elsewhere
-  sudo bash tools/import-fingerprint.sh --user NAME               # for another user (their ~/fingerprint-export.tgz)
-  sudo bash tools/import-fingerprint.sh --fingers 7,1             # only these fingers (fprintd's numbers 1-9, a)
-  sudo bash tools/import-fingerprint.sh --replace                 # replace fingerprints already on this install
-  fprintd-verify
-  ```
-
-**Before importing**, the fingerprints are checked against the sensor (fprintd is paused for a moment). Fingers whose slot is gone (re-enrolled since, or wiped by Windows) are left out (an export with none left is refused), so you never end up with a fingerprint that can't match. `--no-check` skips this.
-
-When the username differs from the one that exported them, each record's owner is rewritten for the new user (by the small `sensor-check` helper). The slot on the sensor is the same either way. Exports made under the older name `fprint-<user>.tgz` import the same way.
-
-The import refuses records made on a different sensor, users who don't exist on this install, and archives containing anything other than fingerprint records. If the user already has fingerprints on this install, those are kept and only the missing fingers are imported; `--replace` replaces them all instead, after all the checks have passed. The old records are moved to `/var/lib/samsung-galaxybook/replaced-fingerprints/<date>/` (the last 5 are kept), and nothing is deleted from the sensor, so other installs sharing those fingerprints keep working. Don't use `fprintd-delete` to make room for an import: it deletes the fingerprints from the sensor too, breaking every install that shares them.
-
-**Export again after deleting or re-enrolling:** an old export points at slots that no longer exist.
-
-</details>
 
 ## Turning Fingerprint Login On or Off
 
@@ -424,12 +347,106 @@ At every boot, a small service compares fprintd's records with the templates act
 - It runs **before fprintd starts**, so nothing else can use the sensor while it checks, and nothing needs pausing. It runs in parallel with the rest of the boot — only fprintd waits for it, and only for the second or two it takes — so boot is not slower.
 - If a fingerprint's template is gone, the login check shows **Fingerprint Removed From Sensor** (once per boot) naming the finger, at the first login after the wipe — before you try to use it.
 - It **clears only the dead fingers' records**, so your desktop's fingerprint settings show them as not enrolled and you can simply add them again. Fingerprints still on the sensor are not touched. (Windows normally removes every Linux fingerprint, so in practice that is usually all of them.)
-- Cleared records are **moved, not deleted**, to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the last 5 are kept). They are useless once the template is gone, but if the check were ever wrong they could be moved back.
+- Cleared records are **moved, not deleted**, to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/` (the Manager deletes them once it finds their slots really gone). They are useless once the template is gone, but if the check were ever wrong they could be moved back.
 - Each Linux install that shared the fingerprint clears its own dead record at its own next boot.
 - Fingerprints **enrolled with another driver** (the distro's own egismoc driver, or another non-SDCP build) are not treated as removed: they can never match here, so the login check says so once (**Fingerprints From Another Driver**) and they are left for you to delete and enrol again in the Galaxy Book Fingerprint Manager.
 - A removed fingerprint cannot be restored from an export — the export only points at the template on the sensor, and the template is what was deleted.
 
 The check is a small Python program (`lib/sensor-check.py`) that uses whichever libfprint drives the reader — this fix's driver, or your distro's once it has SDCP and the driver is removed. It gives up after a few seconds if the sensor does not appear, and never fails the boot. Its output is in `journalctl -u samsung-galaxybook-fprint-sdcp-boot-check`.
+
+</details>
+
+## Several Linux Distros on One Laptop
+
+Everything above is all one distro needs. This section is for laptops with **several Linux distros** using the one sensor.
+
+**The Galaxy Book Fingerprint Manager notices them by itself.** Each distro that runs it notes itself (and where it's installed: its partition) in one file on the EFI partition, `EFI/samsung-galaxybook/fingerprint-slots.json`, which every OS on the laptop shares and which survives reinstalling a distro. Each time the Manager opens, it reads that file and checks the other distros still exist: one whose partition has been deleted or reformatted (reinstalled) is no longer listed, and a short message says so. A distro on a second drive that isn't connected is left as it is. As soon as another distro is found, the multi-distro parts appear: the **Sensor slots** tab, and in the ☰ menu **Import from other distros…**, **Back up & restore…** and **Reset <distro>…**.
+
+### Sharing Fingerprints
+
+Enrol each finger **once** and share it, instead of enrolling it again on every distro. Enrolling the same finger on another distro deletes it from the others, and sharing keeps the sensor's 10 slots free. fprintd's record for a finger holds only the ID of its slot on the sensor (no fingerprint image, no secret), so the same record works on every distro that runs this fix.
+
+1. Each distro notes its fingers' records in the shared file on the EFI partition.
+2. When the Manager opens on another distro (a new one, a reinstalled one, or one you've just reset), it asks *Use these fingerprints on CachyOS too?* and lists the fingers it could use, each with the distros it's from.
+3. Untick any that aren't yours, then **Import**. They work straight away, with no enrolling.
+
+Turned one down? It isn't offered again by itself, but ☰ → **Import from other distros…** always lists them all. A finger you removed here comes back with ☰ → **Restore <distro> fingerprints…** (or right-click it → **Restore removed fingerprint…**). A record goes when its slot is cleared, so you're never offered a finger that can't match.
+
+- **Don't enrol the same finger on another distro.** Import it instead.
+- **Remove** (Fingerprints tab) takes a finger off one distro only; the others keep it. **Clear slot** (Sensor slots tab) erases it from the sensor, for every distro.
+- With several distros, clicking a finger or slot also shows which distro enrolled it and which use it.
+
+### Reinstalling or Removing a Distro
+
+- **Reinstalling:** just reinstall it. When the Manager opens on the new install, it offers your fingerprints; nothing to enrol again. The old install is noticed as gone (its partition was reformatted) and no longer listed.
+- **Removing:** removing the Manager (dnf / apt / pacman, or `uninstall.sh`; not an update) takes this distro out of the file. A distro deleted without that is noticed as gone at the next start of the Manager elsewhere; **Other distros…** on the Sensor slots tab lists them all and can **Forget…** one by hand.
+
+### Reset
+
+☰ → **Reset <distro>…** deletes that distro's fingerprints for good, and erases from the sensor **the slots no other distro uses**: nothing can bring those fingers back (not an import, not a backup); they have to be enrolled again. Slots other distros also use are kept, and you're asked straight after whether to import them again. The confirmation names which fingers are lost and which are kept. The distro is also taken out of the shared file. You don't need it to reinstall a distro.
+
+### Back Up & Restore
+
+The file on the EFI partition holds every distro's records. Formatting that partition (reinstalling Windows can) loses them: your fingerprints are still on the sensor, but no distro knows which slot is whose. A backup puts them back.
+
+☰ → **Back up & restore…** says how many records the file has, and:
+
+- **Back up…** saves a copy of it, e.g. `~/galaxybook-fingerprints-2026-10-29.json`. Keep it somewhere safe, such as a USB stick. Make a new one after enrolling new fingers.
+- **Restore…** puts a backup's records back. Records already there are kept as they are; only missing ones are added. Then the Manager offers the fingers this distro can use, and the other distros offer theirs the next time it opens there.
+
+A backup holds no fingerprints, only which slot is whose: it's useless without this laptop's sensor and your finger. A finger whose slot has been cleared since the backup can't be restored; enrol it again.
+
+<details>
+<summary>The multi-distro buttons</summary>
+
+| Where | Control | What it does |
+|---|---|---|
+| ☰ menu | Import from other distros… | The fingers this install could use from the other distros on the laptop (also ones you turned down before), ticked ones imported through `import-fingerprint.sh` with all its checks |
+| ☰ menu | Reset <distro>… | Deletes this distro's fingerprints for good: clears the slots only it uses (they have to be enrolled again), keeps the ones other distros also use and offers them back, and takes it out of the shared slots file. The confirmation names the fingers lost and kept. Not needed to reinstall a distro |
+| Sensor slots | Other distros… | Every distro in the shared slots file, with the date it last opened the Manager and its slots. **Forget…** takes a wiped or reinstalled one out; **Forget and clear N slots** also erases the slots only it used. Also in the ⓘ dialog. Only shown when other distros are listed |
+| ☰ menu | Back up & restore… | Says how many records the EFI partition has; **Back up…** saves a copy of `fingerprint-slots.json` from the EFI partition (every distro's records) as a `.json` file; **Restore…** merges one back (adds what's missing, changes nothing there) and the Manager offers the fingers again |
+
+</details>
+
+### Without the Manager
+
+A distro with only the driver doesn't use the file on the EFI partition, and the export and import tools come with the Manager, not the driver: run them from a `git clone` of this repository (`tools/…`, as below). Importing for a different user name also needs the Manager. Otherwise, share fingerprints with an export file:
+
+**Tested:** a finger enrolled on Fedora 45, exported and imported on Linux Mint 27 (beta) (via `FPRINT_IMPORT` during install), verified on Mint and still verified on Fedora afterwards (940XHA, 2026-10-24). Importing for a different username (exported by `dave`, imported for `daveb` on MX Linux) also verified (2026-10-25).
+
+<details>
+<summary>Show how to share fingerprints with an export file</summary>
+
+**On the install where the fingers are enrolled:**
+
+```bash
+sudo bash tools/export-fingerprint.sh          # writes ~/fingerprint-export.tgz (all your fingers)
+```
+
+**On the other install**, copy it to your home folder as `~/fingerprint-export.tgz`. The username there does not have to match: the fingerprints are imported for whoever imports them.
+
+- **While installing the fix with install.sh** (only when you have nothing enrolled on this install):
+  - if `~/fingerprint-export.tgz` exists, it is **imported automatically**;
+  - otherwise the installer asks `Do you have fingerprints exported from another install to import? [y/N]` (skipped after 30 seconds, or when run without a terminal). Answer `y` and it asks for the path, with no time limit;
+  - `FPRINT_IMPORT=/path/to/file.tgz` imports a file kept anywhere else without asking.
+- **From the command line:**
+
+  ```bash
+  sudo bash tools/import-fingerprint.sh                           # uses ~/fingerprint-export.tgz
+  sudo bash tools/import-fingerprint.sh /path/to/file.tgz         # a file kept elsewhere
+  sudo bash tools/import-fingerprint.sh --user NAME               # for another user (their ~/fingerprint-export.tgz)
+  sudo bash tools/import-fingerprint.sh --fingers 7,1             # only these fingers (fprintd's numbers 1-9, a)
+  sudo bash tools/import-fingerprint.sh --replace                 # replace fingerprints already on this install
+  fprintd-verify
+  ```
+
+**Before importing**, the fingerprints are checked against the sensor (fprintd is paused for a moment). Fingers whose slot is gone (re-enrolled since, or wiped by Windows) are left out (an export with none left is refused), so you never end up with a fingerprint that can't match. `--no-check` skips this.
+
+When the username differs from the one that exported them, each record's owner is rewritten for the new user (by the small `sensor-check` helper). The slot on the sensor is the same either way. Exports made under the older name `fprint-<user>.tgz` import the same way.
+
+The import refuses records made on a different sensor, users who don't exist on this install, and archives containing anything other than fingerprint records. If the user already has fingerprints on this install, those are kept and only the missing fingers are imported; `--replace` replaces them all instead, after all the checks have passed. The old records are moved to `/var/lib/samsung-galaxybook/replaced-fingerprints/<date>/`, and nothing is deleted from the sensor, so other installs sharing those fingerprints keep working. Don't use `fprintd-delete` to make room for an import: it deletes the fingerprints from the sensor too, breaking every install that shares them.
+
+**Export again after deleting or re-enrolling:** an old export points at slots that no longer exist.
 
 </details>
 
@@ -446,7 +463,7 @@ The check is a small Python program (`lib/sensor-check.py`) that uses whichever 
    - If another fingerprint fix's fprintd setup is found — most often a manual install of [Abdallah's libfprint-egismoc-sdcp](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp) from its README (`/etc/systemd/system/fprintd.service.d/egismoc-sdcp.conf` and `/usr/local/lib/libfprint-egismoc-sdcp/`), or any admin fprintd drop-in that sets `LD_LIBRARY_PATH` / `LD_PRELOAD` or replaces `ExecStart` — it is **moved aside** first, to `/var/lib/samsung-galaxybook/other-fingerprint-fix/<date>/` with a `RESTORE.txt` saying how to put it back. Fingerprints enrolled with Abdallah's build keep working (it's the same driver). The packages do the same when installed
 6. Turns on fingerprint for login and sudo with `fingerprint-pam.sh` (Fedora: authselect; Ubuntu/Debian/MX: pam-auth-update; Mint: its own `fingwit` profile; Arch-based: asks whether to add fingerprint to sudo and polkit — see [Fingerprint for sudo and Admin Prompts on Arch-Based Distros](#fingerprint-for-sudo-and-admin-prompts-on-arch-based-distros))
 7. Installs a login-time monitor and a boot-time sensor check (see [The Monitor](#the-monitor) and [Boot-Time Sensor Check](#boot-time-sensor-check))
-8. Offers to import fingerprints exported from another install on this laptop, if `~/fingerprint-export.tgz` exists (see [Sharing Fingerprints](#sharing-fingerprints-between-linux-installs))
+8. Offers to import fingerprints exported from another install on this laptop, if `~/fingerprint-export.tgz` exists (see [Sharing Fingerprints](#sharing-fingerprints))
 9. Installs the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) and adds it to the app menu, then offers to open it: `Open the Galaxy Book Fingerprint Manager now? [Y/n]` (skipped after 30 seconds, or when there is no terminal or no desktop session; `FPRINT_OPEN_MANAGER=1` or `=0` answers in advance). It opens as you, in your desktop session — never as root
 
 It does **not** delete `/var/lib/fprint`. Deleting fprintd's records by hand leaves the templates on the sensor as orphans.
@@ -517,8 +534,8 @@ See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-boot-check.sh` and `/etc/systemd/system/samsung-galaxybook-fprint-sdcp-boot-check.service` — runs it at boot, before fprintd
 - `/run/samsung-galaxybook/fprint-sdcp-boot-status` — boot check result (cleared at every boot)
 - `/run/samsung-galaxybook/fprint-sdcp-other-driver` — fingers enrolled with another driver, found by the boot check
-- `/var/lib/samsung-galaxybook/removed-fingerprints/` — records cleared by the boot check (last 5 boots that cleared any)
-- `/var/lib/samsung-galaxybook/replaced-fingerprints/` — records moved aside by `import-fingerprint.sh --replace` (last 5)
+- `/var/lib/samsung-galaxybook/removed-fingerprints/` — records removed in the Manager or cleared by the boot check, kept while they can still be restored
+- `/var/lib/samsung-galaxybook/replaced-fingerprints/` — records moved aside by `import-fingerprint.sh --replace`, kept while they can still be restored
 - `/usr/local/bin/samsung-galaxybook-fprint-sdcp-other-fix.sh` — finds another fingerprint fix's fprintd setup (for the installer and the monitor)
 - `/var/lib/samsung-galaxybook/other-fingerprint-fix/<date>/` — another fix's fprintd setup, moved aside at install (only if there was one), with `RESTORE.txt`
 - `~/.cache/samsung-galaxybook/fprint-sdcp-boot-shown` — remembers the boot check message was shown this boot
@@ -535,7 +552,7 @@ See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc
 | --- | --- |
 | `install.sh` / `uninstall.sh` | Install or remove the fix |
 | `fingerprint-manager.sh` | Starts the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) from the repository folder (the installer also installs it) |
-| `tools/` | Optional command-line tools: `export-fingerprint.sh`, `import-fingerprint.sh` ([sharing fingerprints](#sharing-fingerprints-between-linux-installs)), `fingerprint-pam.sh` ([fingerprint login on/off](#turning-fingerprint-login-on-or-off)), `arch-pam.sh` (used by it on Arch), `test-latest-libfprint.sh` (try upstream's newest driver; see [packaging/README.md](packaging/README.md#driver-updates-and-releases)), and `dev/` (sensor debugging scripts) |
+| `tools/` | Optional command-line tools: `export-fingerprint.sh`, `import-fingerprint.sh` ([sharing fingerprints](#sharing-fingerprints)), `fingerprint-pam.sh` ([fingerprint login on/off](#turning-fingerprint-login-on-or-off)), `arch-pam.sh` (used by it on Arch), `test-latest-libfprint.sh` (try upstream's newest driver; see [packaging/README.md](packaging/README.md#driver-updates-and-releases)), and `dev/` (sensor debugging scripts) |
 | `lib/` | Used by the above — not run directly: the Galaxy Book Fingerprint Manager's Python files and icon, `sensor-check.py` (the boot-time sensor check), `terminal.py` and `update-in-terminal.sh` (the Galaxy Book Fingerprint Manager's **Update** in your terminal), `distro-driver-check.py` (whether the distro's own libfprint now has an SDCP driver for the sensor, and where it came from — see [The Monitor](#the-monitor)), and `patches/` (fixes applied to the driver source at build time) |
 
 Keep the repository folder together: the installer and the Manager use the files in `tools/` and `lib/`.

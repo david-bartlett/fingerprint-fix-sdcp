@@ -233,13 +233,12 @@ mkdir -p /var/lib/fprint
 if $HAS_RECORDS && [[ "${REPLACE:-0}" == "1" ]]; then
     # Every check has passed: move the old records aside (records only — the
     # sensor is not touched), so they could be put back if ever needed.
-    # The last 5 folders are kept.
+    # The Manager deletes them once they can't be used (their slot is gone).
     REPLACED_DIR="/var/lib/samsung-galaxybook/replaced-fingerprints"
     OLD="${REPLACED_DIR}/$(date +%Y-%m-%d_%H%M%S)"
     mkdir -p "$OLD"
     chmod 700 "$REPLACED_DIR"
     mv "$DEST" "$OLD/"
-    ls -1dt "$REPLACED_DIR"/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf
     info "Moved ${TARGET_USER}'s previous records to $OLD"
 elif [[ ${#SWAP[@]} -gt 0 ]]; then
     # Dead records this export replaces (only those that passed the check):
@@ -254,7 +253,6 @@ elif [[ ${#SWAP[@]} -gt 0 ]]; then
         mv "$DEST/egismoc/$SERIAL/$n" "$OLD/"
         MOVED+=("$n")
     done
-    ls -1dt "$REPLACED_DIR"/*/ 2>/dev/null | tail -n +6 | xargs -r rm -rf
     [[ ${#MOVED[@]} -gt 0 ]] && info "Replacing records gone from the sensor: $(list_of "${MOVED[@]}") (old ones moved to $REPLACED_DIR)"
 fi
 install -d -m 700 -o root -g root "$DEST" "$DEST/egismoc" "$DEST/egismoc/$SERIAL"
