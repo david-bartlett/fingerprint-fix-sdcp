@@ -831,6 +831,7 @@ def shared_where(sh, short=False, full=False):
 
 
 STALE_DAYS = 30
+BLINKS = 2          # how often a tab blinks when a menu opens it
 
 
 def stale_note(sh):
@@ -1734,15 +1735,16 @@ class Manager(Gtk.Window):
         return self._popup(entries, event, title=title)
 
     def go_tab(self, name):
-        """Open a tab from a menu or button. Its tab blinks once (lit, plain
-        for a moment, lit again) so the switch is noticed."""
+        """Open a tab from a menu or button. Its tab blinks (lit, plain for a
+        moment, lit again; BLINKS times) so the switch is noticed."""
         self.stack.set_visible_child_name(name)
         names = [self.stack.child_get_property(c, "name") for c in self.stack.get_children()]
         buttons = self.switcher.get_children()
         if name in names and names.index(name) < len(buttons):
             ctx = buttons[names.index(name)].get_style_context()
-            GLib.timeout_add(250, lambda: ctx.add_class("fpm-tab-blink") and False)
-            GLib.timeout_add(500, lambda: ctx.remove_class("fpm-tab-blink") and False)
+            for i in range(BLINKS):
+                GLib.timeout_add(250 + i * 500, lambda: ctx.add_class("fpm-tab-blink") and False)
+                GLib.timeout_add(500 + i * 500, lambda: ctx.remove_class("fpm-tab-blink") and False)
 
     def show_template(self, tid):
         """From a finger: the Sensor tab with its template selected."""
