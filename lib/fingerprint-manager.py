@@ -3003,7 +3003,10 @@ class Manager(Gtk.Window):
     def _offer_export(self, offer):
         """Once per export file (a new export asks again): offer the fingers in
         it that this install doesn't have and the sensor still stores."""
-        if self.busy or offer["id"] in (self._export_offered, load_settings().get("export_offer_seen")):
+        if offer["id"] in (self._export_offered, load_settings().get("export_offer_seen")):
+            return False
+        if self.busy:                   # e.g. the start-up check of the distro's driver
+            GLib.timeout_add(500, self._offer_export, offer)
             return False
         skip_id, _, skip = load_settings().get("export_offer_skip", "").partition(":")
         if skip_id == offer["id"]:                  # not the fingers removed here
