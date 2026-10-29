@@ -181,8 +181,8 @@ A small window for your fingerprints and the sensor, in the app menu as **Galaxy
 > - **Clearing a slot** (Sensor slots tab) erases the fingerprint itself, for every install. It can't be undone: that finger has to be enrolled again.
 
 <p>
-  <img src="images/fingerprint-manager.png" width="350" alt="Fingerprints tab: six of ten fingers enrolled, on the sensor">
-  <img src="images/fingerprint-manager-sensor.png" width="350" alt="Sensor slots tab: six of ten slots used, five of them also used by four other distros">
+  <img src="images/fingerprint-manager.png" width="350" alt="Fingerprints tab with one distro: six of ten fingers enrolled and on the sensor, Remove all from Fedora at the bottom, and the right index finger's details in the information panel">
+  <img src="images/fingerprint-manager-sensor.png" width="350" alt="Sensor slots tab in multi-distro mode: six of ten slots used, five of them also used by four other distros, Other distros at the bottom, and a slot's details in the information panel">
 </p>
 <p>
   <img src="images/fingerprint-manager-enrol.png" width="350" alt="Enrolling the left middle finger: lift and touch again, 9 of 16 touches">
@@ -361,6 +361,16 @@ The check is a small Python program (`lib/sensor-check.py`) that uses whichever 
 Everything above is all one distro needs. This section is for laptops with **several Linux distros** using the one sensor.
 
 **The Galaxy Book Fingerprint Manager switches to multi-distro mode by itself.** Each distro that runs it notes itself (and where it's installed: its partition) in one file on the EFI partition, `EFI/samsung-galaxybook/fingerprint-slots.json`, which every OS on the laptop shares and which survives reinstalling a distro. Each time the Manager opens, it reads that file and checks the other distros still exist: one whose partition has been deleted or reformatted (reinstalled) is no longer listed, and a short message says so. A distro on a second drive that isn't connected is left as it is. As soon as another distro is found, the multi-distro parts appear: the **Sensor slots** tab, and in the ☰ menu **Import from other distros…**, **Back up & restore…** and **Reset <distro>…**. When the others are gone, it goes back to single-distro mode. (`galaxybook-fingerprint-manager --single-distro` shows the single-distro layout anyway, e.g. to try it; only what's shown changes.)
+
+<details>
+<summary>The ☰ menu with one distro, and in multi-distro mode</summary>
+
+<p>
+  <img src="images/fingerprint-manager-menu-single.png" width="240" alt="The menu with one distro: Restore Fedora fingerprints, Show sensor slots, Check for new versions, Remind me about Windows, Test your distro's driver, About">
+  <img src="images/fingerprint-manager-menu-multi.png" width="240" alt="The menu in multi-distro mode: adds Import from other distros, Back up and restore, and Reset Fedora; Show sensor slots isn't needed, as the tab is always there">
+</p>
+
+</details>
 
 ### Sharing Fingerprints
 
