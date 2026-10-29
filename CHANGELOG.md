@@ -22,8 +22,8 @@
 - Each install keeps its fingers' fprintd records in `fingerprint-slots.json` on the EFI partition (only an ID and the sensor's signature; a record goes when its slot is cleared). When the Manager opens, it offers the fingers this install could use straight away, in one list with a tick box each and the distros it's from (another user name is shown and, with more than one, left unticked). One turned down isn't asked about again until **Reset**; ☰ → **Import from other distros…** lists them all again, with **Choose a file…** for an export file. ☰ → **Back up & restore…** explains the file and how many records it has: **Back up…** saves a copy as `.json`, **Restore…** merges one back (adds what's missing, changes nothing there) should the EFI partition be formatted. ☰ → **Export fingerprints…** is gone (`tools/export-fingerprint.sh` still makes an export file, e.g. for an install with only the driver)
 - Importing a file with the right little finger in it failed ("Unexpected entry in archive"): fprintd's name for it is `a`, which the check read as a number
 
-- **New messages blink:** the information panel at the bottom blinks twice when a message appears, like the tabs
-- Both blink more slowly than the tabs did in 2.8.1: plain for 0.4 s each time, 0.8 s per blink (`BLINK_MS`)
+- **New messages blink and stay:** the information panel at the bottom blinks for 5 seconds when a message appears, and keeps it until you close it
+- A message stays until × is pressed or a newer one replaces it (information used to go after 10 seconds). The panel blinks like the tabs, for about 5 seconds (`MSG_BLINK_S`). Both blink more slowly than the tabs did in 2.8.1: plain for 0.4 s each time, 0.8 s per blink (`BLINK_MS`)
 
 ## 2.8.1 — 2026-10-29
 

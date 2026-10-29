@@ -385,8 +385,8 @@ class MsgPanel(Gtk.Box):
         self._blink()
 
     def _blink(self):
-        """Blink like a tab opened from a menu (BLINKS times: plain for a
-        moment, lit again), so a new message is noticed."""
+        """Blink like a tab opened from a menu (plain for a moment, lit again),
+        for about MSG_BLINK_S seconds, so a new message is noticed."""
         self._blink_gen += 1
         gen = self._blink_gen
         ctx = self.get_style_context()
@@ -396,7 +396,7 @@ class MsgPanel(Gtk.Box):
             if gen == self._blink_gen:
                 (ctx.add_class if on else ctx.remove_class)("fpm-msg-blink")
             return False
-        for i in range(BLINKS):
+        for i in range(max(1, round(MSG_BLINK_S * 1000 / (2 * BLINK_MS)))):
             GLib.timeout_add(BLINK_MS * (2 * i + 1), step, True)
             GLib.timeout_add(BLINK_MS * (2 * i + 2), step, False)
 
@@ -853,8 +853,9 @@ def shared_where(sh, short=False, full=False):
 
 
 STALE_DAYS = 30
-BLINKS = 2          # how often a tab (or a new message) blinks
+BLINKS = 2          # how often a tab blinks when a menu opens it
 BLINK_MS = 400      # how long it goes plain each time; one blink takes twice as long
+MSG_BLINK_S = 5     # how long the information panel blinks for a new message
 
 
 def stale_note(sh):
@@ -2023,7 +2024,8 @@ class Manager(Gtk.Window):
     # ── messages ──
     def message(self, text, kind=Gtk.MessageType.INFO, details=None, action=None):
         """Show a short message. details: full text behind a Details… button.
-        action: (label, callback) for a button. Plain info messages fade after 10 s."""
+        action: (label, callback) for a button. It stays until × is pressed or a
+        newer message replaces it."""
         if self._msg_timer:
             GLib.source_remove(self._msg_timer)
             self._msg_timer = 0
@@ -2038,8 +2040,6 @@ class Manager(Gtk.Window):
         if action:
             self.msg_action_btn.set_label(action[0])
         self.msg_bar.show_message()
-        if kind == Gtk.MessageType.INFO and not action:
-            self._msg_timer = GLib.timeout_add_seconds(10, self._hide_message)
 
     def _hide_message(self):
         self._msg_timer = 0
