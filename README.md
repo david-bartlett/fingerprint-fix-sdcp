@@ -166,7 +166,7 @@ A small window for your fingerprints and the sensor, in the app menu as **Galaxy
 - **Fingerprints tab:** your ten fingers. Click a grey one to enrol it, double-click one to test it, right-click for more (enrol again, remove).
 - **Sensor slots tab:** the sensor's 10 slots: which this install uses, which other distros on the laptop use, and which are free. Clear slots you don't need. The ⓘ button explains what a slot is.
 - **The switch at the top** turns fingerprint login on or off.
-- **☰ menu:** export and import fingerprints, test whether your distro's own driver now works, check for updates.
+- **☰ menu:** export and import fingerprints, see the distros sharing the sensor (and forget one you've wiped), test whether your distro's own driver now works, check for updates.
 - **Information panel** at the bottom: what just happened, and anything that needs your attention.
 
 > [!NOTE]
@@ -205,6 +205,7 @@ It asks for your password once per session; the prompt says "Galaxy Book Fingerp
 | Sensor slots | Clear… (or right-click → Clear slot…) | Clears the selected slots: deletes their fingerprints from the sensor (and moves aside any record here that used them) |
 | Sensor slots | Clear all slots… | Deletes every fingerprint on the sensor (every Linux install's and Windows Hello's) after you type CLEAR; moves every record here aside |
 | ☰ menu | Export / Import fingerprints… | Runs `export-fingerprint.sh` / `import-fingerprint.sh` with all their checks; if you already have fingerprints, it asks whether to **add the missing ones** (yours are kept) or **replace all** (`--replace`) |
+| ☰ menu | Distros sharing the sensor… | Every distro in the shared slots file, with the date it last opened the Manager and its slots. **Forget…** takes a wiped or reinstalled one out; **Forget and clear N slots** also erases the slots only it used. Also on a slot's right-click menu and the ⓘ dialog |
 | ☰ menu | Restore removed records… | Lists records moved to `removed-fingerprints/` or `replaced-fingerprints/` and puts the chosen ones back — only if their template is still on the sensor and that finger hasn't been enrolled again here |
 | ☰ menu | Test your distro's driver… | Checks whether your distro's own libfprint can replace this fix: if it has an SDCP driver for the sensor (from the distro, not another fix), fprintd is switched to it for a moment and one of your fingers is checked with it — the way login would work without the fix. A match offers **Remove fingerprint-fix-sdcp** (or **Copy command**): it removes the fix the way it was installed, keeping your fingerprints, and the Galaxy Book Fingerprint Manager closes. No match: keep the fix, or delete your fingers here first (so they don't stay on the sensor) before switching. The fix is always switched back on after the test |
 | ☰ menu | Remind me about Windows | Shows or hides the dual-boot reminder (only in the menu when Windows is found) |

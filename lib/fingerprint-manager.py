@@ -382,6 +382,7 @@ menu.fpm-menu menuitem image { color: alpha(@theme_fg_color, 0.70); }
 menu.fpm-menu menuitem.fpm-menu-title { padding: 4px 14px 6px 8px; }
 menu.fpm-menu menuitem.fpm-menu-title:disabled label { color: @theme_fg_color; }
 menu.fpm-menu menuitem.fpm-menu-title:disabled label.fpm-menu-sub { color: alpha(@theme_fg_color, 0.55); }
+menu.fpm-menu menuitem check { margin-right: 10px; }
 menu.fpm-menu menuitem.fpm-danger label, menu.fpm-menu menuitem.fpm-danger image { color: #c01c28; }
 menu.fpm-menu menuitem.fpm-danger:hover { background-color: alpha(#c01c28, 0.12); }
 menu.fpm-menu menuitem.fpm-danger:hover label, menu.fpm-menu menuitem.fpm-danger:hover image { color: #c01c28; }
@@ -922,10 +923,19 @@ class Manager(Gtk.Window):
         hb.pack_start(self.spinner)
 
         menu = Gtk.Menu()
-        self.export_item = self._menu_item(menu, "Export fingerprints…", self.on_export)
-        self.import_item = self._menu_item(menu, "Import fingerprints…", self.on_import)
+        menu.get_style_context().add_class("fpm-menu")      # styled like the right-click menus
+        menu.set_reserve_toggle_size(False)    # the tick boxes sit where the icons are
+        self.export_item = self._menu_item(menu, "Export fingerprints…", self.on_export,
+                                           "document-save-symbolic")
+        self.import_item = self._menu_item(menu, "Import fingerprints…", self.on_import,
+                                           "document-open-symbolic")
         menu.append(Gtk.SeparatorMenuItem())
-        self.restore_item = self._menu_item(menu, "Restore removed records…", self.on_restore)
+        self.restore_item = self._menu_item(menu, "Restore removed records…", self.on_restore,
+                                            "edit-undo-symbolic")
+        # Only when the shared slots file lists other distros (see _update_buttons).
+        self.distros_item = self._menu_item(menu, "Distros sharing the sensor…", self.on_distros,
+                                            "computer-symbolic")
+        self.distros_item.set_no_show_all(True)
         menu.append(Gtk.SeparatorMenuItem())
         self.update_item = Gtk.CheckMenuItem(label="Check for new versions")
         self.update_item.set_tooltip_text("Asks GitHub when the Manager starts and about every hour "
@@ -944,12 +954,13 @@ class Manager(Gtk.Window):
         menu.append(Gtk.SeparatorMenuItem())
         # Only with the driver installed: without it fprintd already uses the
         # distro's driver, so there is nothing to compare (see _show_distro_item).
-        self.test_distro_item = self._menu_item(menu, "Test your distro's driver…", self.on_test_distro)
+        self.test_distro_item = self._menu_item(menu, "Test your distro's driver…", self.on_test_distro,
+                                                "system-run-symbolic")
         self.test_distro_sep = Gtk.SeparatorMenuItem()
         menu.append(self.test_distro_sep)
         for w in (self.test_distro_item, self.test_distro_sep):
             w.set_no_show_all(True)
-        self._menu_item(menu, "About", self.on_about)
+        self._menu_item(menu, "About", self.on_about, "help-about-symbolic")
         menu.show_all()
         self._show_distro_item()
         self.menu_btn = Gtk.MenuButton(popup=menu)
@@ -1236,8 +1247,15 @@ class Manager(Gtk.Window):
         row.pack_start(b, False, False, 0)
         return b
 
-    def _menu_item(self, menu, label, cb):
-        item = Gtk.MenuItem(label=label)
+    def _menu_item(self, menu, label, cb, icon=None):
+        """A ☰ menu item: an icon and a label, like the right-click menus."""
+        item = Gtk.MenuItem()
+        box = Gtk.Box(spacing=10)
+        if icon:
+            box.pack_start(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU), False, False, 0)
+        box.pack_start(Gtk.Label(label=label, xalign=0), True, True, 0)
+        box.show_all()                  # shown even on items hidden until needed
+        item.add(box)
         item.connect("activate", cb)
         menu.append(item)
         return item
@@ -1909,6 +1927,8 @@ class Manager(Gtk.Window):
         self.export_item.set_sensitive(ready and any(r["on_sensor"] for r in mine))
         self.import_item.set_sensitive(ready)
         self.restore_item.set_sensitive(ready)
+        self.distros_item.set_visible(bool(self._other_installs()))
+        self.distros_item.set_sensitive(ready)
         pam = (st or {}).get("pam", {}).get("state")
         self.pam_switch.set_sensitive(ready and pam in ("enabled", "disabled", "partial"))
 
@@ -2406,20 +2426,44 @@ class Manager(Gtk.Window):
         if len(rows) != 1 or rows[0][4]:
             return
         name, seen, key = rows[0][0], rows[0][1], rows[0][3]
-        if not self.confirm(f"Forget {name}?",
-                            f"Only if {name} (last seen {seen}) is no longer on this laptop. Its "
-                            "slots stay on the sensor, but stop showing as used by it, so you can "
-                            "see which ones nothing uses any more and clear them.\n\n"
-                            f"If {name} is still installed, it adds itself back the next time its "
-                            "Galaxy Book Fingerprint Manager opens.",
-                            "Forget"):
+        # Slots only that distro uses: not used or removed here, and no other
+        # distro still using them. Those can be cleared with it.
+        only = [t for t in self.templates
+                if t.get("shared") and not t["used_by"] and not t.get("removed")
+                and any(o.get("key") == key for o in t["shared"]["others"])
+                and all(o.get("key") == key for o in t["shared"]["others"] if o["state"] == "used")]
+        fingers = ", ".join(long_finger(t["shared"]["finger"]).lower() for t in only)
+        d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
+                          message_type=Gtk.MessageType.WARNING, text=f"Forget {name}?")
+        d.format_secondary_text(
+            f"Only if {name} (last seen {seen}) is no longer on this laptop: it stops being listed "
+            "here and on the other distros. If it's still installed, it adds itself back the next "
+            "time its Galaxy Book Fingerprint Manager opens."
+            + (f"\n\n{len(only)} slot{'s are' if len(only) != 1 else ' is'} used by {name} alone "
+               f"({fingers}). Forget and clear also erases {'them' if len(only) != 1 else 'it'} from "
+               "the sensor, freeing the slots; that can't be undone." if only else ""))
+        d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        d.add_button("Forget only" if only else "Forget", 1).get_style_context().add_class(
+            "suggested-action" if only else "destructive-action")
+        can_clear = only and self.status["features"].get("STORAGE_DELETE", False)
+        if can_clear:
+            d.add_button(f"Forget and clear {len(only)} slot{'s' if len(only) != 1 else ''}",
+                         2).get_style_context().add_class("destructive-action")
+        d.set_default_response(Gtk.ResponseType.CANCEL)
+        r = d.run()
+        d.destroy()
+        if r not in (1, 2):
             return
+        ids = [t["id"] for t in only] if r == 2 and can_clear else []
 
         def done(res, err):
             if err:
                 return self.refresh(lambda: self.error(err))
-            self.refresh(lambda: self.message(f"Forgot {name}. Its slots no longer show as used by it."))
-        self.run_job("forget_install", done, key=key)
+            n = len(res.get("deleted") or [])
+            self.refresh(lambda: self.message(
+                f"Forgot {name}" + (f" and cleared {n} slot{'s' if n != 1 else ''}." if ids
+                                    else ". Its slots no longer show as used by it.")))
+        self.run_job("forget_install", done, key=key, ids=ids)
 
     def sensor_full_dialog(self, parent=None):
         """All slots taken: say so, with a button to the Sensor tab. True when

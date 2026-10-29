@@ -15,6 +15,9 @@
 - **Removing a distro tidies up its sensor slots:** the other distros stop listing it, and a wiped one can be forgotten
 - Removing the Galaxy Book Fingerprint Manager (dnf / apt / pacman remove, or `uninstall.sh`; not an update) takes this install out of `fingerprint-slots.json` on the EFI partition, so the other distros no longer show its slots as used by it. A distro that was wiped or reinstalled without that can be forgotten from another one: right-click a slot (or the ⓘ button) → **Distros sharing the sensor…** lists every distro in the file with the date it last opened the Manager and how many slots it uses; select one → **Forget…**. A distro listed twice (a reinstall) is pointed out. Slot tooltips say when another distro hasn't been seen for a month or more ("CachyOS last seen 1 Jul 2026"). The shared-file code moved to `lib/shared_slots.py`
 
+- **Forgetting a wiped distro can clear its slots too**, and the ☰ menu has icons like the right-click menus
+- Distros sharing the sensor… → Forget… now lists the slots only that distro used (not this install's, and no other distro still using them) and offers **Forget and clear N slots**, which erases them from the sensor as well, or **Forget only**. Distros sharing the sensor… is also in the ☰ menu (when other distros are listed). The ☰ menu's options have icons and the same style as the right-click menus
+
 ## 2.7.0 — 2026-10-28
 
 - **Tidier window:** no empty space under the slots, and short, readable hover text

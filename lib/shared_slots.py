@@ -155,7 +155,7 @@ def share_slots(serial, templates, records_by_tid):
             installs.pop(me, None)
         if e.get("finger"):
             sensor[t["id"]] = e
-            others = [{"os": v.get("os", "?"), "state": v.get("state", "used"),
+            others = [{"key": k, "os": v.get("os", "?"), "state": v.get("state", "used"),
                        "seen": v.get("seen", "")}
                       for k, v in sorted(installs.items()) if k != me and isinstance(v, dict)]
             t["shared"] = {"finger": e["finger"], "user": e.get("user", ""),
