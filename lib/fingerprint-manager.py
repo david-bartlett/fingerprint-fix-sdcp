@@ -378,11 +378,15 @@ class MsgPanel(Gtk.Box):
             ctx.remove_class("fpm-msg-" + c)
         ctx.add_class("fpm-msg-" + cls)
 
-    def show_message(self):
+    def show_message(self, blink=True):
         self._active = True
         self._style(self.KINDS.get(self._kind, "info"))
         self.close_btn.show()
-        self._blink()
+        if blink:
+            self._blink()
+        else:
+            self._blink_gen += 1                    # stop an older one
+            self.get_style_context().remove_class("fpm-msg-blink")
 
     def _blink(self):
         """Blink like a tab opened from a menu (plain for a moment, lit again),
@@ -1098,7 +1102,7 @@ class Manager(Gtk.Window):
         outer.pack_start(card, False, False, 0)
 
         # ── information panel: one short message, Details… for the full text ──
-        self.msg_label = Gtk.Label(xalign=0, wrap=True, lines=2,
+        self.msg_label = Gtk.Label(xalign=0, wrap=True, lines=3,
                                    ellipsize=Pango.EllipsizeMode.END)
         msg_btns = Gtk.Box(spacing=6)
         self.msg_action_btn = Gtk.Button(label="")
@@ -1112,6 +1116,9 @@ class Manager(Gtk.Window):
             w.set_no_show_all(True)
         self.msg_bar = MsgPanel(self.msg_label, msg_btns, lambda: self._on_msg_response(None, 0))
         self._msg_action = None
+        self._msg_details = None
+        self._slot_info = None          # the slot whose details the panel shows
+        self._saved_msg = None          # the message they covered, back on deselecting
 
         outer.pack_start(self.stack, True, True, 0)
         # Each tab's buttons under the page, then the Windows reminder, then
@@ -1219,7 +1226,7 @@ class Manager(Gtk.Window):
         slots_card.pack_start(self.slots_bar, False, False, 0)
         hint = Gtk.Label(label=f"Green: used by {OS_NAME} · Grey: another distro, Windows Hello "
                                "or a reinstall · Removed here: can be restored · Dashed: free · "
-                               "More: right-click", xalign=0, wrap=True)
+                               "Details: click · More: right-click", xalign=0, wrap=True)
         hint.get_style_context().add_class("fpm-hint")
         slots_card.pack_start(hint, False, False, 0)
         page.pack_start(slots_card, False, False, 0)
@@ -1408,6 +1415,34 @@ class Manager(Gtk.Window):
         for w in self.tcards.get_children() + self.trows.get_children():
             self._mark(w, getattr(w, "tid", None) in self.tsel)
         self._update_buttons()
+        self._show_slot_info()
+
+    def _show_slot_info(self):
+        """The selected slot's details (who, where it's used, its template) in
+        the information panel, as plain information: no blink. A message they
+        cover comes back when the slot is deselected."""
+        t = next((t for t in self.templates if t["id"] in self.tsel), None) \
+            if len(self.tsel) == 1 else None
+        if t is None:
+            if self._slot_info is not None:
+                saved = self._saved_msg
+                self._hide_message()
+                if saved:
+                    self.message(*saved, blink=False)
+            return
+        lines = self._tpl_tip(t).split("\n")
+        if lines[-1].startswith("Template "):        # onto the first line: fewer lines, less jumping
+            lines = [f"{lines[0]} · {lines[-1][0].lower()}{lines[-1][1:]}"] + lines[1:-1]
+        text = "\n".join(lines)
+        if self._slot_info == (t["id"], text):
+            return
+        saved = self._saved_msg
+        if self._slot_info is None and self.msg_bar.has_message():
+            saved = (self.msg_label.get_text(), self.msg_bar.get_message_type(),
+                     self._msg_details, self._msg_action)
+        self.message(text, Gtk.MessageType.OTHER, blink=False)
+        self.msg_label.set_tooltip_text(None)
+        self._slot_info, self._saved_msg = (t["id"], text), saved
 
     def _tpl_tip(self, t):
         """Hover text for a slot: who it is, where it's used, its template ID,
@@ -1517,7 +1552,6 @@ class Manager(Gtk.Window):
                            False, False, 4)
             child = Gtk.FlowBoxChild()
             child.tid = t["id"]
-            child.set_tooltip_text(tip(self._tpl_tip(t)))
             child.add(box)
             self.tcards.add(child)
             # row
@@ -1537,7 +1571,6 @@ class Manager(Gtk.Window):
                           False, False, 0)
             row = Gtk.ListBoxRow()
             row.tid = t["id"]
-            row.set_tooltip_text(tip(self._tpl_tip(t)))
             row.add(hb)
             self.trows.add(row)
         # free slots (cards only)
@@ -2031,10 +2064,12 @@ class Manager(Gtk.Window):
         self.pam_switch.set_sensitive(ready and pam in ("enabled", "disabled", "partial"))
 
     # ── messages ──
-    def message(self, text, kind=Gtk.MessageType.INFO, details=None, action=None):
+    def message(self, text, kind=Gtk.MessageType.INFO, details=None, action=None, blink=True):
         """Show a short message. details: full text behind a Details… button.
         action: (label, callback) for a button. It stays until × is pressed or a
-        newer message replaces it."""
+        newer message replaces it. Alerts (warnings, errors, what an action did)
+        blink; blink=False for plain information, like a slot's details."""
+        self._slot_info, self._saved_msg = None, None
         if self._msg_timer:
             GLib.source_remove(self._msg_timer)
             self._msg_timer = 0
@@ -2048,9 +2083,10 @@ class Manager(Gtk.Window):
         self.msg_action_btn.get_parent().set_visible(bool(action or self._msg_details))
         if action:
             self.msg_action_btn.set_label(action[0])
-        self.msg_bar.show_message()
+        self.msg_bar.show_message(blink)
 
     def _hide_message(self):
+        self._slot_info, self._saved_msg = None, None
         self._msg_timer = 0
         self._msg_details = self._msg_action = None
         self.msg_action_btn.get_parent().hide()
