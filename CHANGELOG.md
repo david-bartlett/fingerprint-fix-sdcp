@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Arch / CachyOS: builds on a fresh install:** `makepkg -si` failed with *Dependency "gusb" not found* when fprintd wasn't installed yet
+- The PKGBUILD's build dependencies now include `libgusb` and `openssl` (the driver links them; before, they only came with fprintd). The release workflow's Arch check installs only the PKGBUILD's build dependencies, as a fresh system has, so a missing one fails there
+
 ## 2.8.1 — 2026-10-29
 
 - **The open tab stands out:** Fingerprints / Sensor slots, and it blinks twice when a menu switches tabs
