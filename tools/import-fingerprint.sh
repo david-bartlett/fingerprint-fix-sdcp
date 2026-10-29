@@ -126,7 +126,8 @@ while read -r perms _ _ _ _ path; do
     [[ -z "$s" || "$s" == "$SERIAL" ]] \
         || error "These records are for a different fingerprint sensor ($s).\n  This laptop's sensor is $SERIAL — records only work on the sensor they were made on."
     if [[ -n "$f" ]]; then
-        [[ "${perms:0:1}" == "-" && "$f" -ge 1 && "$f" -le 10 ]] || error "Unexpected entry in archive: $path"
+        # (the pattern above already allows only 1-9 and a: "a" isn't a number for -ge)
+        [[ "${perms:0:1}" == "-" ]] || error "Unexpected entry in archive: $path"
     fi
 done < <(tar -tzvf "$ARCHIVE" 2>/dev/null)
 [[ -n "$SRC_USER" ]] || error "Archive is empty: $ARCHIVE"

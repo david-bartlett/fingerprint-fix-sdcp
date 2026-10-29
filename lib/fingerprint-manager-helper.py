@@ -55,6 +55,7 @@ import shutil
 import stat
 import subprocess
 import tarfile
+import tempfile
 import time
 
 HERE = os.path.dirname(os.path.realpath(__file__))
@@ -148,7 +149,9 @@ def short_id(p):
 
 
 # Slots shared with the laptop's other installs: see shared_slots.py.
-from shared_slots import share_slots, forget_installs, install_key, used_elsewhere  # noqa: E402
+from shared_slots import (share_slots, forget_installs, install_key, used_elsewhere,  # noqa: E402
+                          esp_records)
+import io  # noqa: E402
 
 
 def enroll_date(p):
@@ -278,44 +281,211 @@ def move_records(paths):
 
 
 # ── Requests ──────────────────────────────────────────────────────────────────
-def export_offer(user, serial, chip, records):
-    """Fingers in the user's ~/fingerprint-export.tgz worth importing here: made
-    on this sensor, still stored on it, and not already the user's (same finger,
-    or the same template under another finger). None when there is no such
-    file or nothing in it to offer. Only that one file is ever read."""
+def _print_bytes(p):
+    data = p.serialize()
+    return bytes(data[0] if isinstance(data, tuple) else data)
+
+
+def _for_user(data, user):
+    """A record's bytes with its owner set to user (as import does), or None."""
     try:
-        pw = pwd.getpwnam(user)
-        path = os.path.join(pw.pw_dir, EXPORT_NAME)
+        p = FPrint.Print.deserialize(data)
+        p.set_username(user)
+        return _print_bytes(p)
+    except Exception:
+        return None
+
+
+def _read_export(path, uid, serial):
+    """The records in an export file for this sensor: [(finger, bytes)]. Only
+    a regular file of root or the user, under 1 MB; [] when there is none."""
+    try:
         st = os.lstat(path)
-    except (KeyError, OSError):
-        return None
-    if not stat.S_ISREG(st.st_mode) or st.st_size > (1 << 20) or st.st_uid not in (0, pw.pw_uid):
-        return None
-    mine = [r for r in records if r["user"] == user]
-    # A finger counts as here only while its template is on the sensor: a dead
-    # record (re-enrolled on another install, say) is offered from the export.
-    have = {r["finger"] for r in mine
-            if r["print"] is not None and any(r["print"].equal(c) for c in chip)}
-    offer = []
+    except OSError:
+        return []
+    if not stat.S_ISREG(st.st_mode) or st.st_size > (1 << 20) or st.st_uid not in (0, uid):
+        return []
+    out = []
     try:
         with tarfile.open(path, "r:gz") as tar:
             for m in tar.getmembers():
                 mt = re.fullmatch(r"[a-z_][a-z0-9_.-]*/egismoc/([A-Za-z0-9._-]+)/([1-9a])", m.name)
-                if not mt or not m.isfile() or m.size > 65536 or mt.group(1) != serial \
-                        or mt.group(2) in have:
-                    continue
-                p = FPrint.Print.deserialize(tar.extractfile(m).read())
-                if not any(p.equal(c) for c in chip):
-                    continue                     # gone from the sensor: would never match
-                if any(r["print"] is not None and p.equal(r["print"]) for r in mine):
-                    continue                     # already here under another finger
-                offer.append({"finger": mt.group(2), "name": finger_name(mt.group(2))})
+                if mt and m.isfile() and m.size <= 65536 and mt.group(1) == serial:
+                    out.append((mt.group(2), tar.extractfile(m).read()))
     except Exception:
+        return []
+    return out
+
+
+def _write_export(path, pw, serial, entries):
+    """Write {finger: bytes} as an export file (the format export-fingerprint.sh
+    makes), owned by the user. Written beside it and renamed over it, so a
+    link at path is replaced, never followed."""
+    buf = io.BytesIO()
+    now = time.time()
+    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+        base = f"{pw.pw_name}/egismoc/{serial}"
+        for d in (pw.pw_name, f"{pw.pw_name}/egismoc", base):
+            ti = tarfile.TarInfo(d)
+            ti.type, ti.mode, ti.mtime = tarfile.DIRTYPE, 0o700, now
+            tar.addfile(ti)
+        for finger in sorted(entries, key=lambda f: int(f, 16)):
+            ti = tarfile.TarInfo(f"{base}/{finger}")
+            ti.size, ti.mode, ti.mtime = len(entries[finger]), 0o600, now
+            tar.addfile(ti, io.BytesIO(entries[finger]))
+    home = pw.pw_dir
+    hs = os.lstat(home)
+    if not stat.S_ISDIR(hs.st_mode) or hs.st_uid != pw.pw_uid:
+        return False
+    tmp = os.path.join(home, f".{EXPORT_NAME}.{os.getpid()}.new")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    try:
+        os.write(fd, buf.getvalue())
+        os.fchown(fd, pw.pw_uid, pw.pw_gid)
+    finally:
+        os.close(fd)
+    os.replace(tmp, path)
+    return True
+
+
+def backup_export(user, serial, chip, records, moved):
+    """Keep ~/fingerprint-export.tgz up to date: every finger of the user's whose
+    slot is still on the sensor, merged into what the file already has. This
+    install's fingers (and ones removed here: their slots are still there)
+    replace the file's for the same finger; fingers whose slot has gone drop
+    out, so it never offers anything that can't be imported. Best effort."""
+    try:
+        pw = pwd.getpwnam(user)
+    except KeyError:
+        return
+    path = os.path.join(pw.pw_dir, EXPORT_NAME)
+    old = {f: d for f, d in _read_export(path, pw.pw_uid, serial)}
+
+    def on_chip(data):
+        try:
+            p = FPrint.Print.deserialize(data)
+        except Exception:
+            return None
+        return p if any(p.equal(c) for c in chip) else None
+
+    # Lowest priority first: the file's own, then removed here (oldest first),
+    # then this install's fingers.
+    layers = [(f, d) for f, d in old.items()]
+    layers += [(m["finger"], open(m["path"], "rb").read()) for m in reversed(moved)
+               if m["user"] == user and os.path.isfile(m["path"])]
+    layers += [(r["finger"], open(r["path"], "rb").read()) for r in records
+               if r["user"] == user and r["print"] is not None and os.path.isfile(r["path"])]
+    chosen = {}                                     # finger -> (print, bytes)
+    for finger, data in layers:
+        p = on_chip(data)
+        if p is None:
+            continue
+        for f in [f for f, (q, _) in chosen.items() if f != finger and q.equal(p)]:
+            del chosen[f]                           # the same slot under another finger
+        chosen[finger] = (p, data)
+    new = {}
+    for finger, (_, data) in chosen.items():
+        mine = _for_user(data, user)
+        if mine is not None:
+            new[finger] = mine
+    if not new:
+        return                                      # nothing to keep: the file is left as it is
+    if {f: _for_user(d, user) for f, d in old.items()} == new:
+        return
+    try:
+        _write_export(path, pw, serial, new)
+    except OSError:
+        pass
+
+
+def import_offer(user, serial, chip, records, moved):
+    """Fingers this install could use, from ~/fingerprint-export.tgz and from
+    the records the other installs keep on the EFI partition: their slot is on
+    the sensor, this install doesn't use it, wasn't removed here, and the user
+    has no working record for that finger. [{"tid", "finger", "name", "user",
+    "from"}] ("from": "file" or the distros using it), or None."""
+    try:
+        pw = pwd.getpwnam(user)
+    except KeyError:
         return None
+    mine = [r for r in records if r["user"] == user and r["print"] is not None]
+    have = {r["finger"] for r in mine if any(r["print"].equal(c) for c in chip)}
+    taken = [r["print"] for r in records if r["print"] is not None] + \
+            [m["print"] for m in moved if m["print"] is not None]
+    cands = [(f, d, user, "file") for f, d in
+             _read_export(os.path.join(pw.pw_dir, EXPORT_NAME), pw.pw_uid, serial)]
+    try:
+        num = {name: f"{i:x}" for i, name in enumerate(FINGERS) if i}
+        cands += [(num[e["finger"]], e["data"], e["user"], e["os"])
+                  for e in esp_records(serial).values() if e["finger"] in num]
+    except Exception:
+        pass
+    out, seen = [], set()
+    for finger, data, owner, src in cands:
+        if finger in have or finger in {o["finger"] for o in out}:
+            continue
+        try:
+            p = FPrint.Print.deserialize(data)
+        except Exception:
+            continue
+        c = next((c for c in chip if p.equal(c)), None)
+        if c is None or any(p.equal(q) for q in taken):
+            continue                                # gone, used here, or removed here
+        tid = short_id(c)
+        if tid in seen:
+            continue
+        seen.add(tid)
+        out.append({"tid": tid, "finger": finger, "name": finger_name(finger),
+                    "user": owner, "from": src})
+    out.sort(key=lambda o: int(o["finger"], 16))
+    return out or None
+
+
+def do_import_offer(req):
+    """Import the offered fingers chosen ("tids"): their records (from the
+    export file or the EFI partition), made the user's, through
+    import-fingerprint.sh like any import."""
+    user = calling_user()
+    pw = pwd.getpwnam(user)
+    _, serial = sensor_usb()
+    wanted = {str(t) for t in req.get("tids") or []}
+    records, moved = read_records(serial), moved_records(serial)
+    with Sensor() as dev:
+        chip = dev.list_prints_sync(None)
+    offer = [o for o in import_offer(user, serial, chip, records, moved) or [] if o["tid"] in wanted]
     if not offer:
-        return None
-    offer.sort(key=lambda f: int(f["finger"], 16))
-    return {"file": path, "id": f"{int(st.st_mtime)}-{st.st_size}", "fingers": offer}
+        raise Fail("Nothing to import: those fingerprints are no longer on the sensor.")
+    data = {f: d for f, d in _read_export(os.path.join(pw.pw_dir, EXPORT_NAME), pw.pw_uid, serial)}
+    esp = esp_records(serial)
+    entries = {}
+    for o in offer:
+        raw = data.get(o["finger"]) if o["from"] == "file" else (esp.get(o["tid"]) or {}).get("data")
+        if raw is None and o["tid"] in esp:
+            raw = esp[o["tid"]]["data"]
+        mine = _for_user(raw, user) if raw else None
+        if mine:
+            entries[o["finger"]] = mine
+    if not entries:
+        raise Fail("Could not read the records to import.")
+    tmpdir = tempfile.mkdtemp(prefix="galaxybook-import-")
+    try:
+        path = os.path.join(tmpdir, EXPORT_NAME)
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w:gz") as tar:
+            base = f"{user}/egismoc/{serial}"
+            for d in (user, f"{user}/egismoc", base):
+                ti = tarfile.TarInfo(d)
+                ti.type, ti.mode = tarfile.DIRTYPE, 0o700
+                tar.addfile(ti)
+            for finger, raw in entries.items():
+                ti = tarfile.TarInfo(f"{base}/{finger}")
+                ti.size, ti.mode = len(raw), 0o600
+                tar.addfile(ti, io.BytesIO(raw))
+        with open(path, "wb") as f:
+            f.write(buf.getvalue())
+        return do_import({"file": path, "fingers": sorted(entries), "dead": req.get("dead")})
+    finally:
+        shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 def do_status(req):
@@ -380,8 +550,15 @@ def do_status(req):
     except Exception:
         st["installs"] = None
     st["pam"] = pam_state()
+    try:                                            # ~/fingerprint-export.tgz, kept up to date
+        backup_export(st["user"], serial, chip, records, moved)
+    except Exception:
+        pass
     if req.get("export"):
-        st["export_offer"] = export_offer(st["user"], serial, chip, records)
+        try:
+            st["import_offer"] = import_offer(st["user"], serial, chip, records, moved)
+        except Exception:
+            st["import_offer"] = None
     return st
 
 
@@ -833,7 +1010,7 @@ ACTIONS = {"status": do_status, "remove_records": do_remove_records,
            "remove_fix": do_remove_fix,
            "delete_other_driver": do_delete_other_driver,
            "delete_templates": do_delete_templates, "wipe": do_wipe,
-           "export": do_export, "import": do_import, "test": do_test,
+           "export": do_export, "import": do_import, "import_offer": do_import_offer, "test": do_test,
            "pam": do_pam, "forget_install": do_forget_install,
            "reset_install": do_reset_install, "list_moved": do_list_moved, "restore": do_restore}
 

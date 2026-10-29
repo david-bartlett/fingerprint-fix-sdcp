@@ -963,8 +963,6 @@ class Manager(Gtk.Window):
         menu = Gtk.Menu()
         menu.get_style_context().add_class("fpm-menu")      # styled like the right-click menus
         menu.set_reserve_toggle_size(False)    # no empty tick-box column
-        self.export_item = self._menu_item(menu, "Export fingerprints…", self.on_export,
-                                           "document-save-symbolic")
         self.import_item = self._menu_item(menu, "Import fingerprints…", self.on_import,
                                            "document-open-symbolic")
         menu.append(Gtk.SeparatorMenuItem())
@@ -1018,8 +1016,8 @@ class Manager(Gtk.Window):
         self.update_btn.set_no_show_all(True)
         self._new_version = None
         self._new_assets = []
-        self._export_offered = None
-        self._after_reset = False           # Reset <distro> just ran: ask about the export
+        self._offered = set()               # templates offered for import this session
+        self._after_reset = False           # Reset <distro> just ran: import or start empty
         hb.pack_end(self.update_btn)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin=12)
@@ -1982,7 +1980,6 @@ class Manager(Gtk.Window):
         self.del_btn.set_sensitive(bool(ready and st["features"].get("STORAGE_DELETE", False)
                                         and self.tsel))
         self.wipe_btn.set_sensitive(bool(ready and (st["templates"] or recs)))
-        self.export_item.set_sensitive(ready and any(r["on_sensor"] for r in mine))
         self.import_item.set_sensitive(ready)
         self.restore_item.set_sensitive(ready)
         self.distros_btn.set_visible(bool(self._other_installs()))
@@ -2147,8 +2144,8 @@ class Manager(Gtk.Window):
 
     def show_status(self, st):
         self.status = st
-        if st.get("export_offer"):
-            GLib.idle_add(self._offer_export, st["export_offer"])
+        if st.get("import_offer"):
+            GLib.idle_add(self._offer_import, st["import_offer"])
         self._fill_records(st["records"], st["user"])
         self._fill_templates(st["templates"])
         GLib.idle_add(self._fit_height)
@@ -2482,16 +2479,15 @@ class Manager(Gtk.Window):
                 return self.refresh(lambda: self.error(err))
             n, k = len(res["deleted"]), len(res["kept"])
             # A fresh start: exports already offered here are offered again.
-            save_setting("export_offer_seen", "")
-            save_setting("export_offer_skip", "")
-            self._export_offered = None
+            save_setting("offer_declined", "")     # a fresh start: offer everything again
+            self._offered = set()
             self._after_reset = True
 
             def after():
                 self.message(f"{OS_NAME} reset: {res['records']} fingerprint{'s' if res['records'] != 1 else ''} "
                              f"deleted, {n} slot{'s' if n != 1 else ''} cleared"
                              + (f", {k} kept for other distros." if k else "."))
-                if not (self.status or {}).get("export_offer"):
+                if not (self.status or {}).get("import_offer"):
                     self._after_reset = False       # nothing to import: empty it is
             self.refresh(after)
         self.run_job("reset_install", done)
@@ -2889,28 +2885,8 @@ class Manager(Gtk.Window):
                         details="Their templates stay on the sensor. The records are moved to "
                                 "/var/lib/samsung-galaxybook/removed-fingerprints/; ☰ → Restore "
                                 "removed records… puts them back."):
-            self._skip_in_export([r[4] for r in rows if r[0] == (self.status or {}).get("user")])
             self.run_job("remove_records", self.after_job(f"Removed from {OS_NAME}", undo=True),
                          records=[{"user": r[0], "finger": r[4]} for r in rows])
-
-    @staticmethod
-    def _export_id():
-        """~/fingerprint-export.tgz as the helper names it (mtime-size), or None."""
-        try:
-            st = os.stat(os.path.join(os.path.expanduser("~"), EXPORT_NAME))
-            return f"{int(st.st_mtime)}-{st.st_size}"
-        except OSError:
-            return None
-
-    def _skip_in_export(self, fingers):
-        """Fingers removed here on purpose: not offered back from the export
-        file there is now (a new export file starts afresh)."""
-        eid = self._export_id()
-        if not eid or not fingers:
-            return
-        old_id, _, old = load_settings().get("export_offer_skip", "").partition(":")
-        keep = set(old.split(",")) - {""} if old_id == eid else set()
-        save_setting("export_offer_skip", f"{eid}:{','.join(sorted(keep | set(fingers)))}")
 
     def on_delete_templates(self, _btn):
         rows = self._selected_tpls()
@@ -2966,55 +2942,17 @@ class Manager(Gtk.Window):
         d.set_current_folder(os.path.expanduser("~"))
         return d
 
-    def on_export(self, _btn):
-        d = self._chooser("Export fingerprints", Gtk.FileChooserAction.SAVE, "Export")
-        d.set_current_name(EXPORT_NAME)
-        path = d.get_filename() if d.run() == Gtk.ResponseType.OK else None
-        d.destroy()
-        if path:
-            if not path.endswith((".tgz", ".tar.gz")):
-                path += ".tgz"
-            if os.path.exists(path) and not self._replace_export(path):
-                return
-            self.run_job("export", self.after_job("Exported"), file=path)
-
-    def _replace_export(self, path):
-        """The export file exists: Backup & Replace (the old one renamed after
-        its own date, e.g. fingerprint-export-2026-10-28_1003.tgz), Replace, or
-        Cancel. True to go on with the export."""
-        import datetime
-        name = os.path.basename(path)
-        stem = name[:-7] if name.endswith(".tar.gz") else name[:-4]
-        try:
-            when = datetime.datetime.fromtimestamp(os.path.getmtime(path))
-        except OSError:
-            when = datetime.datetime.now()
-        backup = os.path.join(os.path.dirname(path), f"{stem}-{when:%Y-%m-%d_%H%M}.tgz")
-        n = 2
-        while os.path.exists(backup):                   # two exports in the same minute
-            backup = os.path.join(os.path.dirname(path), f"{stem}-{when:%Y-%m-%d_%H%M}-{n}.tgz")
-            n += 1
-        d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
-                          message_type=Gtk.MessageType.QUESTION, text=f"{name} already exists")
-        d.format_secondary_text(
-            f"It was exported {when:%-d %b %Y at %H:%M}. Keep it as a backup "
-            f"({os.path.basename(backup)}), or replace it?")
-        d.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        d.add_button("Replace", 2)
-        d.add_button("Backup & Replace", 1).get_style_context().add_class("suggested-action")
-        d.set_default_response(1)
-        r = d.run()
-        d.destroy()
-        if r == 1:
-            try:
-                os.rename(path, backup)
-            except OSError as e:
-                self.error(f"Couldn't keep the old export as {backup}: {e.strerror}. Nothing was exported.")
-                return False
-            return True
-        return r == 2
-
     def on_import(self, _btn):
+        """☰ → Import fingerprints…: the fingers this install could use (also
+        ones turned down before), with Choose a file… for a backup or a file
+        from elsewhere; straight to the file when there are none."""
+        offer = (self.status or {}).get("import_offer")
+        if offer:
+            self._offer_import(offer, manual=True)
+        else:
+            self._import_file()
+
+    def _import_file(self):
         d = self._chooser("Import fingerprints", Gtk.FileChooserAction.OPEN, "Import")
         default = os.path.expanduser(f"~/{EXPORT_NAME}")
         if os.path.isfile(default):
@@ -3049,50 +2987,74 @@ class Manager(Gtk.Window):
             replace = r == 2
         self.run_job("import", self.after_job("Imported"), file=path, replace=replace, dead=dead)
 
-    # ── fingerprints in ~/fingerprint-export.tgz that this install lacks ──
-    def _offer_export(self, offer):
-        """Once per export file (a new export asks again): offer the fingers in
-        it that this install doesn't have and the sensor still stores."""
-        if offer["id"] in (self._export_offered, load_settings().get("export_offer_seen")):
-            return False
-        if self.busy:                   # e.g. the start-up check of the distro's driver
-            GLib.timeout_add(500, self._offer_export, offer)
-            return False
-        skip_id, _, skip = load_settings().get("export_offer_skip", "").partition(":")
-        if skip_id == offer["id"]:                  # not the fingers removed here
-            offer = dict(offer, fingers=[f for f in offer["fingers"] if f["finger"] not in skip.split(",")])
-            if not offer["fingers"]:
+    # ── fingerprints this install could use: the export file, other distros ──
+    def _offer_import(self, offer, manual=False):
+        """Offer the fingers this install could use straight away: from
+        ~/fingerprint-export.tgz or from the other distros on this laptop (the
+        records they keep on the EFI partition). Each slot is offered once:
+        ones turned down aren't asked about again (until a Reset)."""
+        declined = set(load_settings().get("offer_declined", "").split(",")) - {""}
+        if not manual:
+            offer = [o for o in offer if o["tid"] not in declined | self._offered]
+            if not offer:
+                self._after_reset = False
                 return False
-        self._export_offered = offer["id"]
-        save_setting("export_offer_seen", offer["id"])
-        names = ", ".join(long_finger(f["name"]).lower() for f in offer["fingers"])
-        n = len(offer["fingers"])
-        short = offer["file"].replace(os.path.expanduser("~") + "/", "~/")
-        if self._after_reset:               # straight after Reset: import, or start empty
-            self._after_reset = False
-            d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
-                              message_type=Gtk.MessageType.QUESTION,
-                              text="Import your fingerprints again?")
-            d.format_secondary_text(
-                f"{short} has {names}. Their slots are still on the sensor, so they work again "
-                f"straight away.\n\nOr start {OS_NAME} with no fingerprints and enrol afresh "
-                "(the file can still be imported later: ☰ → Import fingerprints…).")
-            d.add_button("Start empty", Gtk.ResponseType.CANCEL)
-            d.add_button("Import", Gtk.ResponseType.OK).get_style_context().add_class("suggested-action")
-            d.set_default_response(Gtk.ResponseType.OK)
-            ok = d.run() == Gtk.ResponseType.OK
-            d.destroy()
-            if ok:
-                self.run_job("import", self.after_job("Imported"), file=offer["file"],
-                             fingers=[f["finger"] for f in offer["fingers"]], dead=[])
+            if self.busy:               # e.g. the start-up check of the distro's driver
+                GLib.timeout_add(500, self._offer_import, offer)
+                return False
+        self._offered |= {o["tid"] for o in offer}
+        me = (self.status or {}).get("user")
+        owners = {o["user"] for o in offer}
+        after_reset, self._after_reset = self._after_reset, False
+
+        def where(o):
+            if o["from"] == "file":
+                return "~/fingerprint-export.tgz"
+            return " and ".join(o["from"]) if len(o["from"]) <= 2 else f"{len(o['from'])} distros"
+        d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
+                          message_type=Gtk.MessageType.QUESTION,
+                          text="Import your fingerprints again?" if after_reset else
+                          f"Use {'this fingerprint' if len(offer) == 1 else 'these fingerprints'} "
+                          f"on {OS_NAME} too?")
+        d.format_secondary_text(
+            "Already on the sensor, so they work straight away, with no enrolling. "
+            + ("Only tick fingers that are yours. " if owners - {me} else "")
+            + (f"Or start {OS_NAME} with none and enrol afresh." if after_reset else ""))
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2, margin_start=12)
+        checks = []
+        for o in offer:
+            who = "" if o["user"] == me else f"{o['user']}, "
+            c = Gtk.CheckButton(label=f"{long_finger(o['name'])}  ({who}from {where(o)})")
+            # Ticked when it's the user's, or one person's under another name
+            # (dave on Fedora, davidb here); left for them to tick otherwise.
+            c.set_active(o["user"] == me or len(owners) == 1)
+            box.pack_start(c, False, False, 0)
+            checks.append((c, o))
+        d.get_message_area().pack_start(box, False, False, 6)
+        if manual:
+            d.add_button("Choose a file…", 3)
+        d.add_button("Start empty" if after_reset else "Cancel" if manual else "Not now",
+                     Gtk.ResponseType.CANCEL)
+        imp = d.add_button("Import", Gtk.ResponseType.OK)
+        imp.get_style_context().add_class("suggested-action")
+        for c, _ in checks:
+            c.connect("toggled", lambda *_: imp.set_sensitive(any(c.get_active() for c, _ in checks)))
+        d.set_default_response(Gtk.ResponseType.OK)
+        d.show_all()
+        r = d.run()
+        ok = r == Gtk.ResponseType.OK
+        chosen = [o for c, o in checks if c.get_active()] if ok else []
+        d.destroy()
+        if r == 3:
+            self._import_file()
             return False
-        if self.confirm(f"Import {n} fingerprint{'s' if n > 1 else ''} from another install?",
-                        f"{short} has {names}, missing or gone from the sensor on this install. "
-                        "Your others stay as they are.",
-                        "Import", destructive=False):
-            mine = [r for r in self.status["records"] if r["user"] == self.status["user"]]
-            self.run_job("import", self.after_job("Imported"), file=offer["file"],
-                         fingers=[f["finger"] for f in offer["fingers"]],
+        no = [o["tid"] for o in offer if o not in chosen]
+        if no and not manual:                       # not asked again
+            save_setting("offer_declined", ",".join(sorted(declined | set(no))))
+        if chosen:
+            mine = [r for r in self.status["records"] if r["user"] == me]
+            self.run_job("import_offer", self.after_job("Imported"),
+                         tids=[o["tid"] for o in chosen],
                          dead=[r["finger"] for r in mine if r["on_sensor"] is False])
         return False
 

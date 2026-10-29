@@ -15,11 +15,12 @@
 - **The import offer shows on a fresh install:** a new install with `~/fingerprint-export.tgz` wasn't offered the import
 - The Manager checks for an export as it reads the sensor at start, but on a new install it straight away also checks the distro's own driver, and the offer, finding the Manager busy, was dropped. It now waits until that check is done
 
-- **After Reset <distro>…, import again or start empty:** if `~/fingerprint-export.tgz` has fingers whose slots are still on the sensor, you're asked straight away
-- Reset now forgets which export files were already offered on this distro, then asks **Import your fingerprints again?** with **Import** or **Start empty** (the file can still be imported later from ☰). With no such file, it just says what was reset. The Reset dialog says which fingers can be imported again (those in slots kept for other distros) and which can't (cleared slots)
+- **After Reset <distro>…, import again or start empty:** if your fingers' slots are still on the sensor, you're asked straight away
+- Reset forgets which fingers were turned down on this distro, then asks **Import your fingerprints again?** with **Import** or **Start empty** (they can still be imported later from ☰). With nothing to offer, it just says what was reset. The Reset dialog says which fingers can be imported again (those in slots kept for other distros) and which can't (cleared slots)
 
-- **Export keeps your old export if you like:** Backup & Replace, Replace or Cancel when the file already exists
-- When the export file already exists, the Manager asks instead of GTK's plain overwrite question: **Backup & Replace** (the default) renames the old one after the date it was exported, e.g. `fingerprint-export-2026-10-28_1003.tgz`, then exports; **Replace** overwrites it; **Cancel** exports nothing. The import offer only ever reads `~/fingerprint-export.tgz`, so backups are never offered; import one with ☰ → Import fingerprints…
+- **Your fingerprints follow you between distros:** a new or reset distro offers the fingers the others already use, with nothing to copy, and `~/fingerprint-export.tgz` keeps itself up to date
+- Each install keeps its fingers' fprintd records in `fingerprint-slots.json` on the EFI partition (only an ID and the sensor's signature; a slot's record goes when the slot is cleared). When the Manager opens, it offers the fingers this install could use straight away — from the other distros' records or from `~/fingerprint-export.tgz` — in one list with a tick box each and where it's from (another user name is shown and, with more than one, left unticked). One turned down isn't asked about again until **Reset**; ☰ → **Import fingerprints…** lists them all again, with **Choose a file…** for a backup. `~/fingerprint-export.tgz` is rewritten whenever it changes: this install's fingers and ones removed here (their slots are still there) replace the file's for the same finger, and fingers whose slot has gone drop out. ☰ → **Export fingerprints…** is gone: the file is always there to copy (`tools/export-fingerprint.sh` still works). Written beside the file and renamed over it, so a link there is never followed
+- Importing a file with the right little finger in it failed ("Unexpected entry in archive"): fprintd's name for it is `a`, which the check read as a number
 
 ## 2.8.1 — 2026-10-29
 
