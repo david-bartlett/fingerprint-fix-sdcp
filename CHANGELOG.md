@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.8.0 — 2026-10-29
 
 - **Updating with install.sh no longer turns fingerprint login back on:** if you turned it off, it stays off
