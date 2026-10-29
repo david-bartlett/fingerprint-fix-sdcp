@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.8.1 — 2026-10-29
 
 - **The open tab stands out:** Fingerprints / Sensor slots, and it blinks twice when a menu switches tabs
