@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.9.0 — 2026-10-29
 
 - **Arch / CachyOS: builds on a fresh install:** `makepkg -si` failed with *Dependency "gusb" not found* when fprintd wasn't installed yet
