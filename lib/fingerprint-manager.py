@@ -1019,6 +1019,7 @@ class Manager(Gtk.Window):
         self._new_version = None
         self._new_assets = []
         self._export_offered = None
+        self._after_reset = False           # Reset <distro> just ran: ask about the export
         hb.pack_end(self.update_btn)
 
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin=12)
@@ -2461,7 +2462,10 @@ class Manager(Gtk.Window):
                          f"{'stay' if len(shared) != 1 else 'stays'} for them.")
         parts.append(f"{os_} is taken out of the file the distros share, as if it had never used "
                      "the sensor. Use this before reinstalling it, or to enrol your fingers again from "
-                     "scratch. It can't be undone.")
+                     "scratch."
+                     + (" Cleared slots can't be undone: those fingers have to be enrolled again." if clear else "")
+                     + (" Fingers in the slots kept can be imported again from an export: if "
+                        "~/fingerprint-export.tgz has them, you're asked straight after." if shared else ""))
         d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
                           message_type=Gtk.MessageType.WARNING, text=f"Reset {OS_NAME}?")
         d.format_secondary_markup("\n\n".join(parts))
@@ -2477,10 +2481,19 @@ class Manager(Gtk.Window):
             if err:
                 return self.refresh(lambda: self.error(err))
             n, k = len(res["deleted"]), len(res["kept"])
-            self.refresh(lambda: self.message(
-                f"{OS_NAME} reset: {res['records']} fingerprint{'s' if res['records'] != 1 else ''} "
-                f"deleted, {n} slot{'s' if n != 1 else ''} cleared"
-                + (f", {k} kept for other distros." if k else ".")))
+            # A fresh start: exports already offered here are offered again.
+            save_setting("export_offer_seen", "")
+            save_setting("export_offer_skip", "")
+            self._export_offered = None
+            self._after_reset = True
+
+            def after():
+                self.message(f"{OS_NAME} reset: {res['records']} fingerprint{'s' if res['records'] != 1 else ''} "
+                             f"deleted, {n} slot{'s' if n != 1 else ''} cleared"
+                             + (f", {k} kept for other distros." if k else "."))
+                if not (self.status or {}).get("export_offer"):
+                    self._after_reset = False       # nothing to import: empty it is
+            self.refresh(after)
         self.run_job("reset_install", done)
 
     def on_distros(self, *_):
@@ -3018,6 +3031,24 @@ class Manager(Gtk.Window):
         names = ", ".join(long_finger(f["name"]).lower() for f in offer["fingers"])
         n = len(offer["fingers"])
         short = offer["file"].replace(os.path.expanduser("~") + "/", "~/")
+        if self._after_reset:               # straight after Reset: import, or start empty
+            self._after_reset = False
+            d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
+                              message_type=Gtk.MessageType.QUESTION,
+                              text="Import your fingerprints again?")
+            d.format_secondary_text(
+                f"{short} has {names}. Their slots are still on the sensor, so they work again "
+                f"straight away.\n\nOr start {OS_NAME} with no fingerprints and enrol afresh "
+                "(the file can still be imported later: ☰ → Import fingerprints…).")
+            d.add_button("Start empty", Gtk.ResponseType.CANCEL)
+            d.add_button("Import", Gtk.ResponseType.OK).get_style_context().add_class("suggested-action")
+            d.set_default_response(Gtk.ResponseType.OK)
+            ok = d.run() == Gtk.ResponseType.OK
+            d.destroy()
+            if ok:
+                self.run_job("import", self.after_job("Imported"), file=offer["file"],
+                             fingers=[f["finger"] for f in offer["fingers"]], dead=[])
+            return False
         if self.confirm(f"Import {n} fingerprint{'s' if n > 1 else ''} from another install?",
                         f"{short} has {names}, missing or gone from the sensor on this install. "
                         "Your others stay as they are.",
