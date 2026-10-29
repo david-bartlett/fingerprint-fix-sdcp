@@ -2969,13 +2969,50 @@ class Manager(Gtk.Window):
     def on_export(self, _btn):
         d = self._chooser("Export fingerprints", Gtk.FileChooserAction.SAVE, "Export")
         d.set_current_name(EXPORT_NAME)
-        d.set_do_overwrite_confirmation(True)
         path = d.get_filename() if d.run() == Gtk.ResponseType.OK else None
         d.destroy()
         if path:
             if not path.endswith((".tgz", ".tar.gz")):
                 path += ".tgz"
+            if os.path.exists(path) and not self._replace_export(path):
+                return
             self.run_job("export", self.after_job("Exported"), file=path)
+
+    def _replace_export(self, path):
+        """The export file exists: Backup & Replace (the old one renamed after
+        its own date, e.g. fingerprint-export-2026-10-28_1003.tgz), Replace, or
+        Cancel. True to go on with the export."""
+        import datetime
+        name = os.path.basename(path)
+        stem = name[:-7] if name.endswith(".tar.gz") else name[:-4]
+        try:
+            when = datetime.datetime.fromtimestamp(os.path.getmtime(path))
+        except OSError:
+            when = datetime.datetime.now()
+        backup = os.path.join(os.path.dirname(path), f"{stem}-{when:%Y-%m-%d_%H%M}.tgz")
+        n = 2
+        while os.path.exists(backup):                   # two exports in the same minute
+            backup = os.path.join(os.path.dirname(path), f"{stem}-{when:%Y-%m-%d_%H%M}-{n}.tgz")
+            n += 1
+        d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
+                          message_type=Gtk.MessageType.QUESTION, text=f"{name} already exists")
+        d.format_secondary_text(
+            f"It was exported {when:%-d %b %Y at %H:%M}. Keep it as a backup "
+            f"({os.path.basename(backup)}), or replace it?")
+        d.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        d.add_button("Replace", 2)
+        d.add_button("Backup & Replace", 1).get_style_context().add_class("suggested-action")
+        d.set_default_response(1)
+        r = d.run()
+        d.destroy()
+        if r == 1:
+            try:
+                os.rename(path, backup)
+            except OSError as e:
+                self.error(f"Couldn't keep the old export as {backup}: {e.strerror}. Nothing was exported.")
+                return False
+            return True
+        return r == 2
 
     def on_import(self, _btn):
         d = self._chooser("Import fingerprints", Gtk.FileChooserAction.OPEN, "Import")
