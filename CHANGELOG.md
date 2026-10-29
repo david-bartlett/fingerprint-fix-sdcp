@@ -19,8 +19,8 @@
 - **Reset this distro:** ☰ → Reset <distro>… deletes its fingerprints, frees the slots only it uses and takes it out of the shared file, before a reinstall or to start again
 - Distros sharing the sensor… → Forget… now lists the slots only that distro used (not this install's, and no other distro still using them) and offers **Forget and clear N slots**, which erases them from the sensor as well, or **Forget only**. ☰ → **Reset <distro>…** (e.g. Reset CachyOS…) starts this distro again: every user's fingerprint records here are deleted for good, with those moved aside earlier; the slots only it uses are cleared from the sensor; ones other distros also use are kept; and it's taken out of `fingerprint-slots.json`. The ☰ menu's options have icons and the same style as the right-click menus; its two on/off options have a switch on the right instead of a tick box, so nothing is indented
 
-- **The open tab stands out:** Fingerprints / Sensor slots, with a brief glow when a menu switches tabs
-- The tab you're on is filled with the theme's accent colour. **Show on sensor**, **Show finger** and the sensor-full dialog's **Open Sensor slots** switch tabs with a short glow around the new tab, so the switch is noticed
+- **The open tab stands out:** Fingerprints / Sensor slots, and it blinks once when a menu switches tabs
+- The tab you're on is filled with the theme's accent colour. **Show on sensor**, **Show finger** and the sensor-full dialog's **Open Sensor slots** switch tabs and the new tab blinks once, so the switch is noticed
 
 ## 2.7.0 — 2026-10-28
 
