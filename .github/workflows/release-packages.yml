@@ -116,15 +116,17 @@ jobs:
     timeout-minutes: 45
     container: archlinux:base-devel
     steps:
-      # The package's dependencies are installed here, so makepkg (which
-      # refuses to run as root) can build as a plain user with --nodeps.
-      - run: >
-          pacman -Syu --noconfirm --needed git meson ninja pkgconf glib2-devel patch
-          fprintd libfprint glib2 libgusb openssl bash systemd usbutils libnotify polkit
-          python python-gobject python-cairo gtk3
+      - run: pacman -Syu --noconfirm --needed git
       - uses: actions/checkout@v6
         with:
           ref: ${{ env.TAG }}
+      # Only the PKGBUILD's makedepends, as on a fresh install: makepkg (which
+      # refuses to run as root) then builds as a plain user with --nodeps, and
+      # a build dependency missing from the PKGBUILD fails here.
+      - name: Install the build dependencies
+        run: |
+          deps=$(bash -c 'source packaging/arch/PKGBUILD 2>/dev/null; echo "${makedepends[@]}"')
+          pacman -S --noconfirm --needed $deps
       # Only to check that it builds: the release attaches the PKGBUILD, not
       # the package, so it is built on each user's system against its current
       # libraries (and its prepare() can check the hardware first).

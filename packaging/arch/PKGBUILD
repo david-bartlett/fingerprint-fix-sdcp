@@ -22,7 +22,7 @@ pkgdesc="Egis fingerprint reader driver for Samsung Galaxy Book (egismoc SDCP, f
 arch=('x86_64')
 url="https://github.com/david-bartlett/fingerprint-fix-sdcp"
 license=('GPL-2.0-or-later' 'LGPL-2.1-or-later')   # the fix; the driver (libfprint)
-makedepends=('git' 'meson' 'ninja' 'pkgconf' 'glib2-devel' 'patch')
+makedepends=('git' 'meson' 'ninja' 'pkgconf' 'glib2-devel' 'patch' 'libgusb' 'openssl')   # libgusb, openssl: the driver links them
 options=('!debug')            # no separate -debug package in the release downloads
 source=("libfprint-egismoc-sdcp::git+https://github.com/david-bartlett/libfprint-egismoc-sdcp.git#commit=${_driver}")
 sha256sums=('SKIP')            # a git source is pinned by its commit id
