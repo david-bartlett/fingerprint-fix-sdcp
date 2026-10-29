@@ -1495,7 +1495,7 @@ class Manager(Gtk.Window):
             if kind == "ok":
                 also = shared_where(sh, full=True) if sh else ""
                 where = (f"Used here and by {also[8:]}" if also.startswith("used by")
-                         else f"Used on {OS_NAME} only")
+                         else f"Used on {OS_NAME} only" if self._multi else "")   # one distro: implied
             elif kind == "dead":
                 where = ("Gone from the sensor: enrolled again on another install, or deleted "
                          "by Windows. It can never match: remove it, or enrol it again")
@@ -1534,9 +1534,10 @@ class Manager(Gtk.Window):
                 user, _, finger = u.partition(" ")
                 who.append(f"{long_finger(finger)} ({user})" if finger else user)
             also = shared_where(t["shared"], full=True) if t.get("shared") else ""
-            where = f"Used here and by {also[8:]}" if also.startswith("used by") else "Used here only"
+            where = (f"Used here and by {also[8:]}" if also.startswith("used by")
+                     else "Used here only" if self._multi else "")          # one distro: implied
             stale = stale_note(t["shared"]) if t.get("shared") else ""
-            return f"{'; '.join(who)}\n{where}{chr(10) + stale if stale else ''}\nTemplate {t['id']}"
+            return "\n".join(x for x in ("; ".join(who), where, stale, f"Template {t['id']}") if x)
         rm = t.get("removed")
         if rm:
             how = "Removed from" if rm["kind"] == "removed" else "Replaced on"
