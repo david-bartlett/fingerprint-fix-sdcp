@@ -44,7 +44,7 @@ try:
     from gi.repository import GLib
     GLib.set_prgname(APP_ID)
     GLib.set_application_name("Galaxy Book Fingerprint Manager")
-    from gi.repository import Gtk, Gdk, Gio, Pango
+    from gi.repository import Gtk, Gdk, Gio, Pango, GObject
     Gdk.set_program_class(APP_ID)     # X11 WM_CLASS, matched by StartupWMClass
 except (ImportError, ValueError) as e:
     sys.exit(f"Fingerprint Manager needs PyGObject with GTK 3 ({e}).\n"
@@ -308,6 +308,36 @@ class Helper:
 
 
 # ── The information panel ─────────────────────────────────────────────────────
+class ToggleMenuItem(Gtk.MenuItem):
+    """An on/off option for the ☰ menu: an icon, the label and a switch on the
+    right, so it lines up with the other options (a Gtk.CheckMenuItem puts its
+    tick box where the icons go, and some themes then indent every other item).
+    get_active / set_active and "toggled", like a CheckMenuItem."""
+    __gsignals__ = {"toggled": (GObject.SignalFlags.RUN_FIRST, None, ())}
+
+    def __init__(self, label, icon, active=False):
+        super().__init__()
+        box = Gtk.Box(spacing=10)
+        box.pack_start(Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.MENU), False, False, 0)
+        box.pack_start(Gtk.Label(label=label, xalign=0), True, True, 0)
+        self.switch = Gtk.Switch(active=active, valign=Gtk.Align.CENTER, can_focus=False)
+        self.switch.get_style_context().add_class("fpm-menu-switch")
+        box.pack_start(self.switch, False, False, 0)
+        box.show_all()
+        self.add(box)
+
+    def do_activate(self):
+        self.set_active(not self.get_active())
+
+    def get_active(self):
+        return self.switch.get_active()
+
+    def set_active(self, on):
+        if on != self.switch.get_active():
+            self.switch.set_active(on)
+            self.emit("toggled")
+
+
 class MsgPanel(Gtk.Box):
     """The card at the bottom of the window that shows the latest message (one
     or two lines, with an action and Details… button and ×). With nothing to
@@ -382,7 +412,7 @@ menu.fpm-menu menuitem image { color: alpha(@theme_fg_color, 0.70); }
 menu.fpm-menu menuitem.fpm-menu-title { padding: 4px 14px 6px 8px; }
 menu.fpm-menu menuitem.fpm-menu-title:disabled label { color: @theme_fg_color; }
 menu.fpm-menu menuitem.fpm-menu-title:disabled label.fpm-menu-sub { color: alpha(@theme_fg_color, 0.55); }
-menu.fpm-menu menuitem check { margin-right: 10px; }
+menu.fpm-menu switch.fpm-menu-switch { margin: -5px 0 -5px 16px; }
 menu.fpm-menu menuitem.fpm-danger label, menu.fpm-menu menuitem.fpm-danger image { color: #c01c28; }
 menu.fpm-menu menuitem.fpm-danger:hover { background-color: alpha(#c01c28, 0.12); }
 menu.fpm-menu menuitem.fpm-danger:hover label, menu.fpm-menu menuitem.fpm-danger:hover image { color: #c01c28; }
@@ -924,7 +954,7 @@ class Manager(Gtk.Window):
 
         menu = Gtk.Menu()
         menu.get_style_context().add_class("fpm-menu")      # styled like the right-click menus
-        menu.set_reserve_toggle_size(False)    # the tick boxes sit where the icons are
+        menu.set_reserve_toggle_size(False)    # no empty tick-box column
         self.export_item = self._menu_item(menu, "Export fingerprints…", self.on_export,
                                            "document-save-symbolic")
         self.import_item = self._menu_item(menu, "Import fingerprints…", self.on_import,
@@ -937,14 +967,14 @@ class Manager(Gtk.Window):
                                             "computer-symbolic")
         self.distros_item.set_no_show_all(True)
         menu.append(Gtk.SeparatorMenuItem())
-        self.update_item = Gtk.CheckMenuItem(label="Check for new versions")
+        self.update_item = ToggleMenuItem("Check for new versions", "software-update-available-symbolic")
         self.update_item.set_tooltip_text("Asks GitHub when the Manager starts and about every hour "
                                           "whether a newer fingerprint-fix-sdcp has been released "
                                           "(off = its user timers masked)")
         self.update_item.set_active(update_check.enabled())
         self.update_item.connect("toggled", self._on_update_toggled)
         menu.append(self.update_item)
-        self.windows_item = Gtk.CheckMenuItem(label="Remind me about Windows")
+        self.windows_item = ToggleMenuItem("Remind me about Windows", "dialog-information-symbolic")
         self.windows_item.set_tooltip_text("When Windows is installed on this laptop, show a "
                                            "reminder to disable its fingerprint reader there")
         self.windows_item.set_active(load_settings().get("windows_hint", "1") == "1")
@@ -1188,6 +1218,14 @@ class Manager(Gtk.Window):
                                        "and Windows Hello's")
         self.wipe_btn.connect("clicked", self.on_wipe)
         row.pack_end(self.wipe_btn, False, False, 0)
+        # Only when the shared slots file lists other distros (see _update_buttons).
+        self.distros_btn = Gtk.Button(label="Other distros…")
+        self.distros_btn.set_tooltip_text("The other distros on this laptop that share the sensor: "
+                                          "when each last opened the Manager, and forget one "
+                                          "that's been wiped")
+        self.distros_btn.connect("clicked", self.on_distros)
+        self.distros_btn.set_no_show_all(True)
+        row.pack_end(self.distros_btn, False, False, 0)
         self.btn_stack.add_named(row, "sensor")
         self.stack.add_titled(page, "sensor", "Sensor slots")
         self.sensor_page = page
@@ -1679,9 +1717,6 @@ class Manager(Gtk.Window):
                      " · ".join(x for x in (sh["user"], shared_where(sh), when, "not used here") if x))
         else:
             title = ("Unknown template", "Not noted by any install: another distro, Windows Hello…")
-        if self._other_installs():
-            entries.append(("Distros sharing the sensor…", self.on_distros, True, None,
-                            "computer-symbolic"))
         if entries:
             entries.append(None)
         entries.append(("Clear slot…", lambda: self.on_delete_templates(None),
@@ -1927,8 +1962,9 @@ class Manager(Gtk.Window):
         self.export_item.set_sensitive(ready and any(r["on_sensor"] for r in mine))
         self.import_item.set_sensitive(ready)
         self.restore_item.set_sensitive(ready)
-        self.distros_item.set_visible(bool(self._other_installs()))
-        self.distros_item.set_sensitive(ready)
+        for w in (self.distros_item, self.distros_btn):
+            w.set_visible(bool(self._other_installs()))
+            w.set_sensitive(ready)
         pam = (st or {}).get("pam", {}).get("state")
         self.pam_switch.set_sensitive(ready and pam in ("enabled", "disabled", "partial"))
 
