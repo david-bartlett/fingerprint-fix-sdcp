@@ -165,6 +165,15 @@ def share_slots(serial, templates, records_by_tid):
     return _installs(sensor, me)
 
 
+def used_elsewhere(serial):
+    """Templates on this sensor that another install still uses (state "used")."""
+    me, path = install_key(), _path()
+    sensor = ((_load(path).get("sensors") or {}).get(serial) or {}) if path else {}
+    return {tid for tid, e in sensor.items() if isinstance(e, dict)
+            and any(k != me and isinstance(v, dict) and v.get("state", "used") == "used"
+                    for k, v in (e.get("installs") or {}).items())}
+
+
 def forget_installs(keys, serial=None):
     """Take installs (by key) out of the shared file, on one sensor or all.
     Their templates' finger and user stay, so the others can still say whose
