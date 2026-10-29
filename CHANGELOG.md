@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.10.0 — 2026-10-29
 
 - **Removed fingers can always be restored:** removing several one at a time lost the first ones' copies
 - Removed and replaced records were kept in dated folders, only the newest 5. Removing six fingers one at a time made six, so the first finger's copy was deleted and **Restore <distro> fingerprints** couldn't bring it back. Now a copy is kept while it can be restored, and deleted only when its slot is gone from the sensor or the finger is back in it (the Manager, the boot check and `import-fingerprint.sh`)
