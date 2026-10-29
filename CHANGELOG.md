@@ -12,6 +12,9 @@
 - **Updating with install.sh no longer turns fingerprint login back on:** if you turned it off, it stays off
 - `install.sh` on Fedora, Ubuntu, Mint, Debian and MX turned fingerprint login on every time it ran, so updating with `git pull` and `sudo bash install.sh` undid turning it off in the Manager. Now, like the packages, it only turns it on at the first install on the computer, and `sudo FPRINT_PAM=0 bash install.sh` leaves it off there too. README: how to pass `FPRINT_PAM=0` with each install method (with Arch's `makepkg -si` it can't be: `makepkg -s`, then `sudo FPRINT_PAM=0 pacman -U`)
 
+- **Removing a distro tidies up its sensor slots:** the other distros stop listing it, and a wiped one can be forgotten
+- Removing the Galaxy Book Fingerprint Manager (dnf / apt / pacman remove, or `uninstall.sh`; not an update) takes this install out of `fingerprint-slots.json` on the EFI partition, so the other distros no longer show its slots as used by it. A distro that was wiped or reinstalled without that can be forgotten from another one: right-click a slot (or the ⓘ button) → **Distros sharing the sensor…** lists every distro in the file with the date it last opened the Manager and how many slots it uses; select one → **Forget…**. A distro listed twice (a reinstall) is pointed out. Slot tooltips say when another distro hasn't been seen for a month or more ("CachyOS last seen 1 Jul 2026"). The shared-file code moved to `lib/shared_slots.py`
+
 ## 2.7.0 — 2026-10-28
 
 - **Tidier window:** no empty space under the slots, and short, readable hover text

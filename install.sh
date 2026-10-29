@@ -37,7 +37,7 @@ for _f in lib/sensor-check.py lib/fingerprint-manager.py lib/fingerprint-manager
           lib/galaxybook-fingerprint-manager.svg fingerprint-manager.sh \
           tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh \
           lib/fixpaths.sh lib/update_check.py lib/notify-open-manager.sh lib/notify-update.sh lib/distro-driver-check.py \
-          lib/terminal.py lib/update-in-terminal.sh \
+          lib/terminal.py lib/update-in-terminal.sh lib/shared_slots.py \
           packaging/render.sh packaging/files/monitor.sh.in packaging/files/mgr-cleanup.sh.in \
           packaging/files/fprintd-env.sh.in packaging/files/dropin.conf.in lib/other-fix.sh \
           VERSION DRIVER; do
@@ -634,7 +634,7 @@ install -d -m 755 -o root -g root "$MGR_DIR" "$MGR_DIR/lib" "$MGR_DIR/tools"
 install -m 755 -o root -g root "$SCRIPT_DIR/fingerprint-manager.sh" "$MGR_DIR/"
 install -m 644 -o root -g root "$SCRIPT_DIR/VERSION" "$MGR_DIR/"
 install -m 755 -o root -g root "$SCRIPT_DIR/lib/fingerprint-manager.py" \
-    "$SCRIPT_DIR/lib/fingerprint-manager-helper.py" "$MGR_DIR/lib/"
+    "$SCRIPT_DIR/lib/fingerprint-manager-helper.py" "$SCRIPT_DIR/lib/shared_slots.py" "$MGR_DIR/lib/"
 install -m 644 -o root -g root "$SCRIPT_DIR/lib/fixpaths.sh" "$MGR_DIR/lib/"
 install -m 755 -o root -g root "$SCRIPT_DIR/lib/update_check.py" "$SCRIPT_DIR/lib/notify-open-manager.sh" \
     "$SCRIPT_DIR/lib/notify-update.sh" "$SCRIPT_DIR/lib/terminal.py" "$SCRIPT_DIR/lib/update-in-terminal.sh" \

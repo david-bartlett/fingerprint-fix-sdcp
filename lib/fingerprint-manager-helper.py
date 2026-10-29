@@ -147,118 +147,8 @@ def short_id(p):
     return hashlib.sha1(bytes(data)).hexdigest()[:10]
 
 
-# ── Slots shared with the laptop's other installs ────────────────────────────
-# With SDCP the sensor only knows a template's ID (a MAC, no finger or name), so
-# each install notes what it knows about its templates in one small file on the
-# EFI system partition, which every OS on the laptop shares:
-#   <ESP>/EFI/samsung-galaxybook/fingerprint-slots.json
-# {"version": 1, "sensors": {SERIAL: {TEMPLATE: {"finger", "user", "enrolled",
-#   "enrolled_on", "installs": {INSTALL: {"os", "state": used|removed, "seen"}}}}}}
-# TEMPLATE is the short ID the Sensor tab shows; INSTALL a hash of this install's
-# machine-id. Updated whenever the Manager reads the sensor; best effort only.
-SHARED_REL = os.path.join("EFI", "samsung-galaxybook", "fingerprint-slots.json")
-
-
-def esp_dir():
-    """The EFI system partition's mount point (FAT, with an EFI folder), or None."""
-    def vfat_mounts():
-        try:
-            with open("/proc/mounts") as f:
-                return [l.split()[1].replace("\\040", " ") for l in f
-                        if len(l.split()) > 2 and l.split()[2] in ("vfat", "msdos")]
-        except OSError:
-            return []
-    for mp in ["/boot/efi", "/efi", "/boot"] + vfat_mounts():
-        try:
-            if os.path.isdir(os.path.join(mp, "EFI")) and mp in vfat_mounts():   # (autofs mounts it)
-                return mp
-        except OSError:
-            continue
-    return None
-
-
-def install_key():
-    try:
-        with open("/etc/machine-id") as f:
-            return hashlib.sha256(f.read().strip().encode()).hexdigest()[:12]
-    except OSError:
-        return None
-
-
-def os_label():
-    """This install's distro, as the Manager names it (Fedora, Ubuntu, Linux Mint…)."""
-    if os.path.exists("/etc/mx-version"):
-        return "MX Linux"
-    fields = {}
-    try:
-        with open("/etc/os-release") as f:
-            for line in f:
-                k, _, v = line.strip().partition("=")
-                fields[k] = v.strip("\"'")
-    except OSError:
-        pass
-    name = fields.get("NAME") or fields.get("ID", "").capitalize()
-    for suffix in (" GNU/Linux", " Linux"):
-        if name.endswith(suffix) and name != suffix.strip():
-            name = name[: -len(suffix)]
-    return name.strip() or "Linux"
-
-
-def share_slots(serial, templates, records_by_tid):
-    """Note this install's templates in the shared file and add what other
-    installs noted to each template ("shared"). Never fails the status."""
-    me, esp = install_key(), esp_dir()
-    if not me or not esp or not serial:
-        return
-    path = os.path.join(esp, SHARED_REL)
-    try:
-        with open(path) as f:
-            data = json.load(f)
-        if not isinstance(data, dict) or data.get("version") != 1:
-            data = {}
-    except (OSError, ValueError):
-        data = {}
-    before = json.dumps(data, sort_keys=True)
-    data["version"] = 1
-    sensor = data.setdefault("sensors", {}).setdefault(serial, {})
-    today = datetime.date.today().isoformat()
-    here = os_label()
-    on_chip = {t["id"] for t in templates}
-    for tid in list(sensor):
-        if tid not in on_chip or not isinstance(sensor[tid], dict):
-            del sensor[tid]                         # cleared from the sensor
-    for t in templates:
-        e = sensor.get(t["id"], {})
-        installs = e.setdefault("installs", {})
-        r = records_by_tid.get(t["id"])
-        if r is not None:
-            if "enrolled_on" not in e:              # the first install to note it
-                e.update(enrolled_on=here, enrolled=r["enrolled"])
-            e.update(finger=r["name"], user=r["user"])
-            installs[me] = {"os": here, "state": "used", "seen": today}
-        elif t.get("removed"):
-            rm = t["removed"]
-            e.setdefault("finger", rm["name"])
-            e.setdefault("user", rm["user"])
-            installs[me] = {"os": here, "state": "removed", "seen": today}
-        else:
-            installs.pop(me, None)
-        if e.get("finger"):
-            sensor[t["id"]] = e
-            others = [{"os": v.get("os", "?"), "state": v.get("state", "used")}
-                      for k, v in sorted(installs.items()) if k != me and isinstance(v, dict)]
-            t["shared"] = {"finger": e["finger"], "user": e.get("user", ""),
-                           "enrolled": e.get("enrolled", ""), "enrolled_on": e.get("enrolled_on", ""),
-                           "others": others}
-    if json.dumps(data, sort_keys=True) != before:
-        try:
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            tmp = path + ".new"
-            with open(tmp, "w") as f:
-                json.dump(data, f, indent=1, sort_keys=True)
-            os.replace(tmp, path)
-        except OSError:
-            pass
+# Slots shared with the laptop's other installs: see shared_slots.py.
+from shared_slots import share_slots, forget_installs, install_key  # noqa: E402
 
 
 def enroll_date(p):
@@ -484,10 +374,11 @@ def do_status(req):
                               "error": r.get("error")})
     st["templates"].sort(key=lambda t: (not t["used_by"], t["id"]))
     try:                                            # what other installs know of them
-        share_slots(serial, st["templates"],
-                    {r["template"]: r for r in st["records"] if r["template"] and r["on_sensor"]})
+        st["installs"] = share_slots(serial, st["templates"],
+                                     {r["template"]: r for r in st["records"]
+                                      if r["template"] and r["on_sensor"]})
     except Exception:
-        pass
+        st["installs"] = None
     st["pam"] = pam_state()
     if req.get("export"):
         st["export_offer"] = export_offer(st["user"], serial, chip, records)
@@ -868,6 +759,14 @@ def do_restore(req):
     return {"restored": restored, "skipped": skipped}
 
 
+def do_forget_install(req):
+    """Take another install, one that's gone, out of the shared slots file."""
+    key = str(req.get("key") or "")
+    if not re.fullmatch(r"[0-9a-f]{12}", key) or key == install_key():
+        raise Fail("That install can't be forgotten.")
+    return {"forgotten": forget_installs([key])}
+
+
 def do_export(req):
     out = req.get("file") or ""
     argv = [os.path.join(TOOLS, "export-fingerprint.sh")] + ([out] if out else [])
@@ -895,7 +794,7 @@ ACTIONS = {"status": do_status, "remove_records": do_remove_records,
            "delete_other_driver": do_delete_other_driver,
            "delete_templates": do_delete_templates, "wipe": do_wipe,
            "export": do_export, "import": do_import, "test": do_test,
-           "pam": do_pam, "list_moved": do_list_moved, "restore": do_restore}
+           "pam": do_pam, "forget_install": do_forget_install, "list_moved": do_list_moved, "restore": do_restore}
 
 
 def handle(req):

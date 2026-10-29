@@ -68,6 +68,8 @@ if [[ "${1:-}" == --manager-only ]]; then
     info "Removing the Galaxy Book Fingerprint Manager, its monitor and boot / login checks"
     # Anyone who turned update checking off: the driver can still check for them.
     bash "$SCRIPT_DIR/packaging/render.sh" local checks-off-hint.sh.in | bash || true
+    # The other distros on this laptop stop listing this one's fingerprint slots.
+    python3 "$SCRIPT_DIR/lib/shared_slots.py" --forget-here || true
     "$MGR_CLEANUP"
     command -v update-desktop-database >/dev/null 2>&1 \
         && update-desktop-database -q /usr/share/applications 2>/dev/null || true
@@ -108,6 +110,8 @@ step "Fingerprint Step 2: Restoring the distro libfprint for fprintd"
 rm -f "$FPRINT_DROPIN" "${FPRINT_DROPIN}.testing" "$FPRINT_ENV_SCRIPT" "$FPRINT_ENV_FILE" "$FPRINT_OTHER_FIX"
 rmdir "$FPRINT_DROPIN_DIR" 2>/dev/null || true
 rm -rf "$FPRINT_LIB_DIR"       # before 2.0.0 this included the Manager (manager/)
+# The other distros on this laptop stop listing this one's fingerprint slots.
+[[ -f "$MGR_MARKER" ]] && { python3 "$SCRIPT_DIR/lib/shared_slots.py" --forget-here || true; }
 rm -rf "$MGR_DIR"
 # Fingerprint Manager's menu entry, command, icon and polkit policy
 rm -f "$MGR_BIN" "$MGR_DESKTOP" "$MGR_ICON" "$MGR_POLICY"

@@ -115,6 +115,8 @@ post_upgrade() {
 
 pre_remove() {
     bash /usr/lib/galaxybook-fingerprint-manager/checks-off-hint.sh | sed 's/^/==> /' || true
+    # The other distros on this laptop stop listing this one's fingerprint slots.
+    python3 /usr/lib/galaxybook-fingerprint-manager/lib/shared_slots.py --forget-here | sed 's/^/==> /' || true
     systemctl disable "$_boot_check" >/dev/null 2>&1 || true
     systemctl --global disable "$_user_check" >/dev/null 2>&1 || true
     systemctl --global disable galaxybook-fingerprint-manager-update-check.timer >/dev/null 2>&1 || true

@@ -793,6 +793,22 @@ def shared_where(sh, short=False, full=False):
     return ""
 
 
+STALE_DAYS = 30
+
+
+def stale_note(sh):
+    """'Ubuntu last seen 3 Aug 2026' for the other distros that haven't opened
+    the Manager for a month or more (they may be gone), '' if none."""
+    import datetime
+    old = (datetime.date.today() - datetime.timedelta(days=STALE_DAYS)).isoformat()
+    seen = {}
+    for o in sh.get("others", []):
+        if o.get("seen") and (o["os"] not in seen or o["seen"] > seen[o["os"]]):
+            seen[o["os"]] = o["seen"]
+    return "; ".join(f"{name} last seen {nice_date(day, True)}"
+                     for name, day in sorted(seen.items(), key=lambda x: x[1]) if day < old)
+
+
 def _login_screen():
     """The display manager, from display-manager.service: gdm, sddm,
     plasmalogin, lightdm… ('' when unknown)."""
@@ -1306,7 +1322,8 @@ class Manager(Gtk.Window):
                 who.append(f"{long_finger(finger)} ({user})" if finger else user)
             also = shared_where(t["shared"], full=True) if t.get("shared") else ""
             where = f"Used here and by {also[8:]}" if also.startswith("used by") else "Used here only"
-            return f"{'; '.join(who)}\n{where}\nTemplate {t['id']}"
+            stale = stale_note(t["shared"]) if t.get("shared") else ""
+            return f"{'; '.join(who)}\n{where}{chr(10) + stale if stale else ''}\nTemplate {t['id']}"
         rm = t.get("removed")
         if rm:
             how = "Removed from" if rm["kind"] == "removed" else "Replaced on"
@@ -1321,8 +1338,9 @@ class Manager(Gtk.Window):
             where = (where[0].upper() + where[1:]) if where else "Not used by any install"
             when = (f"\nEnrolled {nice_date(sh['enrolled'], True)}"
                     f"{' on ' + sh['enrolled_on'] if sh['enrolled_on'] else ''}") if sh["enrolled"] else ""
+            stale = stale_note(sh)
             return (f"{long_finger(sh['finger'])}{who}\n{where}; not used by {OS_NAME}"
-                    f"{when}\nTemplate {t['id']}")
+                    f"{when}{chr(10) + stale if stale else ''}\nTemplate {t['id']}")
         return ("Unknown fingerprint\n"
                 "No install on this laptop has noted it: another distro that hasn't run the "
                 "Galaxy Book Fingerprint Manager yet, Windows Hello's own, or left over from a "
@@ -1643,6 +1661,9 @@ class Manager(Gtk.Window):
                      " · ".join(x for x in (sh["user"], shared_where(sh), when, "not used here") if x))
         else:
             title = ("Unknown template", "Not noted by any install: another distro, Windows Hello…")
+        if self._other_installs():
+            entries.append(("Distros sharing the sensor…", self.on_distros, True, None,
+                            "computer-symbolic"))
         if entries:
             entries.append(None)
         entries.append(("Clear slot…", lambda: self.on_delete_templates(None),
@@ -2330,8 +2351,75 @@ class Manager(Gtk.Window):
             "It can't be undone: that finger has to be enrolled again.\n"
             f"• <b>When all {SENSOR_SLOTS} slots are full</b>, clear one you don't need before "
             "enrolling another finger.")
-        d.run()
+        if self._other_installs():
+            d.add_button("Distros sharing the sensor…", 1)
+        r = d.run()
         d.destroy()
+        if r == 1:
+            self.on_distros()
+
+    def _other_installs(self):
+        """The other installs in the shared slots file (see shared_slots.py)."""
+        return [i for i in ((self.status or {}).get("installs") or []) if not i["here"]]
+
+    def on_distros(self, *_):
+        """The installs that share the sensor, from the file on the EFI
+        partition, with a way to forget one that's gone (wiped, reinstalled)."""
+        installs = (self.status or {}).get("installs") or []
+        d = Gtk.Dialog(title="Distros sharing the sensor", transient_for=self, modal=True)
+        d.set_default_size(560, 320)
+        d.add_button("Close", Gtk.ResponseType.CLOSE)
+        forget = d.add_button("Forget…", 1)
+        forget.get_style_context().add_class("destructive-action")
+        area = d.get_content_area()
+        area.set_spacing(8)
+        area.set_border_width(12)
+        area.pack_start(Gtk.Label(wrap=True, xalign=0, max_width_chars=60, label=(
+            "Each Linux on this laptop that runs the Galaxy Book Fingerprint Manager notes its "
+            "fingerprints in a file on the EFI partition, so the others can show whose each slot "
+            "is. If a distro has been wiped or reinstalled, forget it here: its slots then stop "
+            "showing as used by it.")), False, False, 0)
+        # distro, last seen, slots, key, here
+        store = Gtk.ListStore(str, str, str, str, bool)
+        for i in installs:
+            store.append([i["os"] + (" (this install)" if i["here"] else ""),
+                          nice_date(i["seen"], True) or "—", str(i["slots"]), i["key"], i["here"]])
+        view = self._table(store, ["Distro", "Last seen", "Slots"])
+        sw = Gtk.ScrolledWindow(shadow_type=Gtk.ShadowType.IN)
+        sw.add(view)
+        area.pack_start(sw, True, True, 0)
+        names = [i["os"] for i in installs]
+        twice = sorted({n for n in names if names.count(n) > 1})
+        if twice:
+            area.pack_start(Gtk.Label(wrap=True, xalign=0, max_width_chars=60, label=(
+                f"{' and '.join(twice)} {'is' if len(twice) == 1 else 'are'} listed twice: usually "
+                "a reinstall. Forget the one last seen longest ago.")), False, False, 0)
+
+        def changed(*_):
+            rows = self._selected(view, 0)
+            forget.set_sensitive(len(rows) == 1 and not rows[0][4] and not self.busy)
+        view.get_selection().connect("changed", changed)
+        changed()
+        d.show_all()
+        rows = self._selected(view, 0) if d.run() == 1 else []
+        d.destroy()
+        if len(rows) != 1 or rows[0][4]:
+            return
+        name, seen, key = rows[0][0], rows[0][1], rows[0][3]
+        if not self.confirm(f"Forget {name}?",
+                            f"Only if {name} (last seen {seen}) is no longer on this laptop. Its "
+                            "slots stay on the sensor, but stop showing as used by it, so you can "
+                            "see which ones nothing uses any more and clear them.\n\n"
+                            f"If {name} is still installed, it adds itself back the next time its "
+                            "Galaxy Book Fingerprint Manager opens.",
+                            "Forget"):
+            return
+
+        def done(res, err):
+            if err:
+                return self.refresh(lambda: self.error(err))
+            self.refresh(lambda: self.message(f"Forgot {name}. Its slots no longer show as used by it."))
+        self.run_job("forget_install", done, key=key)
 
     def sensor_full_dialog(self, parent=None):
         """All slots taken: say so, with a button to the Sensor tab. True when

@@ -101,7 +101,7 @@ manager)
     # ── Galaxy Book Fingerprint Manager ───────────────────────────────────────
     install -Dm755 "$REPO/fingerprint-manager.sh" "$D$MGR_DIR/fingerprint-manager.sh"
     install -Dm644 "$REPO/VERSION" "$D$MGR_DIR/VERSION"
-    install -Dm755 -t "$D$MGR_DIR/lib" "$REPO/lib/fingerprint-manager.py" "$REPO/lib/fingerprint-manager-helper.py" \
+    install -Dm755 -t "$D$MGR_DIR/lib" "$REPO/lib/fingerprint-manager.py" "$REPO/lib/fingerprint-manager-helper.py" "$REPO/lib/shared_slots.py" \
         "$REPO/lib/update_check.py" "$REPO/lib/notify-open-manager.sh" "$REPO/lib/notify-update.sh" \
         "$REPO/lib/distro-driver-check.py" "$REPO/lib/terminal.py" "$REPO/lib/update-in-terminal.sh" \
         "$REPO/lib/sensor-check.py"
