@@ -978,10 +978,21 @@ class Manager(Gtk.Window):
         self.set_titlebar(hb)
         self.stack = Gtk.Stack(transition_type=Gtk.StackTransitionType.CROSSFADE)
         # every page as tall as the tallest, so the window never changes height
-        # The tabs, always both: Fingerprints (this install) and Sensor (its 10 slots)
+        # The tabs: Fingerprints (this install) and Sensor slots (the sensor's 10).
+        # With Sensor slots off (☰, the default) just a title; the tab appears
+        # for a visit when something opens it (Show on sensor, sensor full).
         self.switcher = Gtk.StackSwitcher(stack=self.stack)
         self.switcher.get_style_context().add_class("fpm-tabs")     # the open tab stands out
-        hb.set_custom_title(self.switcher)
+        self.title_lbl = Gtk.Label(label="Fingerprints")
+        self.title_lbl.get_style_context().add_class("title")
+        title_box = Gtk.Box()
+        title_box.pack_start(self.switcher, False, False, 0)
+        title_box.pack_start(self.title_lbl, False, False, 0)
+        for w in (self.switcher, self.title_lbl):     # shown by _apply_sensor_tab, not show_all
+            w.set_no_show_all(True)
+        hb.set_custom_title(title_box)
+        self._sensor_on = load_settings().get("sensor_tab") == "1"
+        self._sensor_visit = False          # shown for now, by Show on sensor and the like
         self.refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.BUTTON)
         self.refresh_btn.set_tooltip_text("Read the sensor again")
         self.refresh_btn.connect("clicked", lambda *_: self.refresh())
@@ -1012,6 +1023,13 @@ class Manager(Gtk.Window):
         self.reset_item.set_tooltip_text(f"Delete every fingerprint on {OS_NAME} and free the slots "
                                          "only it uses: before reinstalling it, or to start again")
         menu.append(Gtk.SeparatorMenuItem())
+        self.sensor_item = ToggleMenuItem("Show sensor slots", "view-grid-symbolic",
+                                          active=self._sensor_on)
+        self.sensor_item.set_tooltip_text("The Sensor slots tab: the sensor's 10 slots, which "
+                                          "distros use each, and clearing them. Useful with "
+                                          "several distros on this laptop")
+        self.sensor_item.connect("toggled", self._on_sensor_toggled)
+        menu.append(self.sensor_item)
         self.update_item = ToggleMenuItem("Check for new versions", "software-update-available-symbolic")
         self.update_item.set_tooltip_text("Asks GitHub when the Manager starts and about every hour "
                                           "whether a newer fingerprint-fix-sdcp has been released "
@@ -1133,6 +1151,10 @@ class Manager(Gtk.Window):
         self.stack.connect("notify::visible-child-name",
                            lambda st, _p: self.btn_stack.set_visible_child_name(
                                st.get_visible_child_name()))
+        # Leaving a Sensor slots tab shown for a visit hides it again.
+        self.stack.connect("notify::visible-child-name",
+                           lambda st, _p: self._sensor_visit
+                           and st.get_visible_child_name() != "sensor" and self._end_visit())
         # A tab's details (a slot, a finger) are gone when leaving it.
         self.stack.connect("notify::visible-child-name",
                            lambda st, _p: self._slot_info is not None
@@ -1285,6 +1307,7 @@ class Manager(Gtk.Window):
         self.stack.add_titled(page, "sensor", "Sensor slots")
         self.sensor_page = page
         self.pages = {"fingers": "Fingerprints", "sensor": "Sensor slots"}
+        self._apply_sensor_tab()
 
         self._set_view(load_view(), save=False)
         self.connect("destroy", self.on_quit)
@@ -1842,9 +1865,37 @@ class Manager(Gtk.Window):
                         "user-trash-symbolic", True))
         return self._popup(entries, event, title=title)
 
+    def _apply_sensor_tab(self):
+        """Tab buttons with Sensor slots on (or for a visit); just a title without."""
+        show = self._sensor_on or self._sensor_visit
+        if not show and self.stack.get_visible_child_name() == "sensor":
+            self.stack.set_visible_child_name("fingers")
+        # The page stays (unreachable) so the window keeps its height either way.
+        if show:
+            self.switcher.show()                    # (show_all skips a no_show_all widget)
+            for b in self.switcher.get_children():
+                b.show_all()
+        else:
+            self.switcher.hide()
+        self.title_lbl.set_visible(not show)
+
+    def _on_sensor_toggled(self, item):
+        self._sensor_on = item.get_active()
+        self._sensor_visit = False
+        save_setting("sensor_tab", 1 if self._sensor_on else 0)
+        self._apply_sensor_tab()
+
+    def _end_visit(self):
+        self._sensor_visit = False
+        self._apply_sensor_tab()
+
     def go_tab(self, name):
         """Open a tab from a menu or button. Its tab blinks (lit, plain for a
-        moment, lit again; BLINKS times) so the switch is noticed."""
+        moment, lit again; BLINKS times) so the switch is noticed. Sensor slots
+        while it's off: shown for this visit, gone when leaving it."""
+        if name == "sensor" and not self._sensor_on:
+            self._sensor_visit = True
+            self._apply_sensor_tab()
         self.stack.set_visible_child_name(name)
         names = [self.stack.child_get_property(c, "name") for c in self.stack.get_children()]
         buttons = self.switcher.get_children()
@@ -2295,6 +2346,8 @@ class Manager(Gtk.Window):
         for name, n in (("fingers", len(st["records"])), ("sensor", len(st["templates"]))):
             self.stack.child_set_property(self.stack.get_child_by_name(name), "title",
                                           f"{self.pages[name]} ({n})")
+            if name == "fingers":
+                self.title_lbl.set_text(f"{self.pages[name]} ({n})")
         marker = st.get("marker")
         _version, driver, _date = parse_marker(marker)
         self.info.set_text(f"Sensor: {st['usb_id']} · Serial: {st['serial']} · "

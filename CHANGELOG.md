@@ -25,6 +25,9 @@
 - **Click a slot or a finger to see its details:** who it is, which distro enrolled it, which distros use it and its template, in the information panel
 - On the Fingerprints tab, clicking a finger shows when and on which distro it was enrolled, which distros use it (or, for a red one, why it can't match) and its template. On the Sensor slots tab, clicking a slot shows its details in the information panel, in a quieter grey and without blinking (the slots have no tooltips now); they go after 5 seconds (`PLAIN_MSG_S`), when it's clicked again, or when you leave the tab, and an alert they covered comes back. Alerts (warnings, errors, what an action did) blink and stay; plain information like this doesn't blink and goes by itself
 
+- **The Sensor slots tab is off by default:** turn it on with ☰ → Show sensor slots; most people only have one distro
+- ☰ → **Show sensor slots** (off unless you turn it on; an old `sensor_tab=1` setting keeps it on). While it's off the header shows just *Fingerprints*; **Show on sensor**, or **Open Sensor slots** when the sensor is full, brings the tab up for that visit (it blinks), and going back to Fingerprints hides it again
+
 - **New messages blink and stay:** the information panel at the bottom blinks for a few seconds when a message appears, and keeps it until you close it
 - A message stays until × is pressed or a newer one replaces it (information used to go after 10 seconds). The panel blinks like the tabs, for about 2.5 seconds (`MSG_BLINK_S`). Both blink more slowly than the tabs did in 2.8.1: plain for 0.4 s each time, 0.8 s per blink (`BLINK_MS`)
 
