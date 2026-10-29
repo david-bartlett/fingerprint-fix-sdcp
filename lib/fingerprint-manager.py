@@ -998,7 +998,7 @@ class Manager(Gtk.Window):
         self.backup_item.set_tooltip_text("Keep a copy of every distro's fingerprint records, "
                                           "or put one back")
         menu.append(Gtk.SeparatorMenuItem())
-        self.restore_item = self._menu_item(menu, "Restore removed fingerprints…", self.on_restore,
+        self.restore_item = self._menu_item(menu, f"Restore fingerprints removed from {OS_NAME}…", self.on_restore,
                                             "edit-undo-symbolic")
         menu.append(Gtk.SeparatorMenuItem())
         self.reset_item = self._menu_item(menu, f"Reset {OS_NAME}…", self.on_reset_install,
@@ -1710,8 +1710,8 @@ class Manager(Gtk.Window):
                     item("Show on sensor", lambda: self.show_template(rec["template"]),
                          icon="find-location-symbolic")
                 item(f"Remove from {OS_NAME}…", lambda: self.on_remove_selected(None),
-                     tip="Its template stays on the sensor; Undo or ☰ → Restore removed "
-                         "fingerprints… brings it back", icon="list-remove-symbolic", danger=True)
+                     tip="Its template stays on the sensor; Undo or ☰ → Restore fingerprints "
+                         f"removed from {OS_NAME}… brings it back", icon="list-remove-symbolic", danger=True)
             else:
                 if mine:
                     item("Enrol this finger again…", lambda: self.reenrol(rec),
@@ -2835,7 +2835,7 @@ class Manager(Gtk.Window):
         if not recs:
             return self.show_output("Nothing to restore",
                                     "No records have been moved aside on this install.")
-        d = Gtk.Dialog(title="Restore removed fingerprints", transient_for=self, modal=True)
+        d = Gtk.Dialog(title=f"Restore fingerprints removed from {OS_NAME}", transient_for=self, modal=True)
         d.set_default_size(680, 380)
         d.add_button("Cancel", Gtk.ResponseType.CANCEL)
         ok = d.add_button("Restore", Gtk.ResponseType.OK)
@@ -2916,7 +2916,7 @@ class Manager(Gtk.Window):
                         "keep working.", "Remove",
                         details="Their templates stay on the sensor. The records are moved to "
                                 "/var/lib/samsung-galaxybook/removed-fingerprints/; ☰ → Restore "
-                                "removed fingerprints… puts them back."):
+                                f"fingerprints removed from {OS_NAME}… puts them back."):
             self.run_job("remove_records", self.after_job(f"Removed from {OS_NAME}", undo=True),
                          records=[{"user": r[0], "finger": r[4]} for r in rows])
 
