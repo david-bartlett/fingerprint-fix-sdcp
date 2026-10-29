@@ -397,8 +397,8 @@ class MsgPanel(Gtk.Box):
                 (ctx.add_class if on else ctx.remove_class)("fpm-msg-blink")
             return False
         for i in range(BLINKS):
-            GLib.timeout_add(250 + i * 500, step, True)
-            GLib.timeout_add(500 + i * 500, step, False)
+            GLib.timeout_add(BLINK_MS * (2 * i + 1), step, True)
+            GLib.timeout_add(BLINK_MS * (2 * i + 2), step, False)
 
     def clear(self):
         self._blink_gen += 1
@@ -424,7 +424,7 @@ button.fpm-update:hover { box-shadow: 0 0 0 1px rgba(231,76,60,1.0), 0 0 8px rgb
 button.fpm-update:disabled { box-shadow: none; font-weight: normal; }
 .fpm-card { border: 1px solid alpha(currentColor, 0.15); border-radius: 8px; padding: 10px 12px; }
 .fpm-hint { font-size: 100%; }
-stackswitcher.fpm-tabs button { transition: background-color 120ms; }
+stackswitcher.fpm-tabs button { transition: background-color 200ms; }
 stackswitcher.fpm-tabs button:checked { background-image: none; background-color: @theme_selected_bg_color;
     color: @theme_selected_fg_color; border-color: shade(@theme_selected_bg_color, 0.85); }
 stackswitcher.fpm-tabs button:checked label { color: @theme_selected_fg_color; }
@@ -477,7 +477,7 @@ list.fpm-list row.fpm-selected .fpm-lcard { border-color: @theme_selected_bg_col
 .fpm-msg.fpm-msg-warning { border-color: alpha(#e5a50a, 0.85); background-color: alpha(#e5a50a, 0.10); }
 .fpm-msg.fpm-msg-error { border-color: alpha(#e01b24, 0.75); background-color: alpha(#e01b24, 0.08); }
 .fpm-msg.fpm-msg-other { border-color: alpha(@theme_fg_color, 0.30); }
-.fpm-msg { transition: background-color 120ms, border-color 120ms; }
+.fpm-msg { transition: background-color 200ms, border-color 200ms; }
 .fpm-msg.fpm-msg-blink { background-color: transparent; border-color: alpha(@theme_fg_color, 0.15); }
 .fpm-empty { background-color: transparent; border: 1px dashed alpha(@theme_fg_color, 0.30); }
 .fpm-empty label { color: alpha(@theme_fg_color, 0.55); }
@@ -853,7 +853,8 @@ def shared_where(sh, short=False, full=False):
 
 
 STALE_DAYS = 30
-BLINKS = 2          # how often a tab blinks when a menu opens it
+BLINKS = 2          # how often a tab (or a new message) blinks
+BLINK_MS = 400      # how long it goes plain each time; one blink takes twice as long
 
 
 def stale_note(sh):
@@ -1772,8 +1773,8 @@ class Manager(Gtk.Window):
         if name in names and names.index(name) < len(buttons):
             ctx = buttons[names.index(name)].get_style_context()
             for i in range(BLINKS):
-                GLib.timeout_add(250 + i * 500, lambda: ctx.add_class("fpm-tab-blink") and False)
-                GLib.timeout_add(500 + i * 500, lambda: ctx.remove_class("fpm-tab-blink") and False)
+                GLib.timeout_add(BLINK_MS * (2 * i + 1), lambda: ctx.add_class("fpm-tab-blink") and False)
+                GLib.timeout_add(BLINK_MS * (2 * i + 2), lambda: ctx.remove_class("fpm-tab-blink") and False)
 
     def show_template(self, tid):
         """From a finger: the Sensor tab with its template selected."""

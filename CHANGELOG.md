@@ -23,6 +23,7 @@
 - Importing a file with the right little finger in it failed ("Unexpected entry in archive"): fprintd's name for it is `a`, which the check read as a number
 
 - **New messages blink:** the information panel at the bottom blinks twice when a message appears, like the tabs
+- Both blink more slowly than the tabs did in 2.8.1: plain for 0.4 s each time, 0.8 s per blink (`BLINK_MS`)
 
 ## 2.8.1 — 2026-10-29
 
