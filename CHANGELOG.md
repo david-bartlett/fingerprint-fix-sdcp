@@ -9,6 +9,16 @@
 
 ## Unreleased
 
+- **One distro? The Manager keeps it simple:** the Sensor slots tab and the multi-distro options only appear when other distros use the sensor
+- With just this distro, the ☰ menu has **Restore <distro> fingerprints…**, **Show sensor slots**, the switches and About. When the shared file on the EFI partition lists another distro, the **Sensor slots** tab and **Import from other distros…**, **Back up & restore…** and **Reset <distro>…** appear, with a message the first time naming the other distros. The offer of the other distros' fingers when the Manager opens is always on (it's what makes a reinstall painless)
+
+- **Distros that are gone are noticed:** each start checks the other distros are still installed
+- Each install now notes where it lives in the shared file (its root filesystem's partition, what's on it, and the disk: through LUKS and LVM too). Each start checks the others with `lsblk`: one whose partition was deleted, or now holds a different filesystem (reinstalled, formatted), is forgotten, with a message. One on a disk that isn't connected is left alone
+
+- **Reset says plainly what's lost:** it names the fingers erased for good and the ones kept, and isn't for reinstalling
+- **Reset <distro>…**'s confirmation lists the fingers whose slots only this distro uses (erased from the sensor; nothing can bring them back) and the ones kept for the other distros; when none are shared it asks *Delete all of <distro>'s fingerprints?*. Reinstalling a distro doesn't need it: the new install is offered your fingerprints
+- README: everything for one distro first; the multi-distro parts (sharing, the Sensor slots tab with other distros, reinstalling, Reset, Back up & restore, without the Manager) together in **Several Linux Distros on One Laptop** at the end. Driver-only installs: the export and import tools come with the Manager
+
 ## 2.9.0 — 2026-10-29
 
 - **Arch / CachyOS: builds on a fresh install:** `makepkg -si` failed with *Dependency "gusb" not found* when fprintd wasn't installed yet

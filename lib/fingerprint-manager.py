@@ -993,6 +993,7 @@ class Manager(Gtk.Window):
         hb.set_custom_title(title_box)
         self._sensor_on = load_settings().get("sensor_tab") == "1"
         self._sensor_visit = False          # shown for now, by Show on sensor and the like
+        self._multi = False                 # other distros on this laptop use the sensor
         self.refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.BUTTON)
         self.refresh_btn.set_tooltip_text("Read the sensor again")
         self.refresh_btn.connect("clicked", lambda *_: self.refresh())
@@ -1013,22 +1014,29 @@ class Manager(Gtk.Window):
                                            "document-save-symbolic")
         self.backup_item.set_tooltip_text("Keep a copy of every distro's fingerprint records, "
                                           "or put one back")
-        menu.append(Gtk.SeparatorMenuItem())
         self.restore_item = self._menu_item(menu, f"Restore {OS_NAME} fingerprints…", self.on_restore,
                                             "edit-undo-symbolic")
         menu.append(Gtk.SeparatorMenuItem())
         self.reset_item = self._menu_item(menu, f"Reset {OS_NAME}…", self.on_reset_install,
                                           "edit-clear-all-symbolic")
         self.reset_item.get_style_context().add_class("fpm-danger")
-        self.reset_item.set_tooltip_text(f"Delete every fingerprint on {OS_NAME} and free the slots "
-                                         "only it uses: before reinstalling it, or to start again")
-        menu.append(Gtk.SeparatorMenuItem())
+        self.reset_item.set_tooltip_text(f"Start {OS_NAME}'s fingerprints again from scratch: its "
+                                         "fingerprints are deleted, and the slots only it uses "
+                                         "are cleared")
+        self.reset_sep = Gtk.SeparatorMenuItem()
+        menu.append(self.reset_sep)
+        # Only with other distros on the laptop (see _apply_mode); with just this
+        # one, the menu keeps to what a single install needs.
+        self.multi_items = [self.import_item, self.backup_item, self.reset_item, self.reset_sep]
+        for w in self.multi_items:
+            w.set_no_show_all(True)
         self.sensor_item = ToggleMenuItem("Show sensor slots", "view-grid-symbolic",
                                           active=self._sensor_on)
         self.sensor_item.set_tooltip_text("The Sensor slots tab: the sensor's 10 slots, which "
                                           "distros use each, and clearing them. Useful with "
                                           "several distros on this laptop")
         self.sensor_item.connect("toggled", self._on_sensor_toggled)
+        self.sensor_item.set_no_show_all(True)      # only with this distro alone: see _apply_mode
         menu.append(self.sensor_item)
         self.update_item = ToggleMenuItem("Check for new versions", "software-update-available-symbolic")
         self.update_item.set_tooltip_text("Asks GitHub when the Manager starts and about every hour "
@@ -1865,9 +1873,37 @@ class Manager(Gtk.Window):
                         "user-trash-symbolic", True))
         return self._popup(entries, event, title=title)
 
+    def _apply_mode(self):
+        """Several distros on this laptop (the shared file lists another one that
+        still exists): the Sensor slots tab and sharing (Import from other
+        distros, Back up & restore, Reset, Other distros). Just this one: the
+        Fingerprints tab, and Show sensor slots for anyone who wants the slots."""
+        st = self.status or {}
+        multi = bool(self._other_installs())
+        for w in self.multi_items:
+            w.set_visible(multi)
+        self.sensor_item.set_visible(not multi)
+        changed = multi != self._multi
+        self._multi = multi
+        self._apply_sensor_tab()
+        for g in st.get("forgotten") or []:         # found gone at this start
+            self.message(f"{g['os']} is no longer on this laptop ({g['why']}), so it's no longer "
+                         "listed as using the sensor. Its fingerprints are still offered to "
+                         "this and other distros.")
+        if changed and multi and load_settings().get("multi_known") != "1":
+            names = ", ".join(sorted({i["os"] for i in self._other_installs()}))
+            self.message(f"Other distros on this laptop use the sensor too ({names}): the Sensor "
+                         "slots tab and ☰ → Import from other distros… are there now.",
+                         details="Distros that run the Galaxy Book Fingerprint Manager note their "
+                                 "fingerprints in a file on the EFI partition, so a finger can be "
+                                 "shared instead of enrolled again on each one. Each start checks "
+                                 "they're still installed.")
+        if changed or not multi:
+            save_setting("multi_known", 1 if multi else 0)
+
     def _apply_sensor_tab(self):
         """Tab buttons with Sensor slots on (or for a visit); just a title without."""
-        show = self._sensor_on or self._sensor_visit
+        show = self._multi or self._sensor_on or self._sensor_visit
         if not show and self.stack.get_visible_child_name() == "sensor":
             self.stack.set_visible_child_name("fingers")
         # The page stays (unreachable) so the window keeps its height either way.
@@ -1893,7 +1929,7 @@ class Manager(Gtk.Window):
         """Open a tab from a menu or button. Its tab blinks (lit, plain for a
         moment, lit again; BLINKS times) so the switch is noticed. Sensor slots
         while it's off: shown for this visit, gone when leaving it."""
-        if name == "sensor" and not self._sensor_on:
+        if name == "sensor" and not (self._sensor_on or self._multi):
             self._sensor_visit = True
             self._apply_sensor_tab()
         self.stack.set_visible_child_name(name)
@@ -2153,7 +2189,7 @@ class Manager(Gtk.Window):
         self.restore_item.set_sensitive(ready)
         self.distros_btn.set_visible(bool(self._other_installs()))
         self.distros_btn.set_sensitive(ready)
-        self.reset_item.set_sensitive(ready)
+        self.reset_item.set_sensitive(ready and self._multi)
         pam = (st or {}).get("pam", {}).get("state")
         self.pam_switch.set_sensitive(ready and pam in ("enabled", "disabled", "partial"))
 
@@ -2317,6 +2353,7 @@ class Manager(Gtk.Window):
             else:
                 self.show_status(st)
             self._update_buttons()
+            self._apply_mode()
             if after:
                 after()
 
@@ -2642,25 +2679,36 @@ class Manager(Gtk.Window):
         mine = [t for t in self.templates if t["used_by"] or t.get("removed")]
         shared = [t for t in mine if t.get("shared")
                   and any(o["state"] == "used" for o in t["shared"]["others"])]
-        clear = len(mine) - len(shared)
+        def finger(t):                              # "right index finger"
+            if t["used_by"]:
+                return long_finger(t["used_by"][0].partition(" ")[2]).lower()
+            return long_finger(t["removed"]["name"]).lower()
+        gone = [finger(t) for t in mine if t not in shared]
+        kept = [finger(t) for t in shared]
         users = sorted({r["user"] for r in st["records"]})
         recs = len(st["records"])
+        esc = GLib.markup_escape_text
         parts = [f"Every fingerprint on {os_} is deleted: <b>{recs} finger{'s' if recs != 1 else ''}</b>"
-                 + (f" ({', '.join(users)})" if len(users) > 1 else "") + ", and any removed earlier."]
-        if clear:
-            parts.append(f"<b>{clear} slot{'s are' if clear != 1 else ' is'} cleared</b> from the sensor: "
-                         f"only {os_} uses {'them' if clear != 1 else 'it'}.")
-        if shared:
-            parts.append(f"{len(shared)} slot{'s' if len(shared) != 1 else ''} other distros also use "
-                         f"{'stay' if len(shared) != 1 else 'stays'} for them.")
-        parts.append(f"{os_} is taken out of the file the distros share, as if it had never used "
-                     "the sensor. Use this before reinstalling it, or to enrol your fingers again from "
-                     "scratch."
-                     + (" Cleared slots can't be undone: those fingers have to be enrolled again." if clear else "")
-                     + (" Fingers in the slots kept can be imported again from an export: if "
-                        "~/fingerprint-export.tgz has them, you're asked straight after." if shared else ""))
+                 + (f" ({esc(', '.join(users))})" if len(users) > 1 else "") + ", and any removed earlier."]
+        if gone:
+            parts.append(f"<b>Erased from the sensor for good:</b> {esc(', '.join(gone))}. Only {os_} "
+                         f"uses {'them' if len(gone) != 1 else 'it'}, so nothing can bring "
+                         f"{'them' if len(gone) != 1 else 'it'} back: not an import, not a backup. "
+                         f"{'They have' if len(gone) != 1 else 'It has'} to be enrolled again.")
+        if kept:
+            parts.append(f"<b>Kept for the other distros:</b> {esc(', '.join(kept))}. "
+                         f"You're asked straight after whether to import {'them' if len(kept) != 1 else 'it'} "
+                         "again.")
+        elif gone:
+            parts.append(f"<b>No other distro shares any of {os_}'s fingerprints, so all of them are "
+                         "lost.</b>")
+        parts.append(f"{os_} is also taken out of the file the distros share. Reinstalling {os_}? "
+                     "You don't need this: just reinstall, and the new install offers your "
+                     "fingerprints.")
+        title = (f"Delete all of {OS_NAME}'s fingerprints?" if gone and not kept
+                 else f"Reset {OS_NAME}?")
         d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
-                          message_type=Gtk.MessageType.WARNING, text=f"Reset {OS_NAME}?")
+                          message_type=Gtk.MessageType.WARNING, text=title)
         d.format_secondary_markup("\n\n".join(parts))
         d.add_button("Cancel", Gtk.ResponseType.CANCEL)
         d.add_button(f"Reset {OS_NAME}", 1).get_style_context().add_class("destructive-action")

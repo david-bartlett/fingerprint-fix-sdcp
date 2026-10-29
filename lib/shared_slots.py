@@ -7,10 +7,19 @@ each install notes what it knows about its templates in one small file on the
 EFI system partition, which every OS on the laptop shares:
   <ESP>/EFI/samsung-galaxybook/fingerprint-slots.json
 {"version": 1, "sensors": {SERIAL: {TEMPLATE: {"finger", "user", "enrolled",
-  "enrolled_on", "record", "installs": {INSTALL: {"os", "state": used|removed, "seen"}}}}}}
+  "enrolled_on", "record", "installs": {INSTALL: {"os", "state": used|removed, "seen"}}}}},
+ "installs": {INSTALL: {"os", "seen", "where": {"partuuid", "uuid", "ptuuid", "dev", "size"}}}}
 TEMPLATE is the short ID the Sensor slots tab shows; INSTALL a hash of the
 install's machine-id. The helper updates it whenever the Manager reads the
 sensor; best effort only.
+
+"installs" (top level) is every install that runs the Manager, fingers or not,
+with where its root filesystem lives: the partition (PARTUUID), what's on it
+(the filesystem's or LUKS container's UUID) and the disk (PTUUID). Each start
+checks the others against the disks in the laptop: one whose partition is gone
+from a disk that's there, or holds a different filesystem now (reinstalled,
+formatted), no longer exists and is forgotten. A disk that isn't there (a
+second drive taken out) proves nothing, so that one stays.
 
 "record" is the fprintd record of that template (base64), from the first
 install that noted it: what another install imports to use the same slot (the
@@ -28,6 +37,7 @@ import datetime
 import hashlib
 import json
 import os
+import subprocess
 import sys
 
 SHARED_REL = os.path.join("EFI", "samsung-galaxybook", "fingerprint-slots.json")
@@ -78,6 +88,63 @@ def os_label():
     return name.strip() or "Linux"
 
 
+# ── Where installs live, and whether they still exist ────────────────────────
+def _lsblk(args):
+    """lsblk's JSON (blockdevices), [] if it can't run. Replaced in tests."""
+    try:
+        out = subprocess.run(["lsblk", "-J", "-o", "PATH,TYPE,PARTUUID,UUID,PTUUID,SIZE"] + args,
+                             capture_output=True, text=True, timeout=10).stdout
+        return json.loads(out).get("blockdevices") or []
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return []
+
+
+def _flat(nodes):
+    for n in nodes or []:
+        yield n
+        yield from _flat(n.get("children"))
+
+
+def _root_source():
+    try:
+        src = subprocess.run(["findmnt", "-no", "SOURCE", "/"], capture_output=True,
+                             text=True, timeout=10).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return src.split("[")[0]                        # btrfs: /dev/nvme0n1p8[/@]
+
+
+def here_location():
+    """Where this install's root filesystem lives: the partition under it (through
+    LUKS or LVM), as {"partuuid", "uuid", "ptuuid", "dev", "size"}, or None."""
+    src = _root_source()
+    if not src.startswith("/dev/"):
+        return None
+    part = next((n for n in _flat(_lsblk(["-s", src])) if n.get("type") == "part"), None)
+    if not part or not part.get("partuuid"):
+        return None
+    return {"partuuid": part["partuuid"], "uuid": part.get("uuid") or "",
+            "ptuuid": part.get("ptuuid") or "", "dev": os.path.basename(part.get("path") or ""),
+            "size": part.get("size") or ""}
+
+
+def install_state(where, disks=None):
+    """Whether an install still exists: ("present"|"gone"|"unknown", why)."""
+    if not isinstance(where, dict) or not where.get("partuuid"):
+        return "unknown", "its location isn't known"
+    devs = list(_flat(disks if disks is not None else _lsblk([])))
+    if not devs:
+        return "unknown", "the disks couldn't be listed"
+    part = next((n for n in devs if n.get("partuuid") == where["partuuid"]), None)
+    if part is None:
+        if where.get("ptuuid") and any(n.get("ptuuid") == where["ptuuid"] for n in devs):
+            return "gone", "its partition has been deleted"
+        return "unknown", "its disk isn't connected"
+    if where.get("uuid") and part.get("uuid") and part["uuid"] != where["uuid"]:
+        return "gone", "its partition has been reformatted (reinstalled)"
+    return "present", ""
+
+
 def _path():
     esp = esp_dir()
     return os.path.join(esp, SHARED_REL) if esp else None
@@ -109,10 +176,15 @@ def _save(path, data, before):
         return False
 
 
-def _installs(sensor, me):
-    """Every install that noted a template on this sensor: [{key, os, seen,
-    slots, here}], this install first, then the most recently seen."""
+def _installs(sensor, me, top=None):
+    """Every install that noted a template on this sensor, or runs the Manager
+    with none yet (top-level "installs"): [{key, os, seen, slots, here,
+    where}], this install first, then the most recently seen."""
     seen = {}
+    for k, v in (top or {}).items():
+        if isinstance(v, dict):
+            seen[k] = {"key": k, "os": v.get("os", "?"), "seen": str(v.get("seen", "")),
+                       "slots": 0, "here": k == me, "where": v.get("where") or {}}
     for e in sensor.values():
         if not isinstance(e, dict):
             continue
@@ -120,7 +192,7 @@ def _installs(sensor, me):
             if not isinstance(v, dict):
                 continue
             i = seen.setdefault(k, {"key": k, "os": v.get("os", "?"), "seen": "", "slots": 0,
-                                    "here": k == me})
+                                    "here": k == me, "where": {}})
             i["slots"] += 1
             if str(v.get("seen", "")) > i["seen"]:
                 i["seen"], i["os"] = str(v.get("seen", "")), v.get("os", i["os"])
@@ -128,10 +200,43 @@ def _installs(sensor, me):
     return sorted(out, key=lambda i: not i["here"])          # stable: this install first
 
 
-def share_slots(serial, templates, records_by_tid):
+def _check_installs(data, me, here, today):
+    """Note this install (and where it lives) in the top-level "installs", and
+    forget the others that no longer exist. Returns the forgotten ones:
+    [{"key", "os", "why"}]."""
+    installs = data.setdefault("installs", {})
+    mine = {"os": here, "seen": today}
+    where = here_location()
+    if where:
+        mine["where"] = where
+    elif isinstance(installs.get(me), dict) and installs[me].get("where"):
+        mine["where"] = installs[me]["where"]       # keep what an earlier run found
+    installs[me] = mine
+    disks = _lsblk([])
+    gone = []
+    for k, v in list(installs.items()):
+        if k == me or not isinstance(v, dict):
+            continue
+        state, why = install_state(v.get("where"), disks)
+        if state == "gone":
+            gone.append({"key": k, "os": v.get("os", "?"), "why": why})
+    if gone:
+        keys = {g["key"] for g in gone}
+        for k in keys:
+            installs.pop(k, None)
+        for sensor in (data.get("sensors") or {}).values():
+            for e in (sensor or {}).values():
+                if isinstance(e, dict) and isinstance(e.get("installs"), dict):
+                    for k in keys & set(e["installs"]):
+                        del e["installs"][k]
+    return gone
+
+
+def share_slots(serial, templates, records_by_tid, forgotten=None):
     """Note this install's templates in the shared file and add what other
     installs noted to each template ("shared"). Returns the installs that
-    share this sensor (see _installs), or None without the file. Never fails."""
+    share this sensor (see _installs), or None without the file. Installs
+    that no longer exist are forgotten and added to forgotten. Never fails."""
     me, path = install_key(), _path()
     if not me or not path or not serial:
         return None
@@ -141,6 +246,12 @@ def share_slots(serial, templates, records_by_tid):
     sensor = data.setdefault("sensors", {}).setdefault(serial, {})
     today = datetime.date.today().isoformat()
     here = os_label()
+    try:
+        gone = _check_installs(data, me, here, today)
+    except Exception:
+        gone = []
+    if forgotten is not None:
+        forgotten.extend(gone)
     on_chip = {t["id"] for t in templates}
     for tid in list(sensor):
         if tid not in on_chip or not isinstance(sensor[tid], dict):
@@ -178,7 +289,7 @@ def share_slots(serial, templates, records_by_tid):
                            "enrolled": e.get("enrolled", ""), "enrolled_on": e.get("enrolled_on", ""),
                            "others": others}
     _save(path, data, before)
-    return _installs(sensor, me)
+    return _installs(sensor, me, data.get("installs") or {})
 
 
 def esp_records(serial):
@@ -231,6 +342,9 @@ def merge_backup(backup):
     before = json.dumps(data, sort_keys=True)
     data["version"] = 1
     added = 0
+    for k, v in (backup.get("installs") or {}).items():
+        if isinstance(v, dict):
+            data.setdefault("installs", {}).setdefault(str(k), v)
     for serial, tpls in backup["sensors"].items():
         if not isinstance(tpls, dict):
             continue
@@ -273,6 +387,9 @@ def forget_installs(keys, serial=None):
         return 0
     before = json.dumps(data, sort_keys=True)
     gone = 0
+    for k in keys & set(data.get("installs") or {}):
+        del data["installs"][k]
+        gone += 1
     for sid, sensor in (data.get("sensors") or {}).items():
         if serial and sid != serial or not isinstance(sensor, dict):
             continue

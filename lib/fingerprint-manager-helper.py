@@ -437,10 +437,12 @@ def do_status(req):
                               "print_kind": r.get("kind", "unknown"),
                               "error": r.get("error")})
     st["templates"].sort(key=lambda t: (not t["used_by"], t["id"]))
+    st["forgotten"] = []                            # other installs found gone
     try:                                            # what other installs know of them
         st["installs"] = share_slots(serial, st["templates"],
                                      {r["template"]: r for r in st["records"]
-                                      if r["template"] and r["on_sensor"]})
+                                      if r["template"] and r["on_sensor"]},
+                                     forgotten=st["forgotten"])
     except Exception:
         st["installs"] = None
     st["pam"] = pam_state()
