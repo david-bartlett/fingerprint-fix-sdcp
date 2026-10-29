@@ -1118,7 +1118,7 @@ class Manager(Gtk.Window):
         self.msg_bar = MsgPanel(self.msg_label, msg_btns, lambda: self._on_msg_response(None, 0))
         self._msg_action = None
         self._msg_details = None
-        self._slot_info = None          # the slot whose details the panel shows
+        self._slot_info = None          # (tab, key, text) of the details the panel shows
         self._msg_alert = True          # the panel's message is an alert (not plain information)
         self._saved_msg = None          # the message they covered, back on deselecting
 
@@ -1133,10 +1133,11 @@ class Manager(Gtk.Window):
         self.stack.connect("notify::visible-child-name",
                            lambda st, _p: self.btn_stack.set_visible_child_name(
                                st.get_visible_child_name()))
-        # A slot's details belong to the Sensor slots tab: gone when leaving it.
+        # A tab's details (a slot, a finger) are gone when leaving it.
         self.stack.connect("notify::visible-child-name",
-                           lambda st, _p: st.get_visible_child_name() != "sensor"
-                           and self._slot_info is not None and self._end_slot_info())
+                           lambda st, _p: self._slot_info is not None
+                           and st.get_visible_child_name() != self._slot_info[0]
+                           and self._end_slot_info())
 
         # ── page 1: fingerprints on this install — cards (icons) or rows (list) ──
         self.records = []                 # the status records shown, in order
@@ -1424,20 +1425,58 @@ class Manager(Gtk.Window):
         self._show_slot_info()
 
     def _show_slot_info(self):
-        """The selected slot's details (who, where it's used, its template) in
-        the information panel, as plain information: no blink. A message they
-        cover comes back when the slot is deselected."""
+        """The selected slot's details (who, where it's used, its template)."""
         t = next((t for t in self.templates if t["id"] in self.tsel), None) \
             if len(self.tsel) == 1 else None
-        if t is None or self.stack.get_visible_child_name() != "sensor":
-            if self._slot_info is not None:
+        text = None
+        if t is not None:
+            lines = self._tpl_tip(t).split("\n")
+            if lines[-1].startswith("Template "):    # onto the first line: fewer lines, less jumping
+                lines = [f"{lines[0]} · {lines[-1][0].lower()}{lines[-1][1:]}"] + lines[1:-1]
+            text = "\n".join(lines)
+        self._show_details("sensor", t and t["id"], text)
+
+    def _show_finger_info(self):
+        """The selected finger's details: whose it is, when and where it was
+        enrolled, which distros use it, its template."""
+        r = next((r for r in self.records if (r["user"], r["finger"]) in self.sel_keys), None) \
+            if len(self.sel_keys) == 1 else None
+        text = None
+        if r is not None:
+            t = next((t for t in self.templates if t["id"] == r.get("template")), None) or {}
+            sh = t.get("shared") or {}
+            first = f"{long_finger(r['name'])} ({r['user']})"
+            if r.get("enrolled"):
+                first += f" · enrolled {nice_date(r['enrolled'], True)}"
+                if sh.get("enrolled_on"):
+                    first += f" on {sh['enrolled_on']}"
+            if r.get("template"):
+                first += f" · template {r['template']}"
+            kind = rec_kind(r)[0]
+            if kind == "ok":
+                also = shared_where(sh, full=True) if sh else ""
+                where = (f"Used here and by {also[8:]}" if also.startswith("used by")
+                         else f"Used on {OS_NAME} only")
+            elif kind == "dead":
+                where = ("Gone from the sensor: enrolled again on another install, or deleted "
+                         "by Windows. It can never match: remove it, or enrol it again")
+            elif kind == "other":
+                where = "Enrolled with a different fingerprint driver: it can't match here"
+            else:
+                where = "Its record can't be read"
+            stale = stale_note(sh) if sh and kind == "ok" else ""
+            text = "\n".join(x for x in (first, where, stale) if x)
+        self._show_details("fingers", r and (r["user"], r["finger"]), text)
+
+    def _show_details(self, page, key, text):
+        """Details of what's selected on a tab, in the information panel as plain
+        information (no blink, gone after PLAIN_MSG_S, when deselected or when
+        leaving the tab). An alert they cover comes back afterwards."""
+        if text is None or self.stack.get_visible_child_name() != page:
+            if self._slot_info is not None and self._slot_info[0] == page:
                 self._end_slot_info()
             return
-        lines = self._tpl_tip(t).split("\n")
-        if lines[-1].startswith("Template "):        # onto the first line: fewer lines, less jumping
-            lines = [f"{lines[0]} · {lines[-1][0].lower()}{lines[-1][1:]}"] + lines[1:-1]
-        text = "\n".join(lines)
-        if self._slot_info == (t["id"], text):
+        if self._slot_info == (page, key, text):
             return
         saved = self._saved_msg
         if self._slot_info is None and self.msg_bar.has_message() and self._msg_alert:
@@ -1445,7 +1484,7 @@ class Manager(Gtk.Window):
                      self._msg_details, self._msg_action)
         self.message(text, Gtk.MessageType.OTHER, alert=False)
         self.msg_label.set_tooltip_text(None)
-        self._slot_info, self._saved_msg = (t["id"], text), saved
+        self._slot_info, self._saved_msg = (page, key, text), saved
 
     def _tpl_tip(self, t):
         """Hover text for a slot: who it is, where it's used, its template ID,
@@ -1921,6 +1960,7 @@ class Manager(Gtk.Window):
         for w in self.cards.get_children() + self.rows.get_children():
             self._mark(w, getattr(w, "key", None) in self.sel_keys)
         self._update_buttons()
+        self._show_finger_info()
 
     def _icon_or_text(self, button, names, text):
         """The first of these icons the theme has (themes name them differently),
