@@ -855,7 +855,7 @@ def shared_where(sh, short=False, full=False):
 STALE_DAYS = 30
 BLINKS = 2          # how often a tab blinks when a menu opens it
 BLINK_MS = 400      # how long it goes plain each time; one blink takes twice as long
-MSG_BLINK_S = 5     # how long the information panel blinks for a new message
+MSG_BLINK_S = 2.5   # how long the information panel blinks for a new message
 
 
 def stale_note(sh):
@@ -3085,8 +3085,21 @@ class Manager(Gtk.Window):
         for an export file; straight to the file when there are none."""
         offer = (self.status or {}).get("import_offer")
         if offer:
-            self._offer_import(offer, manual=True)
-        else:
+            return self._offer_import(offer, manual=True)
+        d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
+                          message_type=Gtk.MessageType.INFO, text="Nothing to import")
+        d.format_secondary_text(
+            f"No other distro on this laptop has a fingerprint that {OS_NAME} could use: "
+            f"{OS_NAME} already has every finger whose record is on the EFI partition, or "
+            "there are none there yet (a distro adds its fingers when its Galaxy Book "
+            "Fingerprint Manager opens).\n\nAn export file made with export-fingerprint.sh "
+            "can still be imported.")
+        d.add_button("Close", Gtk.ResponseType.CLOSE)
+        d.add_button("Choose a file…", 3)
+        d.set_default_response(Gtk.ResponseType.CLOSE)
+        r = d.run()
+        d.destroy()
+        if r == 3:
             self._import_file()
 
     def _import_file(self):
@@ -3131,8 +3144,9 @@ class Manager(Gtk.Window):
         Each slot is offered once: ones turned down aren't asked about again
         (until a Reset)."""
         declined = set(load_settings().get("offer_declined", "").split(",")) - {""}
-        if not manual:
-            offer = [o for o in offer if o["tid"] not in declined | self._offered]
+        if not manual:                  # not ones turned down, nor removed here on purpose
+            offer = [o for o in offer if o["tid"] not in declined | self._offered
+                     and not o.get("removed")]
             if not offer:
                 self._after_reset = False
                 return False
@@ -3160,7 +3174,8 @@ class Manager(Gtk.Window):
         checks = []
         for o in offer:
             who = "" if o["user"] == me else f"{o['user']}, "
-            c = Gtk.CheckButton(label=f"{long_finger(o['name'])}  ({who}from {where(o)})")
+            gone = "removed here, " if o.get("removed") else ""
+            c = Gtk.CheckButton(label=f"{long_finger(o['name'])}  ({gone}{who}from {where(o)})")
             # Ticked when it's the user's, or one person's under another name
             # (dave on Fedora, davidb here); left for them to tick otherwise.
             c.set_active(o["user"] == me or len(owners) == 1)

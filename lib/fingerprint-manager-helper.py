@@ -299,13 +299,14 @@ def _for_user(data, user):
 def import_offer(user, serial, chip, records, moved):
     """Fingers this install could use, from the records the installs keep on
     the EFI partition: their slot is on the sensor, this install doesn't use
-    it, wasn't removed here, and the user has no working record for that
-    finger. [{"tid", "finger", "name", "user", "from": [distros using it]}],
-    or None."""
+    it, and the user has no working record for that finger. [{"tid", "finger",
+    "name", "user", "from": [distros using it], "removed": True if removed
+    here}], or None. The window's own offer leaves out the removed ones (taken
+    off on purpose); ☰ → Import from other distros… lists them too."""
     mine = [r for r in records if r["user"] == user and r["print"] is not None]
     have = {r["finger"] for r in mine if any(r["print"].equal(c) for c in chip)}
-    taken = [r["print"] for r in records if r["print"] is not None] + \
-            [m["print"] for m in moved if m["print"] is not None]
+    taken = [r["print"] for r in records if r["print"] is not None]
+    gone_here = [m["print"] for m in moved if m["print"] is not None]
     cands = []
     try:
         num = {name: f"{i:x}" for i, name in enumerate(FINGERS) if i}
@@ -323,13 +324,14 @@ def import_offer(user, serial, chip, records, moved):
             continue
         c = next((c for c in chip if p.equal(c)), None)
         if c is None or any(p.equal(q) for q in taken):
-            continue                                # gone, used here, or removed here
+            continue                                # gone, or used here
         tid = short_id(c)
         if tid in seen:
             continue
         seen.add(tid)
         out.append({"tid": tid, "finger": finger, "name": finger_name(finger),
-                    "user": owner, "from": src})
+                    "user": owner, "from": src,
+                    "removed": any(p.equal(q) for q in gone_here)})
     out.sort(key=lambda o: int(o["finger"], 16))
     return out or None
 

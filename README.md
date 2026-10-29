@@ -264,7 +264,7 @@ It happens by itself:
 2. When the Galaxy Book Fingerprint Manager opens on another install (a new one, a reinstalled one, or one you've just reset), it asks *Use these fingerprints on CachyOS too?* and lists the fingers it could use, each with the distros it's from.
 3. Untick any that aren't yours, then **Import**. They work straight away, with no enrolling.
 
-Turned one down? It isn't asked about again, but ☰ → **Import from other distros…** always lists them all. A record goes when its slot is cleared, so you're never offered a finger that can't match.
+Turned one down, or removed a finger here? It isn't offered again by itself, but ☰ → **Import from other distros…** always lists them all. A record goes when its slot is cleared, so you're never offered a finger that can't match.
 
 **Once installs share fingerprints:**
 
