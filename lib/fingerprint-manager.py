@@ -3180,11 +3180,6 @@ class Manager(Gtk.Window):
         d = Gtk.FileChooserDialog(title=title, transient_for=self, action=action)
         d.add_button("Cancel", Gtk.ResponseType.CANCEL)
         d.add_button(ok_label, Gtk.ResponseType.OK)
-        f = Gtk.FileFilter()
-        f.set_name("Fingerprint exports (*.tgz)")
-        f.add_pattern("*.tgz")
-        f.add_pattern("*.tar.gz")
-        d.add_filter(f)
         d.set_current_folder(os.path.expanduser("~"))
         return d
 
@@ -3295,8 +3290,8 @@ class Manager(Gtk.Window):
 
     def on_import(self, _btn):
         """☰ → Import from other distros…: the fingers this install could use from
-        the EFI partition (also ones turned down before), with Choose a file…
-        for an export file; straight to the file when there are none."""
+        the EFI partition (also ones turned down before). Export files are
+        imported with tools/import-fingerprint.sh."""
         # Not fingers removed here: those are ☰ → Restore <distro> fingerprints….
         offer = [o for o in (self.status or {}).get("import_offer") or [] if not o.get("removed")]
         if offer:
@@ -3310,61 +3305,22 @@ class Manager(Gtk.Window):
             (f"The {'fingers' if n != 1 else 'finger'} you removed from {OS_NAME} "
              f"({', '.join(long_finger(t['removed']['name']).lower() for t in removed)}) "
              f"{'come' if n != 1 else 'comes'} back with Restore {OS_NAME} fingerprints. The "
-             "other distros have no other fingerprint for it.\n\n" if removed else
+             "other distros have no other fingerprint for it." if removed else
              f"No other distro on this laptop has a fingerprint that {OS_NAME} could use: "
              f"{OS_NAME} already has every finger whose record is on the EFI partition, or "
              "there are none there yet (a distro adds its fingers when its Galaxy Book "
-             "Fingerprint Manager opens).\n\n")
-            + "An export file made with export-fingerprint.sh can still be imported.")
+             "Fingerprint Manager opens)."))
         d.add_button("Close", Gtk.ResponseType.CLOSE)
-        d.add_button("Choose a file…", 3)
         if removed:
             d.add_button(f"Restore {OS_NAME} fingerprints…", 4).get_style_context().add_class(
                 "suggested-action")
         d.set_default_response(4 if removed else Gtk.ResponseType.CLOSE)
         r = d.run()
         d.destroy()
-        if r == 3:
-            self._import_file()
-        elif r == 4:
+        if r == 4:
             self.on_restore(None)
 
-    def _import_file(self):
-        # Nothing picked for you: the Manager doesn't write ~/fingerprint-export.tgz
-        # (the other distros' fingerprints come from the EFI partition), so one
-        # there may well be old. Files made by export-fingerprint.sh, or kept elsewhere.
-        d = self._chooser("Import an export file", Gtk.FileChooserAction.OPEN, "Import")
-        path = d.get_filename() if d.run() == Gtk.ResponseType.OK else None
-        d.destroy()
-        if not path:
-            return
-        mine = [r for r in self.status["records"] if r["user"] == self.status["user"]]
-        dead = [r["finger"] for r in mine if r["on_sensor"] is False]
-        replace = False
-        if mine:
-            names = ", ".join(long_finger(r["name"]).lower() for r in mine)
-            d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.QUESTION,
-                                  buttons=Gtk.ButtonsType.NONE,
-                                  text="You already have fingerprints on this install")
-            d.format_secondary_text(
-                f"You have {names} here.\n\n"
-                "Add the missing ones keeps yours (ones gone from the sensor are replaced). "
-                "Replace all swaps them all for the ones in the file.")
-            add_details(d, "Replaced records are moved to /var/lib/samsung-galaxybook/"
-                           "replaced-fingerprints/. Nothing is deleted from the sensor.")
-            d.add_button("Cancel", Gtk.ResponseType.CANCEL)
-            rb = d.add_button("Replace all", 2)
-            rb.get_style_context().add_class("destructive-action")
-            d.add_button("Add the missing ones", Gtk.ResponseType.OK)
-            d.set_default_response(Gtk.ResponseType.OK)
-            r = d.run()
-            d.destroy()
-            if r not in (Gtk.ResponseType.OK, 2):
-                return
-            replace = r == 2
-        self.run_job("import", self.after_job("Imported"), file=path, replace=replace, dead=dead)
-
-    # ── fingerprints this install could use: the export file, other distros ──
+    # ── fingerprints this install could use: the other distros' ──
     def _offer_import(self, offer, manual=False):
         """Offer the fingers this install could use straight away: the other
         distros' on this laptop, from the records kept on the EFI partition.
@@ -3408,8 +3364,6 @@ class Manager(Gtk.Window):
             box.pack_start(c, False, False, 0)
             checks.append((c, o))
         d.get_message_area().pack_start(box, False, False, 6)
-        if manual:
-            d.add_button("Choose a file…", 3)
         d.add_button("Start empty" if after_reset else "Cancel" if manual else "Not now",
                      Gtk.ResponseType.CANCEL)
         imp = d.add_button("Import", Gtk.ResponseType.OK)
@@ -3422,9 +3376,6 @@ class Manager(Gtk.Window):
         ok = r == Gtk.ResponseType.OK
         chosen = [o for c, o in checks if c.get_active()] if ok else []
         d.destroy()
-        if r == 3:
-            self._import_file()
-            return False
         no = [o["tid"] for o in offer if o not in chosen]
         if no and not manual:                       # not asked again
             save_setting("offer_declined", ",".join(sorted(declined | set(no))))

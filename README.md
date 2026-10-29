@@ -400,7 +400,7 @@ A backup holds no fingerprints, only which slot is whose: it's useless without t
 
 | Where | Control | What it does |
 |---|---|---|
-| ☰ menu | Import from other distros… | The fingers this install could use from the other distros on the laptop (also ones you turned down before), with **Choose a file…** for an export file (`export-fingerprint.sh`). A file goes through `import-fingerprint.sh` with all its checks; if you already have fingerprints, it asks whether to **add the missing ones** (yours are kept) or **replace all** (`--replace`) |
+| ☰ menu | Import from other distros… | The fingers this install could use from the other distros on the laptop (also ones you turned down before), ticked ones imported through `import-fingerprint.sh` with all its checks |
 | Sensor slots | Other distros… | Every distro in the shared slots file, with the date it last opened the Manager and its slots. **Forget…** takes a wiped or reinstalled one out; **Forget and clear N slots** also erases the slots only it used. Also in the ⓘ dialog. Only shown when other distros are listed |
 | ☰ menu | Reset <distro>… | Starts this distro's fingerprints again from scratch (not needed to reinstall it): deletes every fingerprint record on it for good (and those moved aside), clears the slots only it uses, keeps the ones other distros also use, and takes it out of the shared slots file |
 | ☰ menu | Back up & restore… | Says how many records the EFI partition has; **Back up…** saves a copy of `fingerprint-slots.json` from the EFI partition (every distro's records) as a `.json` file; **Restore…** merges one back (adds what's missing, changes nothing there) and the Manager offers the fingers again |
@@ -428,7 +428,6 @@ sudo bash tools/export-fingerprint.sh          # writes ~/fingerprint-export.tgz
   - if `~/fingerprint-export.tgz` exists, it is **imported automatically**;
   - otherwise the installer asks `Do you have fingerprints exported from another install to import? [y/N]` (skipped after 30 seconds, or when run without a terminal). Answer `y` and it asks for the path, with no time limit;
   - `FPRINT_IMPORT=/path/to/file.tgz` imports a file kept anywhere else without asking.
-- **In the Galaxy Book Fingerprint Manager:** ☰ → **Import from other distros…** → **Choose a file…**.
 - **From the command line:**
 
   ```bash
