@@ -1682,9 +1682,11 @@ class Manager(Gtk.Window):
             title = (long_finger(empty), "Not enrolled")
             item("Enrol…", lambda: self.on_enrol(None, finger=empty), self.enrol_ok,
                  icon="list-add-symbolic")
-            item("Restore removed fingerprint…", lambda: self.restore_finger(empty), icon="edit-undo-symbolic",
-                 tip="Put back a record of this finger that was removed earlier, "
-                     "if its template is still on the sensor")
+            if self._restorable(empty):     # only when there's one that can come back
+                item("Restore removed fingerprint…", lambda: self.restore_finger(empty),
+                     icon="edit-undo-symbolic",
+                     tip=f"Put back this finger, removed from {OS_NAME} earlier: its slot is "
+                         "still on the sensor")
         elif rec is not None:
             self._set_selection({key})
             mine = rec["user"] == self.status["user"]
@@ -1807,6 +1809,13 @@ class Manager(Gtk.Window):
                 return self.refresh(lambda: self.error(err))
             self.refresh(lambda: self.status and self.on_enrol(None, finger=rec["name"]))
         self.run_job("delete_templates", done, ids=[rec["template"]])
+
+    def _restorable(self, name=None):
+        """Your fingers removed here whose slot is still on the sensor and that
+        aren't enrolled here again (one finger, or any when name is None)."""
+        me = (self.status or {}).get("user")
+        return [t for t in self.templates if (t.get("removed") or {}).get("user") == me
+                and t["removed"].get("restorable") and (name is None or t["removed"]["name"] == name)]
 
     def restore_finger(self, name):
         """Put back the newest removed record of one of your fingers, if its
@@ -3085,24 +3094,37 @@ class Manager(Gtk.Window):
         """☰ → Import from other distros…: the fingers this install could use from
         the EFI partition (also ones turned down before), with Choose a file…
         for an export file; straight to the file when there are none."""
-        offer = (self.status or {}).get("import_offer")
+        # Not fingers removed here: those are ☰ → Restore <distro> fingerprints….
+        offer = [o for o in (self.status or {}).get("import_offer") or [] if not o.get("removed")]
         if offer:
             return self._offer_import(offer, manual=True)
+        removed = self._restorable()
+        n = len(removed)
         d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
-                          message_type=Gtk.MessageType.INFO, text="Nothing to import")
+                          message_type=Gtk.MessageType.INFO,
+                          text=f"Nothing new to import" if removed else "Nothing to import")
         d.format_secondary_text(
-            f"No other distro on this laptop has a fingerprint that {OS_NAME} could use: "
-            f"{OS_NAME} already has every finger whose record is on the EFI partition, or "
-            "there are none there yet (a distro adds its fingers when its Galaxy Book "
-            "Fingerprint Manager opens).\n\nAn export file made with export-fingerprint.sh "
-            "can still be imported.")
+            (f"The {'fingers' if n != 1 else 'finger'} you removed from {OS_NAME} "
+             f"({', '.join(long_finger(t['removed']['name']).lower() for t in removed)}) "
+             f"{'come' if n != 1 else 'comes'} back with Restore {OS_NAME} fingerprints. The "
+             "other distros have no other fingerprint for it.\n\n" if removed else
+             f"No other distro on this laptop has a fingerprint that {OS_NAME} could use: "
+             f"{OS_NAME} already has every finger whose record is on the EFI partition, or "
+             "there are none there yet (a distro adds its fingers when its Galaxy Book "
+             "Fingerprint Manager opens).\n\n")
+            + "An export file made with export-fingerprint.sh can still be imported.")
         d.add_button("Close", Gtk.ResponseType.CLOSE)
         d.add_button("Choose a file…", 3)
-        d.set_default_response(Gtk.ResponseType.CLOSE)
+        if removed:
+            d.add_button(f"Restore {OS_NAME} fingerprints…", 4).get_style_context().add_class(
+                "suggested-action")
+        d.set_default_response(4 if removed else Gtk.ResponseType.CLOSE)
         r = d.run()
         d.destroy()
         if r == 3:
             self._import_file()
+        elif r == 4:
+            self.on_restore(None)
 
     def _import_file(self):
         d = self._chooser("Import an export file", Gtk.FileChooserAction.OPEN, "Import")
@@ -3176,8 +3198,7 @@ class Manager(Gtk.Window):
         checks = []
         for o in offer:
             who = "" if o["user"] == me else f"{o['user']}, "
-            gone = "removed here, " if o.get("removed") else ""
-            c = Gtk.CheckButton(label=f"{long_finger(o['name'])}  ({gone}{who}from {where(o)})")
+            c = Gtk.CheckButton(label=f"{long_finger(o['name'])}  ({who}from {where(o)})")
             # Ticked when it's the user's, or one person's under another name
             # (dave on Fedora, davidb here); left for them to tick otherwise.
             c.set_active(o["user"] == me or len(owners) == 1)

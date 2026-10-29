@@ -301,8 +301,8 @@ def import_offer(user, serial, chip, records, moved):
     the EFI partition: their slot is on the sensor, this install doesn't use
     it, and the user has no working record for that finger. [{"tid", "finger",
     "name", "user", "from": [distros using it], "removed": True if removed
-    here}], or None. The window's own offer leaves out the removed ones (taken
-    off on purpose); ☰ → Import from other distros… lists them too."""
+    here}], or None. The window leaves the removed ones out (taken off on
+    purpose): those come back with ☰ → Restore <distro> fingerprints…."""
     mine = [r for r in records if r["user"] == user and r["print"] is not None]
     have = {r["finger"] for r in mine if any(r["print"].equal(c) for c in chip)}
     taken = [r["print"] for r in records if r["print"] is not None]
