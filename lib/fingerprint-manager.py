@@ -404,6 +404,11 @@ button.fpm-update:hover { box-shadow: 0 0 0 1px rgba(231,76,60,1.0), 0 0 8px rgb
 button.fpm-update:disabled { box-shadow: none; font-weight: normal; }
 .fpm-card { border: 1px solid alpha(currentColor, 0.15); border-radius: 8px; padding: 10px 12px; }
 .fpm-hint { font-size: 100%; }
+stackswitcher.fpm-tabs button { transition: background-color 300ms, box-shadow 300ms; }
+stackswitcher.fpm-tabs button:checked { background-image: none; background-color: @theme_selected_bg_color;
+    color: @theme_selected_fg_color; border-color: shade(@theme_selected_bg_color, 0.85); }
+stackswitcher.fpm-tabs button:checked label { color: @theme_selected_fg_color; }
+stackswitcher.fpm-tabs button.fpm-tab-flash { box-shadow: 0 0 0 3px alpha(@theme_selected_bg_color, 0.45); }
 menu.fpm-menu { padding: 4px; min-width: 0; background-color: @theme_bg_color; border-radius: 8px; }
 menu.fpm-menu menuitem { padding: 6px 14px 6px 8px; min-width: 0; min-height: 0; border-radius: 6px; }
 menu.fpm-menu menuitem:hover { background-color: alpha(@theme_selected_bg_color, 0.16); color: @theme_fg_color; }
@@ -944,6 +949,7 @@ class Manager(Gtk.Window):
         # every page as tall as the tallest, so the window never changes height
         # The tabs, always both: Fingerprints (this install) and Sensor (its 10 slots)
         self.switcher = Gtk.StackSwitcher(stack=self.stack)
+        self.switcher.get_style_context().add_class("fpm-tabs")     # the open tab stands out
         hb.set_custom_title(self.switcher)
         self.refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic", Gtk.IconSize.BUTTON)
         self.refresh_btn.set_tooltip_text("Read the sensor again")
@@ -1726,14 +1732,25 @@ class Manager(Gtk.Window):
                         "user-trash-symbolic", True))
         return self._popup(entries, event, title=title)
 
+    def go_tab(self, name):
+        """Open a tab from a menu or button, with its tab flashing briefly so
+        the switch is noticed."""
+        self.stack.set_visible_child_name(name)
+        names = [self.stack.child_get_property(c, "name") for c in self.stack.get_children()]
+        buttons = self.switcher.get_children()
+        if name in names and names.index(name) < len(buttons):
+            ctx = buttons[names.index(name)].get_style_context()
+            ctx.add_class("fpm-tab-flash")
+            GLib.timeout_add(900, lambda: ctx.remove_class("fpm-tab-flash") and False)
+
     def show_template(self, tid):
         """From a finger: the Sensor tab with its template selected."""
-        self.stack.set_visible_child_name("sensor")
+        self.go_tab("sensor")
         self._set_tsel({tid})
 
     def show_finger(self, key):
         """From a template: the Fingerprints tab with its finger selected."""
-        self.stack.set_visible_child_name("fingers")
+        self.go_tab("fingers")
         if key[0] != self.status["user"]:
             self._set_view("list", save=False)    # other users' fingers are only in the list
         self._set_selection({key})
@@ -2566,7 +2583,7 @@ class Manager(Gtk.Window):
         return r == 1
 
     def open_sensor_tab(self):
-        self.stack.set_visible_child_name("sensor")
+        self.go_tab("sensor")
 
     def on_enrol(self, _btn, finger=None):
         """Enrol a new finger for the user with fprintd-enroll, with progress.
