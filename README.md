@@ -169,10 +169,10 @@ Got it working on a model or distro not listed here? Please tell us with the [**
 
 A small window for your fingerprints and the sensor, in the app menu as **Galaxy Book Fingerprint Manager** (or run `galaxybook-fingerprint-manager`, as yourself, not with sudo). It asks for your password once per session.
 
-- **Fingerprints tab:** your ten fingers. Click a grey one to enrol it, double-click one to test it, click one for its details, right-click for more (enrol again, remove).
+- **Fingerprints tab:** your ten fingers. Click a grey one to enrol it, double-click one to test it, click one for its details, right-click for more (enrol again, remove). **Delete all fingerprints…** starts again from scratch: every finger is deleted from the sensor and has to be enrolled again (with other distros, the ones they share are kept).
 - **Sensor slots tab** (off unless you turn it on with ☰ → **Show sensor slots**; there by itself when other distros use the sensor): the sensor's 10 slots, which are used and which are free. Clear slots you don't need. The ⓘ button explains what a slot is. While it's off, **Show on sensor** (or a full sensor) opens it just for that visit.
 - **The switch at the top** turns fingerprint login on or off.
-- **☰ menu:** restore fingerprints removed here, show the sensor slots, test whether your distro's own driver now works, check for updates. With other distros on the laptop, more appear: importing their fingerprints, back up & restore, and reset (see [Several Linux Distros](#several-linux-distros-on-one-laptop)).
+- **☰ menu:** restore fingerprints removed here, show the sensor slots, test whether your distro's own driver now works, check for updates. With other distros on the laptop, more appear: importing their fingerprints, and back up & restore (see [Several Linux Distros](#several-linux-distros-on-one-laptop)).
 - **Information panel** at the bottom: what just happened (it blinks, and stays until you close it), and the details of a finger or slot you click (gone after 5 seconds).
 
 > [!NOTE]
@@ -192,7 +192,7 @@ A small window for your fingerprints and the sensor, in the app menu as **Galaxy
 <details>
 <summary>How it works, in detail</summary>
 
-Only one window runs at a time: starting it again brings the open window forward (or makes it flash in the taskbar, depending on the desktop). The installed copy is owned by root (`/usr/local/lib/galaxybook-fingerprint-manager/`, or `/usr/lib/galaxybook-fingerprint-manager/` from a package), because its helper runs as root: a copy in your home folder could be changed by any program running as you. ☰ → **About** shows its version, the installed version and driver commit, and where it came from.
+`galaxybook-fingerprint-manager --single-distro` shows the window as if this were the only distro on the laptop (to see the single-distro layout on a multi-distro one; only what's shown changes). Only one window runs at a time, so close it first: starting it again brings the open window forward (or makes it flash in the taskbar, depending on the desktop). The installed copy is owned by root (`/usr/local/lib/galaxybook-fingerprint-manager/`, or `/usr/lib/galaxybook-fingerprint-manager/` from a package), because its helper runs as root: a copy in your home folder could be changed by any program running as you. ☰ → **About** shows its version, the installed version and driver commit, and where it came from.
 
 It asks for your password once per session; the prompt says "Galaxy Book Fingerprint Manager needs administrator access to read and manage the fingerprint sensor" (a polkit policy installed for the helper). At the top is a **Use fingerprint for …** switch (its title says what it covers on this system — login, the lock screen and sudo on GNOME and Mint, the lock screen and sudo on KDE, sudo and admin prompts on Arch-based distros) and a line about the sensor, the installed version and the driver commit; below are two tabs:
 
@@ -208,6 +208,7 @@ It asks for your password once per session; the prompt says "Galaxy Book Fingerp
 | Fingerprints | Test any fingerprint (or double-click a finger) | The button checks your touch against all your fingers (as login and sudo do); double-clicking a finger tests just that one. Shows a clear Match / No match with the finger that matched. It asks the sensor directly (fprintd pauses for a moment), because fprintd doesn't report which finger matched |
 | Fingerprints | Enrol a finger (a grey card, or the last row) | Enrols a new finger for you with `fprintd-enroll`, with a progress bar. It warns first that enrolling a finger already stored for another install or Windows Hello deletes it from there — useful on desktops without a fingerprint settings page, such as Xfce (MX Linux) |
 | Fingerprints | Remove from <distro> (right-click a finger, or select it and press Delete) | Moves the record off this install; the template stays, so installs sharing it keep working |
+| Fingerprints | Delete all fingerprints… | Deletes every fingerprint on this distro (and copies kept from removing them) and clears their slots on the sensor, after a confirmation that names them: they have to be enrolled again. With other distros, slots they also use are kept and offered back straight after |
 | Sensor slots | Clear… (or right-click → Clear slot…) | Clears the selected slots: deletes their fingerprints from the sensor (and moves aside any record here that used them) |
 | Sensor slots | Clear all slots… | Deletes every fingerprint on the sensor (every Linux install's and Windows Hello's) after you type CLEAR; moves every record here aside |
 | ☰ menu | Restore <distro> fingerprints… | Lists records moved to `removed-fingerprints/` or `replaced-fingerprints/` and puts the chosen ones back — only if their template is still on the sensor and that finger hasn't been enrolled again here |
@@ -359,14 +360,14 @@ The check is a small Python program (`lib/sensor-check.py`) that uses whichever 
 
 Everything above is all one distro needs. This section is for laptops with **several Linux distros** using the one sensor.
 
-**The Galaxy Book Fingerprint Manager notices them by itself.** Each distro that runs it notes itself (and where it's installed: its partition) in one file on the EFI partition, `EFI/samsung-galaxybook/fingerprint-slots.json`, which every OS on the laptop shares and which survives reinstalling a distro. Each time the Manager opens, it reads that file and checks the other distros still exist: one whose partition has been deleted or reformatted (reinstalled) is no longer listed, and a short message says so. A distro on a second drive that isn't connected is left as it is. As soon as another distro is found, the multi-distro parts appear: the **Sensor slots** tab, and in the ☰ menu **Import from other distros…**, **Back up & restore…** and **Reset <distro>…**.
+**The Galaxy Book Fingerprint Manager notices them by itself.** Each distro that runs it notes itself (and where it's installed: its partition) in one file on the EFI partition, `EFI/samsung-galaxybook/fingerprint-slots.json`, which every OS on the laptop shares and which survives reinstalling a distro. Each time the Manager opens, it reads that file and checks the other distros still exist: one whose partition has been deleted or reformatted (reinstalled) is no longer listed, and a short message says so. A distro on a second drive that isn't connected is left as it is. As soon as another distro is found, the multi-distro parts appear: the **Sensor slots** tab, and in the ☰ menu **Import from other distros…** and **Back up & restore…**.
 
 ### Sharing Fingerprints
 
 Enrol each finger **once** and share it, instead of enrolling it again on every distro. Enrolling the same finger on another distro deletes it from the others, and sharing keeps the sensor's 10 slots free. fprintd's record for a finger holds only the ID of its slot on the sensor (no fingerprint image, no secret), so the same record works on every distro that runs this fix.
 
 1. Each distro notes its fingers' records in the shared file on the EFI partition.
-2. When the Manager opens on another distro (a new one, a reinstalled one, or one you've just reset), it asks *Use these fingerprints on CachyOS too?* and lists the fingers it could use, each with the distros it's from.
+2. When the Manager opens on another distro (a new one, a reinstalled one, or one whose fingerprints you've just deleted), it asks *Use these fingerprints on CachyOS too?* and lists the fingers it could use, each with the distros it's from.
 3. Untick any that aren't yours, then **Import**. They work straight away, with no enrolling.
 
 Turned one down? It isn't offered again by itself, but ☰ → **Import from other distros…** always lists them all. A finger you removed here comes back with ☰ → **Restore <distro> fingerprints…** (or right-click it → **Restore removed fingerprint…**). A record goes when its slot is cleared, so you're never offered a finger that can't match.
@@ -380,9 +381,9 @@ Turned one down? It isn't offered again by itself, but ☰ → **Import from oth
 - **Reinstalling:** just reinstall it. When the Manager opens on the new install, it offers your fingerprints; nothing to enrol again. The old install is noticed as gone (its partition was reformatted) and no longer listed.
 - **Removing:** removing the Manager (dnf / apt / pacman, or `uninstall.sh`; not an update) takes this distro out of the file. A distro deleted without that is noticed as gone at the next start of the Manager elsewhere; **Other distros…** on the Sensor slots tab lists them all and can **Forget…** one by hand.
 
-### Reset
+### Delete All Fingerprints, With Several Distros
 
-☰ → **Reset <distro>…** starts that distro's fingerprints again from scratch. You don't need it to reinstall. Its fingerprints are deleted, and **the slots only that distro uses are erased from the sensor for good**: nothing can bring those fingers back (not an import, not a backup); they have to be enrolled again. Slots other distros also use are kept, and you're asked straight after whether to import them again. The confirmation names which fingers are lost and which are kept.
+**Delete all fingerprints…** (Fingerprints tab) deletes that distro's fingerprints, and erases from the sensor **only the slots no other distro uses**: nothing can bring those fingers back (not an import, not a backup); they have to be enrolled again. Slots other distros also use are kept, and you're asked straight after whether to import them again. The confirmation names which fingers are lost and which are kept. The distro is also taken out of the shared file. You don't need it to reinstall a distro.
 
 ### Back Up & Restore
 
@@ -402,7 +403,6 @@ A backup holds no fingerprints, only which slot is whose: it's useless without t
 |---|---|---|
 | ☰ menu | Import from other distros… | The fingers this install could use from the other distros on the laptop (also ones you turned down before), ticked ones imported through `import-fingerprint.sh` with all its checks |
 | Sensor slots | Other distros… | Every distro in the shared slots file, with the date it last opened the Manager and its slots. **Forget…** takes a wiped or reinstalled one out; **Forget and clear N slots** also erases the slots only it used. Also in the ⓘ dialog. Only shown when other distros are listed |
-| ☰ menu | Reset <distro>… | Starts this distro's fingerprints again from scratch (not needed to reinstall it): deletes every fingerprint record on it for good (and those moved aside), clears the slots only it uses, keeps the ones other distros also use, and takes it out of the shared slots file |
 | ☰ menu | Back up & restore… | Says how many records the EFI partition has; **Back up…** saves a copy of `fingerprint-slots.json` from the EFI partition (every distro's records) as a `.json` file; **Restore…** merges one back (adds what's missing, changes nothing there) and the Manager offers the fingers again |
 
 </details>
