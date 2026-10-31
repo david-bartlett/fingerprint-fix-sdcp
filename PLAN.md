@@ -1,6 +1,6 @@
 # fingerprint-fix-sdcp: technical plan for contributors
 
-This is the handover for anyone (people or coding agents such as Codex) working on this repository. It explains how the project works, what every file is for, and **how changes must be made**. Read the ground rules first; the rest is reference.
+This is the handover for anyone (people or coding agents such as Codex) working on this repository. It explains how the project works, what every file is for, and **how changes must be made**. Read the ground rules first, then the newest notes in `handoff/`; the rest is reference.
 
 ---
 
@@ -14,7 +14,8 @@ This is the handover for anyone (people or coding agents such as Codex) working 
 6. **Don't touch `DRIVER`** (the tested driver commit) unless asked.
 7. **Don't add files you didn't mean to.** Review `git status` before committing, and don't use `git add -A` blindly. Test scripts and their output belong outside the repository (a test once wrote `efi/…/fingerprint-slots.json` into it and it got committed; `.gitignore` now blocks that path).
 8. **Wording:** British English (enrol, colour, licence). Plain words for users; say what happens and what to do. The app is **"Galaxy Book Fingerprint Manager"** in full the first time in a section and in headings, tables and links, then **"the Manager"**.
-9. **Safety first.** The helper runs as root; the sensor holds the user's fingerprints. Read §10 before changing anything that writes files, touches the sensor or edits PAM.
+9. **Handoff notes.** Every PR adds one short note in `handoff/` (`YYYY-MM-DD-short-topic.md`: what changed, why, what was and wasn't tested, anything for the next person; template in `handoff/README.md`). Before starting, read the notes newer than your last session. When a PR changes how something works, update this file (PLAN.md) in the same PR, so it always describes the project as it is.
+10. **Safety first.** The helper runs as root; the sensor holds the user's fingerprints. Read §10 before changing anything that writes files, touches the sensor or edits PAM.
 
 ---
 

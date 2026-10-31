@@ -535,7 +535,7 @@ See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc
 | | |
 | --- | --- |
 | `install.sh` / `uninstall.sh` | Install or remove the fix |
-| `PLAN.md`, `AGENTS.md` | How the project works and how to contribute (changes go in as pull requests) |
+| `PLAN.md`, `AGENTS.md`, `handoff/` | How the project works, how to contribute (changes go in as pull requests), and a short note on each pull request |
 | `fingerprint-manager.sh` | Starts the [Galaxy Book Fingerprint Manager](#galaxy-book-fingerprint-manager) from the repository folder (the installer also installs it) |
 | `tools/` | Optional command-line tools: `export-fingerprint.sh`, `import-fingerprint.sh` ([sharing fingerprints](#sharing-fingerprints)), `fingerprint-pam.sh` ([fingerprint login on/off](#turning-fingerprint-login-on-or-off)), `arch-pam.sh` (used by it on Arch), `test-latest-libfprint.sh` (try upstream's newest driver; see [packaging/README.md](packaging/README.md#driver-updates-and-releases)), and `dev/` (sensor debugging scripts) |
 | `lib/` | Used by the above — not run directly: the Galaxy Book Fingerprint Manager's Python files and icon, `sensor-check.py` (the boot-time sensor check), `terminal.py` and `update-in-terminal.sh` (the Galaxy Book Fingerprint Manager's **Update** in your terminal), `distro-driver-check.py` (whether the distro's own libfprint now has an SDCP driver for the sensor, and where it came from — see [The Monitor](#the-monitor)), and `patches/` (fixes applied to the driver source at build time) |
