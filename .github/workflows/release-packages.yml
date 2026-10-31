@@ -170,8 +170,9 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      # A pushed tag has no release yet: make one, titled with the version and
-      # with notes from this version's CHANGELOG.md section.
+      # A pushed tag has no release yet: make one, as a draft until its files
+      # are attached, titled with the version and with notes from this
+      # version's CHANGELOG.md section.
       - name: Create the release if needed
         run: |
           version=$(tr -d '[:space:]' < VERSION)
@@ -181,7 +182,7 @@ jobs:
             # How to install, the CHANGELOG's highlights, the full section
             # collapsed: see .github/release-notes.sh.
             bash .github/release-notes.sh "$version" > notes.md
-            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --draft \
               --title "$version" --notes-file notes.md
           fi
         env:
@@ -198,5 +199,18 @@ jobs:
       - run: |
           ls -l dist
           gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+        env:
+          GH_TOKEN: ${{ github.token }}
+      # A new release is made as a draft (above) and published only now, with
+      # its files attached: drafts are hidden from releases/latest (what the
+      # new-version check asks) and the releases page, so a release never
+      # appears without its packages and SHA256SUMS. One already published is
+      # left alone, so re-attaching an older release's files never makes it
+      # the latest.
+      - name: Publish the release
+        run: |
+          if [[ "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)" == true ]]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+          fi
         env:
           GH_TOKEN: ${{ github.token }}

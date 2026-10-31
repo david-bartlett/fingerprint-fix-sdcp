@@ -3445,6 +3445,10 @@ class Manager(Gtk.Window):
         def work():
             new = update_check.newer_release(max_age)
             assets = update_check.release_assets(new) if new else []
+            # No Update button for a release whose files aren't attached yet
+            # (no SHA256SUMS): the next check shows it
+            if not assets:
+                new = None
             GLib.idle_add(self._show_update, new, assets)
         threading.Thread(target=work, daemon=True).start()
 

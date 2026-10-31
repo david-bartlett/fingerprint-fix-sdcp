@@ -87,7 +87,7 @@ The sensor has **10 slots**. Each holds one enrolled fingerprint (a "template");
 | `shared_slots.py` | The **shared slots file** on the EFI partition (§6): finding the EFI partition, this install's key and location, writing/reading templates and records, detecting installs that no longer exist, forget, backup/restore merge. Also a CLI: `shared_slots.py --forget-here` (run as root by package removal). |
 | `sensor-check.py` | Compares fprintd's records with the sensor's templates (boot check, import check); `--set-owner USER IN OUT` rewrites a record's owner (import for another user name). |
 | `distro-driver-check.py` | Does the distro's own libfprint now have an SDCP driver for the reader, and is it the distro's unmodified package (or another fix's build)? Used by the monitor and the Manager's "Test your distro's driver". |
-| `update_check.py` | Asks GitHub for the latest release (cached), notifies once per version (critical urgency, retries the network), used by the window's Update button and the hourly timers. Compares versions numerically. |
+| `update_check.py` | Asks GitHub for the latest release (cached), notifies once per version (critical urgency, retries the network) and only once the release's `SHA256SUMS` is there (`release_assets`; the Manager's Update button likewise), used by the window's Update button and the hourly timers. Compares versions numerically. |
 | `notify-update.sh`, `notify-open-manager.sh` | Notification helpers (buttons: Open Fingerprint Manager / Open GitHub). |
 | `terminal.py` | Finds the user's terminal (desktop setting → `xdg-terminal-exec` → the desktop's own → `x-terminal-emulator` → known list). |
 | `update-in-terminal.sh` | Runs the update command in that terminal, then signals the window (which offers Restart). |
@@ -127,7 +127,7 @@ The sensor has **10 slots**. Each holds one enrolled fingerprint (a "template");
 
 | File | Purpose |
 | --- | --- |
-| `workflows/release-packages.yml` | Runs when a `v*` tag is pushed (David's release): checks the tag matches `VERSION`; builds rpms (Fedora 44, 45), debs (Debian 13, Ubuntu 24.04, 26.04); checks the Arch package builds with **only the PKGBUILD's makedepends** and writes the release PKGBUILD; creates the release with notes and attaches everything plus `SHA256SUMS`. |
+| `workflows/release-packages.yml` | Runs when a `v*` tag is pushed (David's release): checks the tag matches `VERSION`; builds rpms (Fedora 44, 45), debs (Debian 13, Ubuntu 24.04, 26.04); checks the Arch package builds with **only the PKGBUILD's makedepends** and writes the release PKGBUILD; creates the release **as a draft** with notes, attaches everything plus `SHA256SUMS`, then publishes it (`--latest`; only a release still in draft, so re-running for an old tag never makes it the latest). Drafts are hidden from `releases/latest`, so the update check never sees a release without its files. |
 | `release-notes.sh` | Writes the release page: install instructions (`release-install.md`), **What's new** (the CHANGELOG section's bold lines), and the whole section collapsed. |
 | `release-install.md` | The install part of every release page. |
 | `ISSUE_TEMPLATE/` | Bug report and "it works on my laptop" forms. |

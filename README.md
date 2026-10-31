@@ -102,6 +102,7 @@ You're told about each new release with a notification, checked 30 seconds after
 
 - The notification comes once per version, with **Open GitHub** (the release page) and, with the Manager, **Open Fingerprint Manager**. On GNOME, hover over it to see the buttons.
 - Only one check runs: the driver's own check is skipped while the Manager is installed.
+- A release is only announced once its files are attached, so **Update** always has something to install.
 - With no terminal found, the Manager's **Update** saves the files to `~/Downloads` instead, with the command to paste.
 - **Turn it off** in the Manager: ☰ → *Check for new versions*. With the driver alone: `systemctl --user mask fingerprint-fix-sdcp-update-check.timer` (off) and `systemctl --user unmask fingerprint-fix-sdcp-update-check.timer` (on); for an `install.sh` copy, `systemctl --user disable` / `enable`.
 - Turning it off in the Manager also turns off the driver's check, and that stays off if you remove the Manager; removing it tells you so, with a **Turn on** button.
