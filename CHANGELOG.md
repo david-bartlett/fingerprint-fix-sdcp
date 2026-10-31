@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.10.2 — 2026-10-31
 
 - **Buttons on GNOME:** the new-version notification's **Open Fingerprint Manager** and **Open GitHub**, and the login check's **Open Fingerprint Manager**, now work on GNOME, and clicking the notification does the same
