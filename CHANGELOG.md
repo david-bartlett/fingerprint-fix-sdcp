@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.10.1 — 2026-10-31
 
 - **Only complete releases are announced:** a new release is only announced once its packages and `SHA256SUMS` are attached, so the Manager's **Update** always has something to install
