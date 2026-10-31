@@ -1,6 +1,6 @@
 # Starting point: where things stand at 2.10.0
 
-PR (this one) · Claude · 2026-10-31
+PR #120 · Claude · 2026-10-31
 
 ## What changed
 - Nothing in the code: this is the first note, describing the state of the project when handoff notes started. Released: **2.10.0** (29 Oct 2026). Earlier releases from 2.4.2 to 2.8.1 may have been deleted from GitHub; 2.9.0 is kept for testing updates.
