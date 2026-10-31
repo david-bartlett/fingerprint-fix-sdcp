@@ -1,6 +1,6 @@
 # Only announce releases whose files are attached
 
-PR #<n> · Claude · 2026-10-31
+PR #122 · Claude · 2026-10-31
 
 ## What changed
 - `.github/workflows/release-packages.yml`: `gh release create --draft`; after the upload, a **Publish the release** step runs `gh release edit --draft=false --latest`, only if the release is still a draft (a re-run for an older tag mustn't make it the latest).
