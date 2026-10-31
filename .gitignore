@@ -2,3 +2,6 @@ __pycache__/
 
 # Package builds (packaging/rpm/build.sh, packaging/debian/build.sh)
 /packaging/out/
+
+# Test output that once ended up here (the shared slots file belongs on the EFI partition)
+/efi/
