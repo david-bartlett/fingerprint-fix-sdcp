@@ -36,7 +36,7 @@ esac
 for _f in lib/sensor-check.py lib/fingerprint-manager.py lib/fingerprint-manager-helper.py \
           lib/galaxybook-fingerprint-manager.svg fingerprint-manager.sh \
           tools/fingerprint-pam.sh tools/arch-pam.sh tools/import-fingerprint.sh tools/export-fingerprint.sh \
-          lib/fixpaths.sh lib/update_check.py lib/notify-open-manager.sh lib/notify-update.sh lib/distro-driver-check.py \
+          lib/fixpaths.sh lib/update_check.py lib/notify-open-manager.sh lib/notify-update.sh lib/notify-dbus.py lib/distro-driver-check.py \
           lib/terminal.py lib/update-in-terminal.sh lib/shared_slots.py \
           packaging/render.sh packaging/files/monitor.sh.in packaging/files/mgr-cleanup.sh.in \
           packaging/files/fprintd-env.sh.in packaging/files/dropin.conf.in lib/other-fix.sh \
@@ -416,7 +416,7 @@ _fp_user_timer() {   # service-template timer-template service-name timer-name
 # installed, which has its own).
 if $WANT_DRIVER; then
     install -d -m 755 "$FIX_UPDATE_DIR"
-    install -m 755 "$SCRIPT_DIR/lib/update_check.py" "$SCRIPT_DIR/lib/notify-update.sh" "$FIX_UPDATE_DIR/"
+    install -m 755 "$SCRIPT_DIR/lib/update_check.py" "$SCRIPT_DIR/lib/notify-update.sh" "$SCRIPT_DIR/lib/notify-dbus.py" "$FIX_UPDATE_DIR/"
     install -m 644 "$SCRIPT_DIR/VERSION" "$FPRINT_LIB_DIR/VERSION"
     _fp_user_timer fix-update-check.service.in fix-update-check.timer.in "$FIX_UPDATE_SVC" "$FIX_UPDATE_TIMER" \
         && info "✓ Hourly check for new releases enabled" \
@@ -637,7 +637,7 @@ install -m 755 -o root -g root "$SCRIPT_DIR/lib/fingerprint-manager.py" \
     "$SCRIPT_DIR/lib/fingerprint-manager-helper.py" "$SCRIPT_DIR/lib/shared_slots.py" "$MGR_DIR/lib/"
 install -m 644 -o root -g root "$SCRIPT_DIR/lib/fixpaths.sh" "$MGR_DIR/lib/"
 install -m 755 -o root -g root "$SCRIPT_DIR/lib/update_check.py" "$SCRIPT_DIR/lib/notify-open-manager.sh" \
-    "$SCRIPT_DIR/lib/notify-update.sh" "$SCRIPT_DIR/lib/terminal.py" "$SCRIPT_DIR/lib/update-in-terminal.sh" \
+    "$SCRIPT_DIR/lib/notify-update.sh" "$SCRIPT_DIR/lib/notify-dbus.py" "$SCRIPT_DIR/lib/terminal.py" "$SCRIPT_DIR/lib/update-in-terminal.sh" \
     "$SCRIPT_DIR/lib/distro-driver-check.py" "$SCRIPT_DIR/lib/sensor-check.py" "$MGR_DIR/lib/"
 install -m 755 -o root -g root "$SCRIPT_DIR"/tools/*.sh "$MGR_DIR/tools/"
 mkdir -p "$(dirname "$MGR_BIN")"

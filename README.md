@@ -100,7 +100,7 @@ You're told about each new release with a notification, checked 30 seconds after
 <details>
 <summary>Turning the update check off, and how it works</summary>
 
-- The notification comes once per version, with **Open GitHub** (the release page) and, with the Manager, **Open Fingerprint Manager**. On GNOME, hover over it to see the buttons.
+- The notification comes once per version, with **Open GitHub** (the release page) and, with the Manager, **Open Fingerprint Manager**. On GNOME, hover over it to see the buttons, or click it to open the Fingerprint Manager (GitHub with the driver alone).
 - Only one check runs: the driver's own check is skipped while the Manager is installed.
 - A release is only announced once its files are attached, so **Update** always has something to install.
 - With no terminal found, the Manager's **Update** saves the files to `~/Downloads` instead, with the command to paste.

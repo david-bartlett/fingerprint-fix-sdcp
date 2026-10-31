@@ -55,7 +55,7 @@ driver)
     # The hourly check for new releases, used while the Manager isn't installed
     # (its user timer is skipped when the Manager is): update_check.py reads
     # the VERSION next to its folder.
-    install -Dm755 -t "$D$FIX_UPDATE_DIR" "$REPO/lib/update_check.py" "$REPO/lib/notify-update.sh"
+    install -Dm755 -t "$D$FIX_UPDATE_DIR" "$REPO/lib/update_check.py" "$REPO/lib/notify-update.sh" "$REPO/lib/notify-dbus.py"
     install -Dm644 "$REPO/VERSION" "$D$FPRINT_LIB_DIR/VERSION"
     put fix-update-check.service.in "$FPRINT_USER_UNIT_DIR/$FIX_UPDATE_SVC"
     put fix-update-check.timer.in   "$FPRINT_USER_UNIT_DIR/$FIX_UPDATE_TIMER"
@@ -102,7 +102,7 @@ manager)
     install -Dm755 "$REPO/fingerprint-manager.sh" "$D$MGR_DIR/fingerprint-manager.sh"
     install -Dm644 "$REPO/VERSION" "$D$MGR_DIR/VERSION"
     install -Dm755 -t "$D$MGR_DIR/lib" "$REPO/lib/fingerprint-manager.py" "$REPO/lib/fingerprint-manager-helper.py" "$REPO/lib/shared_slots.py" \
-        "$REPO/lib/update_check.py" "$REPO/lib/notify-open-manager.sh" "$REPO/lib/notify-update.sh" \
+        "$REPO/lib/update_check.py" "$REPO/lib/notify-open-manager.sh" "$REPO/lib/notify-update.sh" "$REPO/lib/notify-dbus.py" \
         "$REPO/lib/distro-driver-check.py" "$REPO/lib/terminal.py" "$REPO/lib/update-in-terminal.sh" \
         "$REPO/lib/sensor-check.py"
     install -Dm644 -t "$D$MGR_DIR/lib" "$REPO/lib/fixpaths.sh"
