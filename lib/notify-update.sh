@@ -66,6 +66,6 @@ else
 fi
 case "${choice:-}" in
     manager) exec "$manager" ;;
-    github)  exec xdg-open "$url" ;;
+    github)  exec xdg-open "$url" >/dev/null 2>&1 ;;     # the browser's own messages
 esac
 exit 0
