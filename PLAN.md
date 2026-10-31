@@ -276,3 +276,4 @@ Then he closes and reopens the Manager. Give him a short numbered list of what t
 - Finger cards still have a hover tooltip that overlaps the details now shown in the information panel.
 - Sharing fingerprints from a driver-only install (would need the tools and Python bindings in the driver package).
 - Offering to forget the old install automatically when a reinstalled distro imports its fingers.
+- **Distro repositories, later:** a Fedora COPR, an Ubuntu PPA and an AUR package, so updates come through the distro's own updater. Not a priority until we're sure there are no bugs; for now each release attaches the rpm, deb and PKGBUILD files.
