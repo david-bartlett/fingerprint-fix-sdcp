@@ -1,6 +1,6 @@
 # Plan: COPR, PPA and AUR later
 
-PR (this one) · Claude · 2026-10-31
+PR #121 · Claude · 2026-10-31
 
 ## What changed
 - PLAN.md §11 (ideas not done yet): a Fedora COPR, an Ubuntu PPA and an AUR package may come later.
