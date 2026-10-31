@@ -16,7 +16,8 @@ PR #123 · Claude · 2026-10-31
 ## Tested
 - Stand-ins for `notify-send`, `python3`, `xdg-open`, `timeout`, and the Manager launcher (in a scratch copy): GNOME → helper with the right urgency, buttons, `default` and click line, a click opens GitHub / the Manager; helper exit 2 → plain (with the URL for notify-update.sh); KDE / Cinnamon → `notify-send --action` as before. `bash -n`, shellcheck, `py_compile`.
 - David on Ubuntu 26.04: the helper's notification with both buttons; Open GitHub opened the page.
-- Not tested yet: the re-show, Open Fingerprint Manager and the body click on GNOME.
+- David on Ubuntu 26.04: Open GitHub → page, notification back 2 s later; Open Fingerprint Manager → the Manager; body click → the Manager.
+- Not tested yet: the re-show on KDE, Cinnamon, MATE and Xfce (notify-send path).
 
 ## For the next person
 - Keep `notify-dbus.py` in step with galaxybook-fan's copy.
