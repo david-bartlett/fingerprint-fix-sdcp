@@ -12,6 +12,8 @@
 - **Buttons on GNOME:** the new-version notification's **Open Fingerprint Manager** and **Open GitHub**, and the login check's **Open Fingerprint Manager**, now work on GNOME, and clicking the notification does the same
 - On Ubuntu 26.04 `notify-send` dropped the buttons (*Actions are not supported*), although GNOME shows them, so the notification had no buttons and no link. On GNOME they're now sent straight to GNOME (`notify-dbus.py`, the same helper as galaxybook-fan's; it uses PyGObject, which the Manager already needs). With the driver alone and no PyGObject, the notification shows the release's link instead
 
+- **Open GitHub keeps Open Fingerprint Manager:** after **Open GitHub** the new-version notification comes back a moment later, on every desktop, so the Manager's button is still there
+
 ## 2.10.1 — 2026-10-31
 
 - **Only complete releases are announced:** a new release is only announced once its packages and `SHA256SUMS` are attached, so the Manager's **Update** always has something to install
