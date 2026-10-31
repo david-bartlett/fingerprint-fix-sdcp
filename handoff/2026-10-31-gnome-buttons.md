@@ -1,6 +1,6 @@
 # GNOME: working notification buttons (notify-dbus.py)
 
-PR #<n> · Claude · 2026-10-31
+PR #123 · Claude · 2026-10-31
 
 ## What changed
 - `lib/notify-dbus.py` (new, 755): the same helper as galaxybook-fan's (its PR #32). `URGENCY APP ICON TITLE BODY [KEY LABEL]...`: sends `Notify` over D-Bus with Gio, waits for `ActionInvoked` / `NotificationClosed` for its id, prints the key; exit 2 if it can't (no PyGObject or bus).
