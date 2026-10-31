@@ -433,6 +433,13 @@ def notify_once():
                 return
     except OSError:
         pass
+    # Only a release whose files are attached (its SHA256SUMS is there), so the
+    # Manager's Update has something to install. The release workflow
+    # publishes a release only after attaching them, but re-attaching files
+    # replaces them one at a time. Not noted as told: the next hourly check
+    # looks again.
+    if not release_assets(new):
+        return
     title = f"fingerprint-fix-sdcp {new} is available"
     url = f"{REPO_URL}/releases/tag/v{new}"
     if any(os.access(m, os.X_OK) for m in MANAGER_BINS):

@@ -9,6 +9,10 @@
 
 ## Unreleased
 
+- **Only complete releases are announced:** a new release is only announced once its packages and `SHA256SUMS` are attached, so the Manager's **Update** always has something to install
+- The release workflow now creates each release as a draft, attaches the files and only then publishes it, so a release never appears on GitHub without them
+- The hourly check and the Manager's **Update** button also wait for the release's `SHA256SUMS`; until it's there they say nothing, and the next check looks again
+
 ## 2.10.0 — 2026-10-29
 
 - **Removed fingers can always be restored:** removing several one at a time lost the first ones' copies
