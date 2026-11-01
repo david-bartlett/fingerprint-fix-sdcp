@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.10.6 — 2026-11-01
 
 - **No crash report on Restart:** pressing **Restart** in the Manager after an update no longer brings up Ubuntu's *closed unexpectedly* window
