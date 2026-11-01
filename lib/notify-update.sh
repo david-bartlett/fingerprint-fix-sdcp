@@ -43,6 +43,45 @@ if [[ "$desk" == *gnome* && "$desk" != *budgie* && -f "$HERE/notify-dbus.py" ]] 
     dbus=1
 fi
 
+# Updated another way while it's on screen (the Manager's Update, a command,
+# the files installed by hand): close it. VERSION is the announced version;
+# the installed one is the VERSION file next to this lib/ folder.
+watch="$HERE/../VERSION"; [[ -f "$watch" ]] || watch=""
+updated() {
+    local have
+    [[ -n "$version" && -n "$watch" ]] || return 1
+    have="$(tr -d '[:space:]' < "$watch" 2>/dev/null)"
+    [[ -n "$have" && "$(printf '%s\n%s\n' "$version" "$have" | sort -V | tail -1)" == "$have" ]]
+}
+
+# notify-send, closed once updated: --print-id gives its ID first (then the
+# button, when one is pressed); every 2 s look at the installed version, and
+# once it's the announced one ask the desktop to close that ID (most allow it
+# for the same user; if not it simply stays). Prints the button pressed.
+# The same as galaxybook-fan's.
+wait_notify_send() {
+    local out pid id="" i=0 closed=0
+    if ! notify-send --help 2>&1 | grep -q -- '--print-id' || ! out="$(mktemp)"; then
+        notify-send "$@" 2>/dev/null; return
+    fi
+    notify-send --print-id "$@" > "$out" 2>/dev/null &
+    pid=$!
+    while kill -0 "$pid" 2>/dev/null; do
+        sleep 0.5                                   # a click is noticed at once...
+        (( ++i % 4 )) && continue                   # ...the version every 2 s
+        [[ -n "$id" ]] || id="$(head -1 "$out")"
+        if (( ! closed )) && [[ "$id" =~ ^[0-9]+$ ]] && updated; then
+            gdbus call --session --dest org.freedesktop.Notifications \
+                --object-path /org/freedesktop/Notifications \
+                --method org.freedesktop.Notifications.CloseNotification "$id" >/dev/null 2>&1
+            closed=1
+        fi
+    done
+    wait "$pid" 2>/dev/null
+    sed -n '2p' "$out"                              # the button (after the ID)
+    rm -f "$out"
+}
+
 full="$msg"
 plain() { notify-send "${args[@]}" "$title" "$full${url:+
 $url}"; }
@@ -72,12 +111,13 @@ msg="${msg%%$'\n'*}"
 # window (as galaxybook-fan does). "Update now" or closing it ends this.
 for (( n = 0; n < 20; n++ )); do
     if [[ $way == dbus ]]; then
-        choice=$(python3 -I "$HERE/notify-dbus.py" 2 "$APPNAME" "$ICON" "$title" "$msg" "${pairs[@]}")
+        choice=$(NOTIFY_WATCH_FILE="$watch" NOTIFY_WATCH_VERSION="$version" \
+                 python3 -I "$HERE/notify-dbus.py" 2 "$APPNAME" "$ICON" "$title" "$msg" "${pairs[@]}")
         rc=$?
         if (( rc == 2 )); then plain; break; fi     # couldn't show it that way: plainly, with the URL
         [[ "$choice" == default ]] && choice=whatsnew
     else
-        choice=$(notify-send "${args[@]}" "${opts[@]}" "$title" "$msg" 2>/dev/null)
+        choice=$(wait_notify_send "${args[@]}" "${opts[@]}" "$title" "$msg")
     fi
     case "${choice:-}" in
         update)
@@ -91,7 +131,7 @@ for (( n = 0; n < 20; n++ )); do
         whatsnew)
             xdg-open "$url" >/dev/null 2>&1 &         # (not the browser's own messages)
             sleep 2 ;;
-        *) break ;;                                   # closed
+        *) break ;;                                   # closed, or updated another way
     esac
 done
 exit 0

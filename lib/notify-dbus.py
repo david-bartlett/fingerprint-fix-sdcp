@@ -11,12 +11,21 @@
 # was closed; exits 0. Exits 2 if it couldn't be shown (no PyGObject, no
 # session bus), so the caller can fall back to notify-send.
 #
-# The same helper as galaxybook-fan's. Why not notify-send: on David's
-# Ubuntu 26.04 GNOME lists "actions" in its capabilities and shows buttons
-# when asked over D-Bus, but notify-send 0.8.8 says "Actions are not
-# supported by this notifications server" and shows it without them. GNOME sends the button press only to the program that made
+# NOTIFY_WATCH_FILE / NOTIFY_WATCH_VERSION (environment): every 2 seconds,
+# read the installed version from that file; once it's that version or
+# newer (updated another way while this was on screen), close the
+# notification - it's this program's own, so the desktop allows it - and
+# print nothing, as when it's closed by hand.
+#
+# The same helper as galaxybook-fan's (keep them in step). Why not
+# notify-send: on David's Ubuntu 26.04 GNOME lists "actions" in its
+# capabilities and shows buttons when asked over D-Bus, but notify-send 0.8.8
+# says "Actions are not supported by this notifications server" and shows it
+# without them. GNOME sends the button press only to the program that made
 # the notification, so this one stays until it's pressed or closed.
 # =============================================================================
+import os
+import re
 import sys
 
 try:
@@ -28,6 +37,20 @@ except (ImportError, ValueError):
 
 BUS = "org.freedesktop.Notifications"
 PATH = "/org/freedesktop/Notifications"
+
+
+def _version(text):
+    """(1, 2, 3) from '1.2.3', or None."""
+    m = re.fullmatch(r"\s*v?(\d+(?:\.\d+)*)\s*", text or "")
+    return tuple(int(x) for x in m.group(1).split(".")) if m else None
+
+
+def _installed(path):
+    try:
+        with open(path) as f:
+            return _version(f.read())
+    except OSError:
+        return None
 
 
 def main(argv):
@@ -61,6 +84,23 @@ def main(argv):
             GLib.VariantType("(u)"), Gio.DBusCallFlags.NONE, -1, None).unpack()[0]
     except (GLib.Error, ValueError):
         return 2
+
+    watch, wanted = os.environ.get("NOTIFY_WATCH_FILE"), _version(os.environ.get("NOTIFY_WATCH_VERSION"))
+
+    def updated():
+        have = _installed(watch)
+        if have and have >= wanted:
+            try:
+                bus.call_sync(BUS, PATH, BUS, "CloseNotification", GLib.Variant("(u)", (state["id"],)),
+                              None, Gio.DBusCallFlags.NONE, -1, None)
+            except GLib.Error:
+                pass
+            loop.quit()                 # NotificationClosed may follow; nothing to print
+            return False
+        return True                     # look again in 2 s
+
+    if watch and wanted:
+        GLib.timeout_add_seconds(2, updated)
     loop.run()
     if state["choice"]:
         print(state["choice"])
