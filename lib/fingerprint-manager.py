@@ -2308,6 +2308,13 @@ class Manager(Gtk.Window):
             GLib.idle_add(finish, res, err)
 
         def finish(res, err):
+            # A reply that arrives after the window has started closing (e.g.
+            # Restart after an update, while a sensor read was still under way)
+            # has no window left to fill: ignore it. Filling the destroyed
+            # window raised "Argument 1 does not allow None", which Ubuntu's
+            # crash reporter showed as a crash.
+            if getattr(self, "_closing", False):
+                return False
             self.busy = False
             self.spinner.stop()
             self._update_buttons()
@@ -2316,6 +2323,8 @@ class Manager(Gtk.Window):
             return False
 
         def no_access(why):
+            if getattr(self, "_closing", False):
+                return False
             self.busy = False
             self.spinner.stop()
             self._update_buttons()
@@ -2397,8 +2406,10 @@ class Manager(Gtk.Window):
         self._fill_templates(st["templates"])
         GLib.idle_add(self._fit_height)
         for name, n in (("fingers", len(st["records"])), ("sensor", len(st["templates"]))):
-            self.stack.child_set_property(self.stack.get_child_by_name(name), "title",
-                                          f"{self.pages[name]} ({n})")
+            child = self.stack.get_child_by_name(name)
+            if child is None:                       # the window is being taken down
+                continue
+            self.stack.child_set_property(child, "title", f"{self.pages[name]} ({n})")
             if name == "fingers":
                 self.title_lbl.set_text(f"{self.pages[name]} ({n})")
         marker = st.get("marker")
@@ -3960,6 +3971,7 @@ class Manager(Gtk.Window):
         single instance: started sooner, it would only bring this window back,
         just before it closes). Closing can take a few seconds (the root helper
         is stopped first), so wait for this process to exit — up to 30 s."""
+        self._closing = True                     # from now on, ignore late helper replies
         wait = ('i=0; while kill -0 "$1" 2>/dev/null && [ $i -lt 150 ]; do sleep 0.2; i=$((i+1)); done; '
                 'sleep 0.3; exec "$0"')
         argv = ["sh", "-c", wait, command, str(os.getpid())]
@@ -4018,6 +4030,7 @@ class Manager(Gtk.Window):
         d.destroy()
 
     def on_quit(self, *_):
+        self._closing = True                     # late helper replies are ignored (run_job)
         self.helper.stop()
         if self.get_application() is None:       # started without the App (tests)
             Gtk.main_quit()
