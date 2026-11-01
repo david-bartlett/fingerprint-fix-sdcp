@@ -1,6 +1,6 @@
 # No crash report when the Manager restarts after an update
 
-PR #<n> · Claude · 2026-11-01
+PR #130 · Claude · 2026-11-01
 
 ## What changed
 - `lib/fingerprint-manager.py`: `_closing` is set in `on_quit` (the window's destroy) and in `_restart_into`; `run_job`'s `finish` and `no_access` return straight away once it's set, so a helper reply that arrives while the window is being taken down doesn't touch its widgets. `show_status` also skips a stack page that's gone instead of passing `None` to `child_set_property`.
