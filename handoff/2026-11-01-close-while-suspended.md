@@ -1,6 +1,6 @@
 # Reader keeps working after suspending during a scan
 
-PR #PRNUM · Claude · 2026-11-01
+PR #133 · Claude · 2026-11-01
 
 ## What changed
 - New `lib/patches/0001-close-while-suspended.patch` (libfprint core: `fp-device.c`, `fpi-device.c`, `fp-device-private.h`): `fp_device_close()` no longer refuses while suspended. It keeps the task and runs the driver's close when `fp_device_resume()` finishes, including when the device was removed during the sleep.
