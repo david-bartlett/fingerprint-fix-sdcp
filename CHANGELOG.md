@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.10.5 — 2026-11-01
 
 - **Update now opens the terminal at login too:** clicking **Update now** on the notification shown at login now opens the terminal and installs; before, the terminal closed as soon as it opened
