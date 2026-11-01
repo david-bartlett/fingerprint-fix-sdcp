@@ -1,6 +1,6 @@
 # The hourly check asks every hour, not every other hour
 
-PR #<n> · Claude · 2026-11-01
+PR #126 · Claude · 2026-11-01
 
 ## What changed
 - `lib/update_check.py`: `notify_once()` reuses GitHub's answer for 55 minutes (`REUSE`), not 3600 s.
