@@ -94,7 +94,7 @@ The sensor has **10 slots**. Each holds one enrolled fingerprint (a "template");
 | `fixpaths.sh` | All install paths, for both layouts (§3). Sourced by every shell script. |
 | `other-fix.sh` | Finds another fingerprint fix's fprintd setup (moved aside at install). |
 | `galaxybook-fingerprint-manager.svg` | The icon. |
-| `patches/` | Build-time fixes for the driver source, applied only while needed (currently none). |
+| `patches/` | Build-time fixes for the driver source, applied only while needed. Currently `0001-close-while-suspended.patch` (see §5). |
 
 ### `tools/`
 
@@ -142,6 +142,7 @@ The sensor has **10 slots**. Each holds one enrolled fingerprint (a "template");
 - **Login check** (user timer): shows the monitor's and boot check's messages as notifications (app name "Samsung Galaxy Book Fixes"), once each.
 - **Update checks** (user timers, 30 s after login then hourly): the driver's and the Manager's; only one runs (the driver's is skipped while the Manager is installed). Notification once per version; turning it off in the Manager masks the timers.
 - **Session helper:** starts `graphical-session.target` on desktops that don't (Xfce and others), so the user timers run.
+- **Suspend during a scan** (`lib/patches/0001-close-while-suspended.patch`): on `PrepareForSleep` fprintd suspends the device. egismoc has no real suspend, so a running verify ends with *Cannot run while suspended* and libfprint marks the device suspended. pam_fprintd then calls ReleaseDevice. Unpatched, `fp_device_close()` refused with BUSY; fprintd dropped the claim anyway, the device stayed open, and every Claim failed with *The device has already been opened!* until fprintd exited. With the patch the close waits for `fp_device_resume()`, and so does Release's reply. That all happens before systemd's sleep hooks, so a hook or a restart after resume can't prevent it.
 - **systemd gotcha:** in unit command lines systemd expands `$VAR`; inline scripts passed via `systemd-run` must write every `$` as `$$`.
 
 ---
@@ -276,4 +277,6 @@ Then he closes and reopens the Manager. Give him a short numbered list of what t
 - Finger cards still have a hover tooltip that overlaps the details now shown in the information panel.
 - Sharing fingerprints from a driver-only install (would need the tools and Python bindings in the driver package).
 - Offering to forget the old install automatically when a reinstalled distro imports its fingers.
+- **`usb 3-4: reset` during a scan:** on 26 Oct 2026 *Device reported an error during identify: Unrecognized response from device* came straight after a USB reset during a scan, while the Manager was restarting fprintd (`pkexec fingerprint-manager-helper.py`). It recovered by itself. Not looked into.
+- **`build-driver.sh` ignores `Needed-if-source-has:`:** only `install.sh` reads that line, so the packages stop on a fix that no longer fits, even if the source fixed it another way. Safe, but the two differ.
 - **Distro repositories, later:** a Fedora COPR, an Ubuntu PPA and an AUR package, so updates come through the distro's own updater. Not a priority until we're sure there are no bugs; for now each release attaches the rpm, deb and PKGBUILD files.

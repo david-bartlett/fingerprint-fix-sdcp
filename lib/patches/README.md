@@ -13,4 +13,9 @@ needs it:
 Put a `Subject:` line at the top (shown by the installer), then the reason,
 then the `git diff`. Remove the file once the fix is in the fork.
 
-No fixes are needed at the moment.
+## Current fixes
+
+- `0001-close-while-suspended.patch`: a close requested while the device is
+  suspended waits for the resume instead of failing. Without it the reader stops
+  responding after a suspend during a scan. Worth offering to the fork and to
+  libfprint; remove it here once it's in the fork and `DRIVER` names that commit.

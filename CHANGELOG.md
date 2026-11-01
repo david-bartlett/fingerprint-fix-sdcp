@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Reader keeps working after suspend:** suspending during a scan, usually at the lock screen just after a wake, no longer leaves the reader not responding
+- The driver can't suspend, so the scan stopped and the lock screen released the reader, which libfprint refused while suspended (*The device is still busy with another operation*). fprintd dropped its claim, but the reader stayed open and every later use failed with *The device has already been opened!* until fprintd exited. The release now waits for the wake, through a new fix in `lib/patches/` (`0001-close-while-suspended`)
+
 ## 2.11.0 — 2026-11-01
 
 - **Update now after updating another way:** if you've already installed the new version (with the Manager's **Update**, say) and then press the notification's **Update now**, it just says so, instead of downloading the packages again for nothing to install
