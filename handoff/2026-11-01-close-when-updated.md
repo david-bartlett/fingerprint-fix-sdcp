@@ -1,6 +1,6 @@
 # The new-version notification closes once the new version is installed
 
-PR #<n> · Claude · 2026-11-01
+PR #132 · Claude · 2026-11-01
 
 ## What changed
 - `lib/notify-update.sh`: `updated()` compares VERSION (the announced one) with the installed `VERSION` next to `lib/` (`sort -V`); `wait_notify_send` runs `notify-send --print-id …` in the background, notices a click within 0.5 s, and every 2 s, once `updated`, calls `gdbus … CloseNotification ID` once; it prints the button. The D-Bus helper gets `NOTIFY_WATCH_FILE` / `NOTIFY_WATCH_VERSION`.
