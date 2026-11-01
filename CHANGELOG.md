@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **Update now after updating another way:** if you've already installed the new version (with the Manager's **Update**, say) and then press the notification's **Update now**, it just says so, instead of downloading the packages again for nothing to install
+
 - **The notification goes once you've updated:** if you update another way while the new-version notification is on screen (the Manager's **Update**, `galaxybook-fingerprint-manager update`, or the downloaded files), it closes by itself a couple of seconds after the new version is installed
 - While it's on screen it looks at the installed version every 2 seconds. On GNOME it closes its own notification; elsewhere it asks the desktop to close it, which most allow (if one doesn't, the notification stays as before). The same as galaxybook-fan's
 
