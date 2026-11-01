@@ -12,4 +12,5 @@ PR #132 · Claude · 2026-11-01
 
 ## Tested
 - Stand-ins for `notify-send` (`--print-id`, waits), `gdbus`, Cinnamon: the installed VERSION changed after 3 s → `CloseNotification 42`, ended about 1 s later. shellcheck, `bash -n`, `py_compile`.
-- Not tested here: the D-Bus helper's watch (GNOME), and whether KDE / Cinnamon / MATE / Xfce allow `CloseNotification` from another connection.
+- David on Ubuntu 26.04 (GNOME, the D-Bus helper): the notification closed by itself within about 1–2 s of VERSION changing.
+- Not tested yet: whether KDE / Cinnamon / MATE / Xfce allow `CloseNotification` from another connection.
