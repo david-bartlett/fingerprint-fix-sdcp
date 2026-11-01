@@ -440,6 +440,13 @@ def notify_once():
     # looks again.
     if not release_assets(new):
         return
+    show_notification(new)
+
+
+def show_notification(new):
+    """The new-version notification for release NEW (the hourly check and
+    'galaxybook-fingerprint-manager updates check'), then noted as told.
+    False if it couldn't be shown."""
     title = f"fingerprint-fix-sdcp {new} is available"
     url = f"{REPO_URL}/releases/tag/v{new}"
     # The first line is all that's shown with buttons (notify-update.sh); the
@@ -463,13 +470,14 @@ def notify_once():
             subprocess.run(["notify-send", "-u", "critical", "-t", "0", "-a", "Samsung Galaxy Book Fixes", "-i", APP,
                             title, f"{msg}\n{url}"], check=True, timeout=15)
         except (OSError, subprocess.SubprocessError):
-            return                  # try again next time
+            return False            # try again next time
     try:
         os.makedirs(CACHE_DIR, exist_ok=True)
         with open(NOTIFIED, "w") as f:
             f.write(new + "\n")
     except OSError:
         pass
+    return True
 
 
 # ── "Update now" from the notification ────────────────────────────────────────
@@ -548,18 +556,22 @@ def install(version):
     import tempfile
     bold, red, off = "\033[1m", "\033[31m", "\033[0m"
     title = f"Updating fingerprint-fix-sdcp to {version}"
-    print(f"\033]0;{title}\a{bold}{title}{off}\n", flush=True)
+    print(("" if os.environ.get("GBF_OWN_TERMINAL") == "1" else f"\033]0;{title}\a")
+          + f"{bold}{title}{off}\n", flush=True)
     folder = None
+
+    own_terminal = os.environ.get("GBF_OWN_TERMINAL") == "1"   # typed, not a window of its own
 
     def give_up(why):
         print(f"\n{red}{bold}The update didn't start:{off} {why}")
         print(f"See {REPO_URL}/releases/tag/v{version} for the files and how to install them.")
         if folder:
             shutil.rmtree(folder, ignore_errors=True)
-        try:
-            input("\nPress Enter to close this window.")
-        except EOFError:
-            pass
+        if not own_terminal:
+            try:
+                input("\nPress Enter to close this window.")
+            except EOFError:
+                pass
         return 1
 
     fmt, dist = installed_package()
@@ -592,6 +604,67 @@ def install(version):
     os.execvp("bash", ["bash", os.path.join(HERE, "update-in-terminal.sh"), title, folder, cmd])
 
 
+# ── The command: galaxybook-fingerprint-manager update / updates … ───────────
+# (fingerprint-manager.sh passes these on; the same words as galaxybook-fan's)
+def _newest():
+    """(newest release's version, or None if GitHub couldn't be reached)."""
+    try:
+        tag = _latest_tag()
+    except Exception:
+        return None
+    return tag.lstrip("v") if tag else None
+
+
+def cmd_update():
+    """Install the newest release in this terminal."""
+    mine, new = installed_version(), _newest()
+    if not new:
+        print("Couldn't find the newest release on GitHub (no network?)")
+        return 1
+    if not (version_key(new) and version_key(mine) and version_key(new) > version_key(mine)):
+        print(f"fingerprint-fix-sdcp {mine} is up to date (newest release: {new})")
+        return 0
+    if not release_assets(new):
+        print(f"fingerprint-fix-sdcp {new} is being released - its files aren't attached yet, try again in a few minutes")
+        return 1
+    print(f"fingerprint-fix-sdcp {new} is available (you have {mine}): {REPO_URL}/releases/tag/v{new}")
+    os.environ["GBF_OWN_TERMINAL"] = "1"
+    return install(new)
+
+
+def cmd_updates(what):
+    if what == "on":
+        set_enabled(True)
+        print("\"New version\" notifications are on: GitHub asked hourly, told once per version")
+    elif what == "off":
+        set_enabled(False)
+        print("No more \"new version\" notifications. Turn them back on: galaxybook-fingerprint-manager updates on")
+    elif what == "status":
+        if enabled():
+            print("\"New version\" notifications: on, GitHub asked hourly (galaxybook-fingerprint-manager updates off)")
+        else:
+            print("\"New version\" notifications: off (galaxybook-fingerprint-manager updates on)")
+    elif what == "check":
+        mine, new = installed_version(), _newest()
+        if not new:
+            print("Couldn't find the newest release on GitHub (no network?)")
+            return 1
+        if not (version_key(new) and version_key(mine) and version_key(new) > version_key(mine)):
+            print(f"fingerprint-fix-sdcp {mine} is up to date (newest release: {new})")
+            return 0
+        if not release_assets(new):
+            print(f"fingerprint-fix-sdcp {new} is being released - its files aren't attached yet, try again in a few minutes")
+            return 0
+        print(f"fingerprint-fix-sdcp {new} is available (you have {mine}): {REPO_URL}/releases/tag/v{new}")
+        print("To update, run: galaxybook-fingerprint-manager update")
+        if (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")) and show_notification(new):
+            print("Notification shown (with Update now / What's new where your desktop has buttons)")
+    else:
+        print("Usage: galaxybook-fingerprint-manager updates on|off|status|check", file=sys.stderr)
+        return 2
+    return 0
+
+
 if __name__ == "__main__":
     args = sys.argv[1:]
     if args == ["--notify"]:
@@ -602,5 +675,10 @@ if __name__ == "__main__":
         sys.exit(0 if update_now(args[1]) else 1)
     elif len(args) == 2 and args[0] == "--install":
         sys.exit(install(args[1]))
+    elif args == ["--update"]:
+        sys.exit(cmd_update())
+    elif len(args) == 2 and args[0] == "--updates":
+        sys.exit(cmd_updates(args[1]))
     else:
-        sys.exit("Usage: update_check.py --notify | --can-update-now | --update-now VERSION | --install VERSION")
+        sys.exit("Usage: update_check.py --notify | --can-update-now | --update-now VERSION | --install VERSION"
+                 " | --update | --updates on|off|status|check")
