@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Reader already in use:** the README explains *Device was already claimed*, and what to do if a paused `sudo` is holding the reader
+- Pressing Ctrl+Z at a fingerprint prompt pauses `sudo`, which keeps the reader until it's brought back with `fg` or its terminal is closed. Meanwhile prompts fall back to the password, and 3 failed passwords lock the account for 10 minutes on Arch-based distros
+
 ## 2.11.1 — 2026-11-01
 
 - **Reader keeps working after suspend:** suspending during a scan, usually at the lock screen just after a wake, no longer leaves the reader not responding
