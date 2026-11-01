@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **No crash report on Restart:** pressing **Restart** in the Manager after an update no longer brings up Ubuntu's *closed unexpectedly* window
+- The window closing could still get the reply to a sensor read it had just started, and filling in the closed window failed (*TypeError in show_status(): Argument 1 does not allow None*). The new Manager started fine anyway, but Ubuntu's crash reporter caught the error. Replies that arrive once the window is closing are now ignored
+
 - **Release pages like galaxybook-fan's:** *What's new* comes straight after the box at the top, then **1. Install** and a new **2. Update**: `galaxybook-fingerprint-manager update`, the Manager's **Update**, the notification's **Update now**, and the command table
 
 ## 2.10.5 — 2026-11-01
