@@ -14,4 +14,4 @@ PR #125 · Claude · 2026-11-01
 ## Tested
 - `cmd_update` / `cmd_updates` with stand-ins: up to date, a new release (`install` with `GBF_OWN_TERMINAL=1`; `check` shows the notification), files not attached yet, offline, on / off / status (`set_enabled`, `enabled`), a wrong word (exit 2).
 - `--help`: every line 80 characters, bold only on a terminal. shellcheck (only the existing SC1091 notes), `bash -n`, `py_compile`.
-- Not tested here: a real update and the notification from `updates check`.
+- David on Fedora 45 KDE: the branch built as 2.10.2-3 and installed; --help, updates status / off / on, updates check and update all work.
