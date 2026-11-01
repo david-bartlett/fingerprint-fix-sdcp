@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.11.1 — 2026-11-01
 
 - **Reader keeps working after suspend:** suspending during a scan, usually at the lock screen just after a wake, no longer leaves the reader not responding
