@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.11.0 — 2026-11-01
 
 - **Update now after updating another way:** if you've already installed the new version (with the Manager's **Update**, say) and then press the notification's **Update now**, it just says so, instead of downloading the packages again for nothing to install
 
