@@ -402,26 +402,31 @@ def _regular_user():
     return lo <= os.getuid() <= hi
 
 
+REUSE = 55 * 60                    # seconds GitHub's answer is reused by the hourly check
+
+
 def notify_once():
     """The hourly check (only runs while its timer isn't masked): tell the
     user once about each new release."""
     if not _regular_user():
         return
     _migrate_setting()
-    # GitHub's answer is reused for an hour, but not from before this login:
-    # the first check of a session always asks (a release made while you
-    # were away is seen at once).
+    # GitHub's answer is reused for 55 minutes, but not from before this
+    # login: the first check of a session always asks (a release made while
+    # you were away is seen at once). 55, not 60: the timer runs on the hour
+    # and the answer is saved a moment later, so with a full hour the next
+    # run found it just under an hour old and asked only every other hour.
     login = _session_start()
 
     def fresh():
         t = _cache_time()
-        return t is not None and t >= login and 0 <= time.time() - t < 3600
+        return t is not None and t >= login and 0 <= time.time() - t < REUSE
 
     # Right after login the network may not be up yet: when GitHub has to be
     # asked and can't be reached, try again every 30 s for up to 3 minutes.
     for attempt in range(7):
         had_answer = fresh()
-        new = newer_release(max_age=3600 if had_answer else 0)
+        new = newer_release(max_age=REUSE if had_answer else 0)
         if new or had_answer or fresh() or attempt == 6:
             break
         time.sleep(30)
