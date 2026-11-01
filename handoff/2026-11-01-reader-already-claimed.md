@@ -3,7 +3,7 @@
 PR #134 · Claude · 2026-11-01
 
 ## What changed
-- `README.md`: new section *If the Reader Says It's Already in Use*, before *Reporting Problems*. CHANGELOG.
+- `README.md`: new section *If the Reader Says It's Already in Use*, before *Reporting Problems*. No CHANGELOG line: it doesn't change the app or the driver, so it doesn't belong on a release page.
 
 ## Why
 - This answers the CachyOS freeze left open in `2026-11-01-close-while-suspended.md`, where the command `sudo[70644]` was running and why it held on were unknown. The likely cause is Ctrl+Z at a fingerprint prompt.
