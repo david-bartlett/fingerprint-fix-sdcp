@@ -1,6 +1,6 @@
 # Release page: What's new at the top, 1. Install, 2. Update
 
-PR #<n> · Claude · 2026-11-01
+PR #129 · Claude · 2026-11-01
 
 ## What changed
 - `.github/release-notes.sh`: the box at the top of `.github/release-install.md` (before its first `## `), then *What's new* (+ *Full changelog* collapsed), then the rest. Was: all of `release-install.md`, then *What's new*.
