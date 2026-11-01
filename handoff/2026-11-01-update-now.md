@@ -14,7 +14,7 @@ PR #124 · Claude · 2026-11-01
 ## Tested
 - `installed_package()` with stand-ins for dpkg / rpm / pacman (Ubuntu, Fedora, Arch, none). `install("2.10.3")` with stand-in assets and downloads on Fedora: both fc45 packages, `cd /tmp/galaxybook-update-2.10.3-…/fingerprint-fix-sdcp-2.10.3 && sudo dnf install ./*.rpm` handed to `update-in-terminal.sh`.
 - `notify-update.sh` with stand-ins: KDE (What's new → page, re-shown; Update now → `--update-now 2.10.3`), GNOME (helper, click line, click → What's new), no Update now when `--can-update-now` fails. shellcheck, `bash -n`, `py_compile`.
-- Not tested: a real download and install, and the terminal opening from the notification (David on Fedora).
+- David on Fedora 45 KDE: --can-update-now 0; What's new and Update now from the notification (Konsole, downloads checked, dnf) work; the branch built and installed.
 
 ## For the next person
 - Installed copies get this from the release after the one with it, as the notification is drawn by the installed version.
