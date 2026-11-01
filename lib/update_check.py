@@ -442,17 +442,21 @@ def notify_once():
         return
     title = f"fingerprint-fix-sdcp {new} is available"
     url = f"{REPO_URL}/releases/tag/v{new}"
+    # The first line is all that's shown with buttons (notify-update.sh); the
+    # rest is for a notification without them
+    mine = installed_version()
+    first = f"You have {mine}." if mine else ""
     if any(os.access(m, os.X_OK) for m in MANAGER_BINS):
-        msg = ("Open the Fingerprint Manager and click Update to install it, or see "
-               "the release on GitHub.")
+        how = "Open the Fingerprint Manager and click Update to install it, or see the release on GitHub."
     else:
-        msg = "See the release on GitHub for the files and how to install them."
+        how = "See the release on GitHub for the files and how to install them."
+    msg = f"{first}\n{how}" if first else how
     # Stays until closed, with buttons to the release page and (when it is
     # installed) the Manager: notify-update.sh, started on its own so this
     # doesn't wait for it; a plain notification if that can't be started.
     helper = os.path.join(HERE, "notify-update.sh")
     try:
-        subprocess.run(["systemd-run", "--user", "--quiet", "--collect", helper, title, msg, url],
+        subprocess.run(["systemd-run", "--user", "--quiet", "--collect", helper, title, msg, url, new],
                        check=True, timeout=15, capture_output=True)
     except (OSError, subprocess.SubprocessError):
         try:
@@ -468,8 +472,135 @@ def notify_once():
         pass
 
 
+# ── "Update now" from the notification ────────────────────────────────────────
+# The same steps as the Manager's Update, without opening the Manager:
+# notify-update.sh asks --can-update-now (only a Manager installed from a
+# package, with a terminal to run it in), and on the button runs --update-now,
+# which opens the terminal running --install: download this system's packages
+# into /tmp, check them against SHA256SUMS, then update-in-terminal.sh runs the
+# install command (both packages together, as the Manager does).
+DRIVER_MARKERS = ("/usr/lib/fingerprint-fix-sdcp/installed",
+                  "/etc/samsung-galaxybook-egismoc-sdcp.installed")
+
+
+def _run(argv):
+    try:
+        return subprocess.run(argv, capture_output=True, text=True, timeout=15).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def installed_package():
+    """How the Manager was installed: ('rpm', 'fc45'), ('deb', 'ubuntu26.04'),
+    ('pacman', ''), or ('', '') when not from a package (install.sh). From the
+    package's own release, e.g. 2.10.2-1~ubuntu26.04 or 1.fc45."""
+    v = _run(["dpkg-query", "-W", "-f=${Status} ${Version}", MANAGER])
+    if v.startswith("install ok installed "):
+        m = re.search(r"~([a-z]+[0-9.]+)$", v)
+        return this_system("deb", m.group(1) if m else "")
+    r = _run(["rpm", "-q", "--qf", "%{RELEASE}", MANAGER])
+    m = re.fullmatch(r"\d+\.(fc\d+)", r)
+    if m:
+        return this_system("rpm", m.group(1))
+    if _run(["pacman", "-Q", MANAGER]).startswith(MANAGER + " "):
+        return "pacman", ""
+    return "", ""
+
+
+def _update_files():
+    return [os.path.join(HERE, "update-in-terminal.sh"), os.path.join(HERE, "terminal.py")]
+
+
+def can_update_now():
+    """Can the notification's Update now install it? A Manager from a package,
+    this folder's terminal helpers, and a terminal to open."""
+    if not all(os.path.isfile(f) for f in _update_files()):
+        return False
+    if not installed_package()[0]:
+        return False
+    sys.path.insert(0, HERE)
+    import terminal
+    return terminal.find_terminal() is not None
+
+
+def update_now(version):
+    """Open the user's terminal running --install VERSION (from the
+    notification). False when no terminal could be started."""
+    sys.path.insert(0, HERE)
+    import terminal
+    term = terminal.find_terminal()
+    if not term:
+        return False
+    argv = terminal.command_line(term, [sys.executable, "-I", os.path.realpath(__file__),
+                                        "--install", version])
+    try:
+        subprocess.Popen(argv, start_new_session=True, stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        return False
+    return True
+
+
+def install(version):
+    """In the terminal: download and check this system's packages of
+    release VERSION, then hand over to update-in-terminal.sh to install them."""
+    import shutil
+    import tempfile
+    bold, red, off = "\033[1m", "\033[31m", "\033[0m"
+    title = f"Updating fingerprint-fix-sdcp to {version}"
+    print(f"\033]0;{title}\a{bold}{title}{off}\n", flush=True)
+    folder = None
+
+    def give_up(why):
+        print(f"\n{red}{bold}The update didn't start:{off} {why}")
+        print(f"See {REPO_URL}/releases/tag/v{version} for the files and how to install them.")
+        if folder:
+            shutil.rmtree(folder, ignore_errors=True)
+        try:
+            input("\nPress Enter to close this window.")
+        except EOFError:
+            pass
+        return 1
+
+    fmt, dist = installed_package()
+    if not fmt:
+        return give_up("the Fingerprint Manager wasn't installed from a package.")
+    assets = release_assets(version)
+    if not assets:
+        return give_up("the release's files couldn't be read from GitHub (no network?).")
+    driver = any(os.path.isfile(m) for m in DRIVER_MARKERS)
+    item = pick_asset(assets, version, fmt, dist, driver)
+    if not item:
+        return give_up(f"the release has no packages for this system ({fmt} {dist}).")
+    try:
+        # A folder of its own in /tmp (update-in-terminal.sh removes it once
+        # installed), readable by all: apt reads the files as its _apt user
+        folder = tempfile.mkdtemp(prefix=f"galaxybook-update-{version}-", dir="/tmp")
+        os.chmod(folder, 0o755)
+        files = item["files"] if "files" in item else [item]
+        sub = os.path.join(folder, item["folder"]) if "files" in item else folder
+        for f in files:
+            print(f"Downloading {f['name']} … ", end="", flush=True)
+            download(f, sub)
+            print("checked")
+        path = sub if "files" in item else os.path.join(folder, item["name"])
+    except (OSError, ValueError) as e:
+        return give_up(f"download failed: {e}")
+    print(flush=True)
+    cmd = install_command(fmt, path, bool(item.get("manager_only")))
+    os.environ["TITLE_SHOWN"] = "1"
+    os.execvp("bash", ["bash", os.path.join(HERE, "update-in-terminal.sh"), title, folder, cmd])
+
+
 if __name__ == "__main__":
-    if sys.argv[1:] == ["--notify"]:
+    args = sys.argv[1:]
+    if args == ["--notify"]:
         notify_once()
+    elif args == ["--can-update-now"]:
+        sys.exit(0 if can_update_now() else 1)
+    elif len(args) == 2 and args[0] == "--update-now":
+        sys.exit(0 if update_now(args[1]) else 1)
+    elif len(args) == 2 and args[0] == "--install":
+        sys.exit(install(args[1]))
     else:
-        sys.exit("Usage: update_check.py --notify")
+        sys.exit("Usage: update_check.py --notify | --can-update-now | --update-now VERSION | --install VERSION")

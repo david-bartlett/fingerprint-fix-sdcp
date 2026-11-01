@@ -9,6 +9,10 @@
 
 ## Unreleased
 
+- **Update now from the notification:** the new-version notification has **Update now**, which opens a terminal that downloads, checks and installs the new release straight away, without opening the Fingerprint Manager first, and **What's new**
+- **Update now** does what the Manager's **Update** does: it picks this system's two packages from the release, checks them against `SHA256SUMS` and installs them together (`dnf`, `apt`, or `makepkg` on Arch, which ask first, as usual). It's offered when the Manager was installed from a package. **What's new** opens the release page and the notification comes back; on GNOME, clicking the notification does the same
+- With buttons the notification just says which version you have. **Open Fingerprint Manager** is no longer on it (the Manager is in the app menu); the login check's notification still has it
+
 ## 2.10.2 — 2026-10-31
 
 - **Buttons on GNOME:** the new-version notification's **Open Fingerprint Manager** and **Open GitHub**, and the login check's **Open Fingerprint Manager**, now work on GNOME, and clicking the notification does the same

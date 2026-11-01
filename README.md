@@ -95,12 +95,12 @@ The installer checks your distro, installs the build packages it needs, builds t
 
 ## Updating
 
-You're told about each new release with a notification, checked 30 seconds after login and then hourly. With the Galaxy Book Fingerprint Manager, click its **Update** button: it downloads the new files and installs them in a terminal window, where you confirm with your fingerprint or password. Without it, download the new files and install them the same way. Enrolled fingerprints are always kept.
+You're told about each new release with a notification, checked 30 seconds after login and then hourly. With the Galaxy Book Fingerprint Manager, click the notification's **Update now** (or the Manager's **Update** button): it downloads the new files and installs them in a terminal window, where you confirm with your fingerprint or password. Without it, download the new files and install them the same way. Enrolled fingerprints are always kept.
 
 <details>
 <summary>Turning the update check off, and how it works</summary>
 
-- The notification comes once per version, with **Open GitHub** (the release page) and, with the Manager, **Open Fingerprint Manager**. On GNOME, hover over it to see the buttons, or click it to open the Fingerprint Manager (GitHub with the driver alone).
+- The notification comes once per version, with **Update now** (with the Manager installed from a package: both packages are downloaded, checked against the release's `SHA256SUMS` and installed together) and **What's new** (the release page; the notification comes back afterwards). On GNOME, hover over it to see the buttons, or click it for **What's new**.
 - Only one check runs: the driver's own check is skipped while the Manager is installed.
 - A release is only announced once its files are attached, so **Update** always has something to install.
 - With no terminal found, the Manager's **Update** saves the files to `~/Downloads` instead, with the command to paste.
