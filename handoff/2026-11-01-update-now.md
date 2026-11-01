@@ -1,6 +1,6 @@
 # The new-version notification's Update now
 
-PR #<n> · Claude · 2026-11-01
+PR #124 · Claude · 2026-11-01
 
 ## What changed
 - `lib/update_check.py`: `installed_package()` (the Manager package's format and distro from dpkg / rpm / pacman: `2.10.2-1~ubuntu26.04` → deb ubuntu26.04, release `1.fc45` → rpm fc45), `can_update_now()`, `update_now(VERSION)` (opens `terminal.find_terminal()` running `update_check.py --install VERSION`), `install(VERSION)` (prints the title, `pick_asset` with the driver markers, downloads and checks each file into `/tmp/galaxybook-update-VERSION-*`, then `exec update-in-terminal.sh` with `install_command`; on a problem it says why, points to the release page and waits for Enter). New CLI options `--can-update-now`, `--update-now VERSION`, `--install VERSION`. `notify_once()` passes the version, and a text whose first line is *You have X.Y.Z.*
