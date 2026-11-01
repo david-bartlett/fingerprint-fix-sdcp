@@ -19,7 +19,9 @@ PR #133 · Claude · 2026-11-01
 - Not tested: the real sensor, real suspend, pam_fprintd or a real lock screen. fprintd came from Ubuntu's source package, as freedesktop's GitLab isn't reachable from Claude's workspace, so newer upstream code than 1.95.2 / 1.94.5 wasn't checked.
 
 ## For the next person
-- **Doesn't cover the CachyOS freeze.** That one happened during normal use, with no suspend, and `systemctl restart fprintd` couldn't stop it. Stopping fprintd never hung here. It's a separate bug, not diagnosed yet.
+- **Doesn't cover the CachyOS freeze (1 Nov, 19:49 to 19:53).** That was during `webcam-fix-book5`'s uninstall and install, with no suspend. `sudo[70644]` stayed in `pam_fprintd` for 3 min 40 s and held the reader, so other clients got *Device was already claimed*. Failed passwords then tripped `pam_faillock` for 10 minutes, so `sudo` and polkit couldn't authenticate and the restart never ran. fprintd itself stopped in under a second, and the log has no kernel or USB hang. That corrects the handover's "fprintd couldn't stop". Still unknown: which command that `sudo` was (it logged none) and why it held on. The driver's 30 s finger timeout fired at 40 s, before which `pam_fprintd` should have given up, so it may have been stopped or blocked.
+- **CachyOS's sudo does use the fingerprint** (`pam_fprintd(sudo:auth)` in the log). The handover said it doesn't.
+- **Separate lead, 1 Nov 07:13:** the camera relay printed *Verification timed out*, so a hidden `sudo` in it (Andy's `camera-relay` calls `sudo modprobe v4l2loopback`) probably held the reader for 30 s.
 - If fprintd is stopped while a Release is waiting, it logs *Device was not cleaned up properly before being finalized* and exits normally (rc 0). Only fatal under fprintd's test flag `G_DEBUG=fatal-criticals`.
 - A close that's cancelled while waiting is only noticed at resume.
 - `run_deferred_close` is a pointer in `FpDevicePrivate` because `fpi-device.c` is in the private static library and can't call `fp-device.c`.
