@@ -536,22 +536,33 @@ def can_update_now():
     return terminal.find_terminal() is not None
 
 
-def update_now(version):
-    """Open the user's terminal running --install VERSION (from the
-    notification). False when no terminal could be started."""
+def update_now(version, url=""):
+    """Become the user's terminal running --install VERSION (from the
+    notification). Returns False only when no terminal could be started.
+
+    exec, not a child process: the notification runs in a systemd-run
+    service, and when that service's main process ends systemd stops
+    everything in it - a terminal started alongside was closed as soon as it
+    opened (seen on Fedora KDE at login; from a terminal it worked). As the
+    service's main process the terminal stays until it's closed, as
+    galaxybook-fan's 'exec $term' does."""
     sys.path.insert(0, HERE)
     import terminal
     term = terminal.find_terminal()
-    if not term:
-        return False
-    argv = terminal.command_line(term, [sys.executable, "-I", os.path.realpath(__file__),
-                                        "--install", version])
-    try:
-        subprocess.Popen(argv, start_new_session=True, stdin=subprocess.DEVNULL,
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    except OSError:
-        return False
-    return True
+    if term:
+        argv = terminal.command_line(term, [sys.executable, "-I", os.path.realpath(__file__),
+                                            "--install", version])
+        sys.stdout.flush()
+        try:
+            os.execvp(argv[0], argv)
+        except OSError:
+            pass
+    if url:                                  # no terminal: the release page instead
+        try:
+            subprocess.run(["xdg-open", url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+        except (OSError, subprocess.SubprocessError):
+            pass
+    return False
 
 
 def install(version):
@@ -678,8 +689,8 @@ if __name__ == "__main__":
         notify_once()
     elif args == ["--can-update-now"]:
         sys.exit(0 if can_update_now() else 1)
-    elif len(args) == 2 and args[0] == "--update-now":
-        sys.exit(0 if update_now(args[1]) else 1)
+    elif len(args) in (2, 3) and args[0] == "--update-now":
+        sys.exit(0 if update_now(*args[1:]) else 1)
     elif len(args) == 2 and args[0] == "--install":
         sys.exit(install(args[1]))
     elif args == ["--update"]:
@@ -687,5 +698,5 @@ if __name__ == "__main__":
     elif len(args) == 2 and args[0] == "--updates":
         sys.exit(cmd_updates(args[1]))
     else:
-        sys.exit("Usage: update_check.py --notify | --can-update-now | --update-now VERSION | --install VERSION"
+        sys.exit("Usage: update_check.py --notify | --can-update-now | --update-now VERSION [URL] | --install VERSION"
                  " | --update | --updates on|off|status|check")

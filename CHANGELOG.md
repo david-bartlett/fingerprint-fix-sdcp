@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Update now opens the terminal at login too:** clicking **Update now** on the notification shown at login now opens the terminal and installs; before, the terminal closed as soon as it opened
+- The notification runs as a background service, which stops everything it started when it ends; the terminal now takes the notification's place, so it stays open until it's done (as galaxybook-fan's does)
+
 ## 2.10.4 — 2026-11-01
 
 - **Clearer notification status:** `galaxybook-fingerprint-manager updates status` puts the command to turn notifications off (or on) on its own line, so it no longer reads as if they're off
