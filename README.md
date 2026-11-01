@@ -556,6 +556,21 @@ Keep the repository folder together: the installer and the Manager use the files
 
 </details>
 
+## If the Reader Says It's Already in Use
+
+Only one program can use the reader at a time. If `fprintd-verify`, the Manager or a prompt fails with *Device was already claimed*, something still has it, usually a `sudo` waiting for a finger.
+
+**Don't press Ctrl+Z at a fingerprint prompt.** It pauses `sudo` in the background, and a paused `sudo` keeps the reader. Press **Ctrl+C** to cancel instead. If you've already pressed Ctrl+Z, go back to that terminal and run:
+
+```bash
+jobs   # shows the paused sudo
+fg     # brings it back
+```
+
+Then press Ctrl+C or enter your password. `kill` won't work, because `sudo` runs as root. Closing the terminal also frees the reader.
+
+While the reader is held, prompts ask for your password instead. **Go carefully:** after 3 failed passwords, Arch-based distros lock your account for 10 minutes (*The account is locked due to 3 failed logins*), and even the right password fails until then. To clear it early, run `sudo faillock --user $USER --reset` from a root session that's already open, or restart.
+
 ## Reporting Problems
 
 Use the [**Bug report**](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues/new?template=bug_report.yml) form. It asks for the laptop model, sensor ID, distro, fingerprint-fix-sdcp version and the relevant logs, which usually saves a round of questions. Please check the [existing issues](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues) first.
