@@ -82,10 +82,12 @@ for (( n = 0; n < 20; n++ )); do
     case "${choice:-}" in
         update)
             # A terminal downloading and installing it (update_check.py
-            # --install); if none starts, the release page instead
-            python3 -I "$HERE/update_check.py" --update-now "$version" \
-                || xdg-open "$url" >/dev/null 2>&1
-            break ;;
+            # --install); if none starts, the release page instead. exec all
+            # the way (this script, then update_check.py, become the
+            # terminal): this runs in a systemd-run service, which stops
+            # everything in it once its main process ends, so a terminal
+            # left behind by a finished script was closed at once.
+            exec python3 -I "$HERE/update_check.py" --update-now "$version" "$url" ;;
         whatsnew)
             xdg-open "$url" >/dev/null 2>&1 &         # (not the browser's own messages)
             sleep 2 ;;
