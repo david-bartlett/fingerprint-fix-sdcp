@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **Release pages like galaxybook-fan's:** *What's new* comes straight after the box at the top, then **1. Install** and a new **2. Update**: `galaxybook-fingerprint-manager update`, the Manager's **Update**, the notification's **Update now**, and the command table
+
 ## 2.10.5 — 2026-11-01
 
 - **Update now opens the terminal at login too:** clicking **Update now** on the notification shown at login now opens the terminal and installs; before, the terminal closed as soon as it opened
