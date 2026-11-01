@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.10.6 — 2026-11-01
 
 - **No crash report on Restart:** pressing **Restart** in the Manager after an update no longer brings up Ubuntu's *closed unexpectedly* window
 - The window closing could still get the reply to a sensor read it had just started, and filling in the closed window failed (*TypeError in show_status(): Argument 1 does not allow None*). The new Manager started fine anyway, but Ubuntu's crash reporter caught the error. Replies that arrive once the window is closing are now ignored
