@@ -590,6 +590,21 @@ def install(version):
                 pass
         return 1
 
+    # Already updated another way (the Manager's Update, while the
+    # notification was still up): nothing to download. Read now, as an update
+    # replaces the VERSION file this copy reads.
+    mine = installed_version()
+    if version_key(mine) and version_key(version) and version_key(mine) >= version_key(version):
+        print(f"{bold}fingerprint-fix-sdcp {mine} is already installed{off} - nothing to update.")
+        if not own_terminal:
+            import select                    # as update-in-terminal.sh: 10 s, or Enter
+            print("\nThis window closes in 10 seconds (or press Enter).", end="", flush=True)
+            try:
+                select.select([sys.stdin], [], [], 10)
+            except (OSError, ValueError):
+                pass
+        return 0
+
     fmt, dist = installed_package()
     if not fmt:
         return give_up("the Fingerprint Manager wasn't installed from a package.")

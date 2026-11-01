@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **Update now after updating another way:** if you've already installed the new version (with the Manager's **Update**, say) and then press the notification's **Update now**, it just says so, instead of downloading the packages again for nothing to install
+
 ## 2.10.6 — 2026-11-01
 
 - **No crash report on Restart:** pressing **Restart** in the Manager after an update no longer brings up Ubuntu's *closed unexpectedly* window
