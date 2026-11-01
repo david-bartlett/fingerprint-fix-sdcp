@@ -11,14 +11,18 @@
 # window and the files stay until the user closes it. CLOSED-FILE is created
 # as the window closes (however it's closed), so the Manager waits for that
 # before asking to restart into the new version.
+# Also started by update_check.py --install (the notification's Update now),
+# after it has downloaded the files: TITLE_SHOWN=1, as it showed the title.
 # =============================================================================
 title="${1:?Usage: $0 TITLE FOLDER COMMAND [CLOSED-FILE]}"; folder="${2:?}"; cmd="${3:?}"; closed="${4:-}"
 [[ -n "$closed" ]] && trap 'touch -- "$closed"; exit' EXIT HUP TERM INT
 bold=$'\e[1m'; green=$'\e[32m'; red=$'\e[31m'; off=$'\e[0m'
 printf '\e]0;%s\a' "$title"           # the window's title
 
-echo "${bold}${title}${off}"
-echo
+if [[ -z "${TITLE_SHOWN:-}" ]]; then
+    echo "${bold}${title}${off}"
+    echo
+fi
 echo "Running:  $cmd"
 echo
 bash -c "$cmd"
