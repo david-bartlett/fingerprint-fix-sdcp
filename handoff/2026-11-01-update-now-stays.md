@@ -1,6 +1,6 @@
 # Update now: the terminal stays open when started from the login notification
 
-PR #<n> · Claude · 2026-11-01
+PR #128 · Claude · 2026-11-01
 
 ## What changed
 - `lib/notify-update.sh`: on **Update now**, `exec python3 update_check.py --update-now VERSION URL` (was a child, then `break` and exit).
