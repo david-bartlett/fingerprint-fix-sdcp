@@ -640,15 +640,17 @@ def cmd_update():
 def cmd_updates(what):
     if what == "on":
         set_enabled(True)
-        print("\"New version\" notifications are on: GitHub asked hourly, told once per version")
+        print("\"New version\" notifications are on: GitHub checked at login and hourly, told once per version")
     elif what == "off":
         set_enabled(False)
         print("No more \"new version\" notifications. Turn them back on: galaxybook-fingerprint-manager updates on")
     elif what == "status":
         if enabled():
-            print("\"New version\" notifications: on, GitHub asked hourly (galaxybook-fingerprint-manager updates off)")
+            print("\"New version\" notifications: on (GitHub checked at login and hourly)")
+            print("To turn them off: galaxybook-fingerprint-manager updates off")
         else:
-            print("\"New version\" notifications: off (galaxybook-fingerprint-manager updates on)")
+            print("\"New version\" notifications: off")
+            print("To turn them on: galaxybook-fingerprint-manager updates on")
     elif what == "check":
         mine, new = installed_version(), _newest()
         if not new:
