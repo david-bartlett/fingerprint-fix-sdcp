@@ -1,6 +1,6 @@
 # README: what to do when the reader is already in use
 
-PR #PRNUM · Claude · 2026-11-01
+PR #134 · Claude · 2026-11-01
 
 ## What changed
 - `README.md`: new section *If the Reader Says It's Already in Use*, before *Reporting Problems*. CHANGELOG.
