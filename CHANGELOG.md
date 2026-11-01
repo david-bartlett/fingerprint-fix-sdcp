@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Update from a terminal:** `galaxybook-fingerprint-manager update` installs the newest release, and `galaxybook-fingerprint-manager updates on|off|status|check` handles the new-version notifications, with the same words as galaxybook-fan
+- `update` downloads, checks and installs both packages in your terminal (no `sudo`: it asks for your password when it installs), or says you're up to date. `updates check` looks now and shows the notification if there's a new version; `updates on` / `off` is the Manager's *Check for new versions* switch. `galaxybook-fingerprint-manager --help` lists the commands in a table
+
 - **Really hourly:** the new-version check now asks GitHub every hour; it had been asking only every other hour (and at login)
 - It reused GitHub's answer for an hour, but the check runs on the hour and the answer is saved a moment later, so the next run always found it just under an hour old
 

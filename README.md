@@ -97,6 +97,17 @@ The installer checks your distro, installs the build packages it needs, builds t
 
 You're told about each new release with a notification, checked 30 seconds after login and then hourly. With the Galaxy Book Fingerprint Manager, click the notification's **Update now** (or the Manager's **Update** button): it downloads the new files and installs them in a terminal window, where you confirm with your fingerprint or password. Without it, download the new files and install them the same way. Enrolled fingerprints are always kept.
 
+From a terminal (no `sudo`; `update` asks for your password when it installs):
+
+| Command | What it does |
+| --- | --- |
+| `galaxybook-fingerprint-manager update` | Install the newest release: downloads, checks and installs both packages in this terminal |
+| `galaxybook-fingerprint-manager updates on` / `off` | "New version" notifications on or off (the same as the Manager's switch) |
+| `galaxybook-fingerprint-manager updates status` | Are they on? (checked hourly) |
+| `galaxybook-fingerprint-manager updates check` | Look now; if there's a new version, show the notification |
+
+`galaxybook-fingerprint-manager --help` lists them all.
+
 <details>
 <summary>Turning the update check off, and how it works</summary>
 
@@ -104,7 +115,7 @@ You're told about each new release with a notification, checked 30 seconds after
 - Only one check runs: the driver's own check is skipped while the Manager is installed.
 - A release is only announced once its files are attached, so **Update** always has something to install.
 - With no terminal found, the Manager's **Update** saves the files to `~/Downloads` instead, with the command to paste.
-- **Turn it off** in the Manager: ☰ → *Check for new versions*. With the driver alone: `systemctl --user mask fingerprint-fix-sdcp-update-check.timer` (off) and `systemctl --user unmask fingerprint-fix-sdcp-update-check.timer` (on); for an `install.sh` copy, `systemctl --user disable` / `enable`.
+- **Turn it off** in the Manager: ☰ → *Check for new versions*, or `galaxybook-fingerprint-manager updates off`. With the driver alone: `systemctl --user mask fingerprint-fix-sdcp-update-check.timer` (off) and `systemctl --user unmask fingerprint-fix-sdcp-update-check.timer` (on); for an `install.sh` copy, `systemctl --user disable` / `enable`.
 - Turning it off in the Manager also turns off the driver's check, and that stays off if you remove the Manager; removing it tells you so, with a **Turn on** button.
 - `install.sh` copies: in the `fingerprint-fix-sdcp` folder, `git pull`, then `sudo bash install.sh` again.
 

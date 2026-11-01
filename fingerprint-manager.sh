@@ -10,6 +10,12 @@
 # install.sh also installs a root-owned copy, started from the app menu
 # ("Galaxy Book Fingerprint Manager") or with: galaxybook-fingerprint-manager
 # (that command is a link to the installed copy of this script).
+#
+#   galaxybook-fingerprint-manager update              install the newest release
+#   galaxybook-fingerprint-manager updates on|off|status|check
+#                                                      "new version" notifications
+# (lib/update_check.py --update / --updates; the same words as galaxybook-fan's)
+# '--help' shows them as a table (show_help).
 # =============================================================================
 
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
@@ -24,9 +30,52 @@ say() {
     fi
 }
 
+# --help: the commands as a table, 80 columns wide (as galaxybook-fan's);
+# commands and headings in bold on a terminal. Each row is "command|what it
+# does"; the description wraps inside its cell.
+show_help() {
+    local B="" N="" w1=46 w2=27 row cmd desc part first i
+    [[ -t 1 ]] && { B=$'\e[1m'; N=$'\e[0m'; }
+    local rows=(
+        "galaxybook-fingerprint-manager|Open the Fingerprint Manager window"
+        "galaxybook-fingerprint-manager update|Install the newest release: downloads, checks and installs both packages in this terminal"
+        "galaxybook-fingerprint-manager updates on/off|\"New version\" notifications on or off"
+        "galaxybook-fingerprint-manager updates status|Are they on? (checked hourly)"
+        "galaxybook-fingerprint-manager updates check|Look now; if there's a new version, show the notification"
+        "galaxybook-fingerprint-manager --single-distro|Show the window as if this were the only distro"
+    )
+    rule() {
+        local a b
+        a="$(printf '─%.0s' $(seq $((w1 + 2))))"; b="$(printf '─%.0s' $(seq $((w2 + 2))))"
+        echo "$1$a$2$b$3"
+    }
+    echo "${B}galaxybook-fingerprint-manager${N} - the Galaxy Book Fingerprint Manager"
+    echo "(fingerprint-fix-sdcp). Installed as /usr/bin/galaxybook-fingerprint-manager"
+    echo "by the packages, or /usr/local/bin/galaxybook-fingerprint-manager by install.sh"
+    echo
+    rule ┌ ┬ ┐
+    printf '│ %s%-*s%s │ %s%-*s%s │\n' "$B" "$w1" "Command" "$N" "$B" "$w2" "What it does" "$N"
+    rule ├ ┼ ┤
+    for i in "${!rows[@]}"; do
+        row="${rows[$i]}"; cmd="${row%%|*}"; desc="${row#*|}"
+        cmd="${cmd//on\/off/on|off}"
+        first=1
+        while IFS= read -r part; do
+            part="${part%"${part##*[! ]}"}"          # fold leaves a trailing space
+            if (( first )); then
+                printf '│ %s%-*s%s │ %-*s │\n' "$B" "$w1" "$cmd" "$N" "$w2" "$part"; first=0
+            else
+                printf '│ %-*s │ %-*s │\n' "$w1" "" "$w2" "$part"
+            fi
+        done < <(fold -s -w "$w2" <<<"$desc")
+        (( i < ${#rows[@]} - 1 )) && rule ├ ┼ ┤
+    done
+    rule └ ┴ ┘
+}
+
 case "${1:-}" in
-    -h|--help)
-        sed -n '5,12p' "$0" | sed 's/^# \{0,1\}//'
+    -h|--help|help)
+        show_help
         exit 0 ;;
 esac
 
@@ -35,6 +84,14 @@ if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
     say "Run the $NAME as yourself, not with sudo."
     exit 1
 fi
+
+# ── update / updates …: in this terminal, no window (lib/update_check.py) ─────
+case "${1:-}" in
+    update)
+        exec python3 -I "$HERE/lib/update_check.py" --update ;;
+    updates)
+        exec python3 -I "$HERE/lib/update_check.py" --updates "${2:-status}" ;;
+esac
 
 # ── It's a window: it needs a desktop session ─────────────────────────────────
 if [[ -z "${WAYLAND_DISPLAY:-}" && -z "${DISPLAY:-}" ]]; then
