@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Update from a terminal:** `galaxybook-fingerprint-manager update` installs the newest release, and `galaxybook-fingerprint-manager updates on|off|status|check` handles the new-version notifications, with the same words as galaxybook-fan
+- `update` downloads, checks and installs both packages in your terminal (no `sudo`: it asks for your password when it installs), or says you're up to date. `updates check` looks now and shows the notification if there's a new version; `updates on` / `off` is the Manager's *Check for new versions* switch. `galaxybook-fingerprint-manager --help` lists the commands in a table
+
 - **Update now from the notification:** the new-version notification has **Update now**, which opens a terminal that downloads, checks and installs the new release straight away, without opening the Fingerprint Manager first, and **What's new**
 - **Update now** does what the Manager's **Update** does: it picks this system's two packages from the release, checks them against `SHA256SUMS` and installs them together (`dnf`, `apt`, or `makepkg` on Arch, which ask first, as usual). It's offered when the Manager was installed from a package. **What's new** opens the release page and the notification comes back; on GNOME, clicking the notification does the same
 - With buttons the notification just says which version you have. **Open Fingerprint Manager** is no longer on it (the Manager is in the app menu); the login check's notification still has it
