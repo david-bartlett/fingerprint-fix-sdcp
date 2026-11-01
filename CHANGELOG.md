@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.10.3 — 2026-11-01
 
 - **Update from a terminal:** `galaxybook-fingerprint-manager update` installs the newest release, and `galaxybook-fingerprint-manager updates on|off|status|check` handles the new-version notifications, with the same words as galaxybook-fan
 - `update` downloads, checks and installs both packages in your terminal (no `sudo`: it asks for your password when it installs), or says you're up to date. `updates check` looks now and shows the notification if there's a new version; `updates on` / `off` is the Manager's *Check for new versions* switch. `galaxybook-fingerprint-manager --help` lists the commands in a table
