@@ -128,8 +128,8 @@ The sensor has **10 slots**. Each holds one enrolled fingerprint (a "template");
 | File | Purpose |
 | --- | --- |
 | `workflows/release-packages.yml` | Runs when a `v*` tag is pushed (David's release): checks the tag matches `VERSION`; builds rpms (Fedora 44, 45), debs (Debian 13, Ubuntu 24.04, 26.04); checks the Arch package builds with **only the PKGBUILD's makedepends** and writes the release PKGBUILD; creates the release **as a draft** with notes, attaches everything plus `SHA256SUMS`, then publishes it (`--latest`; only a release still in draft, so re-running for an old tag never makes it the latest). Drafts are hidden from `releases/latest`, so the update check never sees a release without its files. |
-| `release-notes.sh` | Writes the release page: install instructions (`release-install.md`), **What's new** (the CHANGELOG section's bold lines), and the whole section collapsed. |
-| `release-install.md` | The install part of every release page. |
+| `release-notes.sh` | Writes the release page: the box at the top of `release-install.md` (before its first `## `), then **What's new** (the CHANGELOG section's bold lines, and the whole section collapsed), then the rest of `release-install.md` (1. Install, 2. Update). The same layout as galaxybook-fan's. |
+| `release-install.md` | The box, 1. Install and 2. Update of every release page (the box ends at the first `## `). |
 | `ISSUE_TEMPLATE/` | Bug report and "it works on my laptop" forms. |
 
 ---
