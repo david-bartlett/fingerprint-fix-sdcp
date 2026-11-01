@@ -1,0 +1,131 @@
+Subject: Don't lose the reader when it's released during suspend
+Needed-if-source-has: libfprint/fp-device.c|this includes calls to open or close the device
+
+The reader stopped responding after suspending while something was scanning,
+typically the lock screen just after a wake. fprintd suspends the device; the
+egismoc driver has no real suspend, so the scan ends and libfprint marks the
+device suspended. pam_fprintd then calls ReleaseDevice, and fp_device_close()
+refused while suspended ("The device is still busy"). fprintd drops the claim
+even so, but the device stays open, and every later Claim fails with "The device
+has already been opened!" until fprintd exits.
+
+fp_device_close() now waits while suspended and closes the device on resume,
+including when the device was removed during the sleep. Release's reply waits
+too, so the client's next Claim comes after the resume and doesn't hit the same
+refusal in fp_device_open(). Not Egis-specific: any driver without real suspend
+behaves the same, so this can be offered to the fork and to libfprint.
+
+diff --git a/libfprint/fp-device-private.h b/libfprint/fp-device-private.h
+index 1c3702f..4cd273a 100644
+--- a/libfprint/fp-device-private.h
++++ b/libfprint/fp-device-private.h
+@@ -91,6 +91,11 @@ typedef struct
+   GTask  *suspend_resume_task;
+   GError *suspend_error;
+ 
++  /* A close requested while suspended, and how to start it. fpi-device.c can't
++   * call into fp-device.c, which is the other side of the library split. */
++  GTask  *deferred_close_task;
++  void    (*run_deferred_close) (FpDevice *device);
++
+   /* Device temperature model information and state */
+   GSource      *temp_timeout;
+   FpTemperature temp_current;
+diff --git a/libfprint/fp-device.c b/libfprint/fp-device.c
+index 6040c1b..8880083 100644
+--- a/libfprint/fp-device.c
++++ b/libfprint/fp-device.c
+@@ -888,6 +888,23 @@ fp_device_open_finish (FpDevice     *device,
+   return g_task_propagate_boolean (G_TASK (result), error);
+ }
+ 
++static void
++run_deferred_close (FpDevice *device)
++{
++  g_autoptr(GTask) task = NULL;
++  FpDevicePrivate *priv = fp_device_get_instance_private (device);
++
++  task = g_steal_pointer (&priv->deferred_close_task);
++  if (!task || g_task_return_error_if_cancelled (task))
++    return;
++
++  priv->current_action = FPI_DEVICE_ACTION_CLOSE;
++  priv->current_task = g_steal_pointer (&task);
++  setup_task_cancellable (device);
++
++  FP_DEVICE_GET_CLASS (device)->close (device);
++}
++
+ /**
+  * fp_device_close:
+  * @device: a #FpDevice
+@@ -898,6 +915,9 @@ fp_device_open_finish (FpDevice     *device,
+  * Start an asynchronous operation to close the device. The callback will
+  * be called once the operation has finished. Retrieve the result with
+  * fp_device_close_finish().
++ *
++ * If the device is suspended, the close waits for fp_device_resume() and the
++ * callback is only called after that.
+  */
+ void
+ fp_device_close (FpDevice           *device,
+@@ -919,13 +939,24 @@ fp_device_close (FpDevice           *device,
+       return;
+     }
+ 
+-  if (priv->current_task || priv->is_suspended)
++  if (priv->current_task || priv->deferred_close_task)
+     {
+       g_task_return_error (task,
+                            fpi_device_error_new (FP_DEVICE_ERROR_BUSY));
+       return;
+     }
+ 
++  /* Refusing would leave the device open with nobody left to close it: the
++   * client is going away, and the driver may have nothing to do at suspend.
++   * Run the close on resume instead, when it can reach the device again. */
++  if (priv->is_suspended)
++    {
++      g_debug ("Device is suspended, closing it on resume");
++      priv->deferred_close_task = g_steal_pointer (&task);
++      priv->run_deferred_close = run_deferred_close;
++      return;
++    }
++
+   priv->current_action = FPI_DEVICE_ACTION_CLOSE;
+   priv->current_task = g_steal_pointer (&task);
+   setup_task_cancellable (device);
+@@ -973,7 +1004,8 @@ fp_device_close_finish (FpDevice     *device,
+  * code of #FP_DEVICE_ERROR_BUSY before the suspend async routine finishes.
+  *
+  * Any operation started while the device is suspended will fail with
+- * #FP_DEVICE_ERROR_BUSY, this includes calls to open or close the device.
++ * #FP_DEVICE_ERROR_BUSY, this includes calls to open the device. Closing the
++ * device is the exception: fp_device_close() waits until the device is resumed.
+  */
+ void
+ fp_device_suspend (FpDevice           *device,
+@@ -1062,6 +1094,9 @@ fp_device_resume (FpDevice           *device,
+     {
+       g_task_return_error (task,
+                            fpi_device_error_new (FP_DEVICE_ERROR_REMOVED));
++      /* Nothing will resume it, but a waiting close must still finish. */
++      priv->is_suspended = FALSE;
++      run_deferred_close (device);
+       return;
+     }
+ 
+diff --git a/libfprint/fpi-device.c b/libfprint/fpi-device.c
+index f6a2749..f739227 100644
+--- a/libfprint/fpi-device.c
++++ b/libfprint/fpi-device.c
+@@ -1894,6 +1894,9 @@ fpi_device_resume_complete (FpDevice *device,
+     g_task_return_error (task, error);
+   else
+     g_task_return_boolean (task, TRUE);
++
++  if (priv->deferred_close_task)
++    priv->run_deferred_close (device);
+ }
+ 
+ /**
