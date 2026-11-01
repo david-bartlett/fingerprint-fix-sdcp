@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **Clearer notification status:** `galaxybook-fingerprint-manager updates status` puts the command to turn notifications off (or on) on its own line, so it no longer reads as if they're off
+
 ## 2.10.3 — 2026-11-01
 
 - **Update from a terminal:** `galaxybook-fingerprint-manager update` installs the newest release, and `galaxybook-fingerprint-manager updates on|off|status|check` handles the new-version notifications, with the same words as galaxybook-fan
