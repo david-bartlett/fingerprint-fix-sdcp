@@ -1,6 +1,6 @@
 # galaxybook-fingerprint-manager update / updates, and --help as a table
 
-PR #<n> · Claude · 2026-11-01
+PR #125 · Claude · 2026-11-01
 
 ## What changed
 - `fingerprint-manager.sh`: `--help` (and `help`) prints a table of the commands like galaxybook-fan's (80 columns, bold on a terminal; `show_help`); `update` and `updates on|off|status|check` go to `lib/update_check.py` before the desktop checks (they work in any terminal; still refused as root, like the window).
