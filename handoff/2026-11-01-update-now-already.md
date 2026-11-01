@@ -1,6 +1,6 @@
 # Update now: "already installed" when it is
 
-PR #<n> · Claude · 2026-11-01
+PR #131 · Claude · 2026-11-01
 
 ## What changed
 - `lib/update_check.py` `install(VERSION)`: if the installed version (`installed_version()`, read at that moment) is VERSION or newer, it prints *fingerprint-fix-sdcp X is already installed - nothing to update.* and stops (in a window of its own: closes after 10 s or Enter), before downloading anything. Also covers `galaxybook-fingerprint-manager update` racing with the Manager.
