@@ -12,4 +12,4 @@ PR #128 · Claude · 2026-11-01
 
 ## Tested
 - `update_now()` with a stand-in terminal: the process is replaced by the terminal command (`--install 2.10.3`). shellcheck, `bash -n`, `py_compile`.
-- To reproduce the real case: `systemd-run --user --collect <lib>/notify-update.sh TITLE MESSAGE URL VERSION` (see the PR).
+- David on Fedora 45 KDE, run through `systemd-run` as the login check does: Update now opened Konsole and it stayed: both 2.10.4 packages downloaded and checked, then `sudo dnf install` (fingerprint prompt). Before, Konsole closed at once. (A first try failed only because the test steps switched the folder back to `main` while the notification was still up.)
