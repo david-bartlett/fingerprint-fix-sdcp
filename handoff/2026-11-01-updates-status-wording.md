@@ -1,6 +1,6 @@
 # updates status: the on / off command on its own line
 
-PR #<n> · Claude · 2026-11-01
+PR #127 · Claude · 2026-11-01
 
 ## What changed
 - `lib/update_check.py` `cmd_updates("status")`: *"New version" notifications: on (GitHub checked at login and hourly)*, then *To turn them off: galaxybook-fingerprint-manager updates off* (off: *To turn them on: …*). `updates on` says *checked at login and hourly*.
