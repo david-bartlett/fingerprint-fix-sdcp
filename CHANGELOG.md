@@ -15,6 +15,9 @@
 - **Clearer update instructions:** the README now separates the driver alone from the driver with the Manager
 - With the driver alone you still get a notification for each new release, but you download and install the new file yourself
 
+- **Guide for the driver on its own:** what you get without the Manager, and how to enrol, update and remove it
+- New `docs/driver-only.md`, first in the README's Documentation table. It also says how to turn fingerprint login on or off without the Manager
+
 ## 2.11.3 — 2026-11-02
 
 - **Every removed distro is reported:** the Manager names all the distros it finds gone at a start, not just one

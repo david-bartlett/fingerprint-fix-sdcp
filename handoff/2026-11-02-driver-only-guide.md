@@ -16,4 +16,3 @@ PR #139 · Claude · 2026-11-02
 
 ## For the next person
 - This repeats a few facts from other guides, so a change to what the driver package ships may need a change here too.
-- README and docs only, so no CHANGELOG line.
