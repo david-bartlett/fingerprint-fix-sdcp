@@ -13,4 +13,3 @@ PR #140 · Claude · 2026-11-02
 
 ## For the next person
 - `pam-auth-update --force` is used on the Debian family, so the promise that hand edits are left alone only applies to Arch.
-- README and PLAN only, so no CHANGELOG line.

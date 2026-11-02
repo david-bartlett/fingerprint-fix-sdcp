@@ -18,6 +18,9 @@
 - **Guide for the driver on its own:** what you get without the Manager, and how to enrol, update and remove it
 - New `docs/driver-only.md`, first in the README's Documentation table. It also says how to turn fingerprint login on or off without the Manager
 
+- **Corrected a safety note:** the README said the fingerprint login scripts back up what they change, but only the Arch script does
+- The scripts use your distro's own tools and check the result. On Arch-based distros, `arch-pam.sh` also keeps a backup
+
 ## 2.11.3 — 2026-11-02
 
 - **Every removed distro is reported:** the Manager names all the distros it finds gone at a start, not just one
