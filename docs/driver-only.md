@@ -32,7 +32,7 @@ Check it with `fprintd-verify`. If that never matches, those fingers were enroll
 
 ## Turning fingerprint login on or off
 
-The driver's package keeps its own copy of the script that does this:
+This changes your system's login settings, the way each distro expects: `authselect` on Fedora, `pam-auth-update` on Ubuntu, Debian, MX Linux and Mint, and `/etc/pam.d` on Arch-based distros. The driver's package keeps its own copy of the script that does this:
 
 ```bash
 bash /usr/lib/fingerprint-fix-sdcp/pam/fingerprint-pam.sh status
