@@ -1,6 +1,6 @@
 # Name every removed distro in the notice
 
-PR #NUMBER · Claude · 2026-11-02
+PR #136 · Claude · 2026-11-02
 
 ## What changed
 - `lib/fingerprint-manager.py`: new `forgotten_text()` builds one message for all the installs found gone at a start, and `_apply_mode` shows it once.
