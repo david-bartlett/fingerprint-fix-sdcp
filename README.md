@@ -11,6 +11,7 @@ Makes the fingerprint reader work on Linux on the **Samsung Galaxy Book4 and Boo
 
 | Guide | What's in it |
 |---|---|
+| [Using the driver on its own](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/driver-only.md) | What you get without the Manager, enrolling, fingerprint login, updating, Windows and other distros |
 | [Galaxy Book Fingerprint Manager](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/manager.md) | The window, its tabs and menu, what slots are, every button |
 | [Fingerprint login](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/fingerprint-login.md) | Enrolling, turning fingerprint login on or off, sudo and admin prompts on Arch-based distros |
 | [Multi-Distro Mode](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/multi-distro.md) | Sharing fingerprints between distros, reinstalling, reset, back up and restore |
