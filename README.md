@@ -147,7 +147,7 @@ Got it working on a model or distro not listed here? Please tell us with the [**
 - **Enrolled fingerprints are always kept** when you update or uninstall.
 - **Clearing a slot can't be undone.** It erases the fingerprint from the sensor, for every install. See [What's a slot?](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/manager.md).
 - **Don't delete `/var/lib/fprint` records by hand,** as that leaves the templates on the sensor as orphans. Don't use `fprintd-delete` to make room either: it deletes the template from the sensor too, which breaks every install sharing it. Use the Manager.
-- **Fingerprint login is changed by the fix's own scripts,** which back up and verify what they change. See [Fingerprint login](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/fingerprint-login.md).
+- **Fingerprint login is changed by the fix's own scripts,** which use your distro's own tools and check the result. See [Fingerprint login](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/fingerprint-login.md).
 
 See [How it works](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/how-it-works.md) for the detail.
 
