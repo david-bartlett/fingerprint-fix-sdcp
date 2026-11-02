@@ -831,6 +831,26 @@ def _uniq(xs):
     return list(dict.fromkeys(xs))
 
 
+def forgotten_text(gone):
+    """The one message for installs found gone at this start. It's one because
+    a message replaces the one before it, so one each would show only the last.
+    gone: [{"os", "why"}], never empty."""
+    if len(gone) == 1:
+        return (f"{gone[0]['os']} is no longer on this laptop ({gone[0]['why']}), so it's no "
+                "longer listed as using the sensor. Its fingerprints are still offered to "
+                "this and other distros.")
+    rest = "Their fingerprints are still offered to this and other distros."
+    if len({g["why"] for g in gone}) > 1:
+        each = " ".join(f"{g['os']}: {g['why']}." for g in sorted(gone, key=lambda g: g["os"]))
+        return f"{each} They're no longer listed as using the sensor. {rest}"
+    oses = [g["os"] for g in gone]
+    names = [n if oses.count(n) == 1 else f"{oses.count(n)} installs of {n}"
+             for n in sorted(set(oses))]
+    why = gone[0]["why"].replace("its partition has", "their partitions have")
+    return (f"{_names(names, True)} are no longer on this laptop ({why}), so they're no longer "
+            f"listed as using the sensor. {rest}")
+
+
 def _names(names, full):
     """'Ubuntu', 'Ubuntu and Fedora', '4 other distros' (all of them when full)."""
     if full or len(names) <= 2:
@@ -1895,10 +1915,8 @@ class Manager(Gtk.Window):
         changed = multi != self._multi
         self._multi = multi
         self._apply_sensor_tab()
-        for g in st.get("forgotten") or []:         # found gone at this start
-            self.message(f"{g['os']} is no longer on this laptop ({g['why']}), so it's no longer "
-                         "listed as using the sensor. Its fingerprints are still offered to "
-                         "this and other distros.")
+        if st.get("forgotten"):                     # found gone at this start
+            self.message(forgotten_text(st["forgotten"]))
         if changed and multi and load_settings().get("multi_known") != "1":
             names = ", ".join(sorted({i["os"] for i in self._other_installs()}))
             self.message(f"Other distros on this laptop use the sensor too ({names}): the Sensor "

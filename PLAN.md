@@ -188,7 +188,7 @@ The sensor has **10 slots**. Each holds one enrolled fingerprint (a "template");
 
 - `<key>` = first 12 hex of sha256(`/etc/machine-id`). Template id = first 10 hex of sha1 of the sensor's serialized template.
 - Written at every status read (only if changed, atomically). Templates no longer on the sensor are pruned.
-- **Install detection:** each start compares other installs' `where` with `lsblk`: partition gone from a present disk, or a different filesystem/LUKS UUID on it → **gone** (forgotten, message shown); disk absent or no `where` (older versions) → **unknown** (kept).
+- **Install detection:** each start compares other installs' `where` with `lsblk`: partition gone from a present disk, or a different filesystem/LUKS UUID on it → **gone** (forgotten; one message names all that went at that start); disk absent or no `where` (older versions) → **unknown** (kept).
 - **Import offer** (`import_offer`): records on the EFI partition whose slot is on the sensor, not used here, not removed here, and whose finger the user doesn't have working. Shown at start (not ones turned down or removed here) and from ☰ → Import from other distros… (all, except removed here).
 - **Reset <distro>** (`reset_install`): deletes this install's records and moved copies, clears the slots no other install uses, forgets this install; the window then offers the kept ones back.
 - **Back up & restore:** backup = the whole file as `.json`; restore = `merge_backup` (adds missing templates/records/installs, changes nothing existing).
