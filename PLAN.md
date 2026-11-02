@@ -66,7 +66,7 @@ The sensor has **10 slots**. Each holds one enrolled fingerprint (a "template");
 
 | File | Purpose |
 | --- | --- |
-| `README.md` | The summary: what it is, install, updating, uninstall, links to the guides, supported hardware, safety, reporting problems. Keep it short, and keep the top simple. |
+| `README.md` | The summary: what it is, links to the guides, install, uninstall, updating, supported hardware, safety, reporting problems. Keep it short, and keep the top simple. |
 | `docs/` | The user guides, one per topic: `driver-only.md`, `manager.md`, `fingerprint-login.md`, `multi-distro.md`, `install-options.md`, `monitoring.md`, `how-it-works.md`, `troubleshooting.md`. Everything for several distros goes in `multi-distro.md`. Each guide starts with its title, a link back to the README and a line on what it covers; aim for 500 to 2,000 words. Collapsible sections only for very long tables. Images 700px wide files, shown at `width="350"`. The packages install only `README.md`, so it links to the guides with full GitHub addresses; links between guides are relative. |
 | `CHANGELOG.md` | One section per release; new work under `## Unreleased` (§8.2). |
 | `PLAN.md` | This file. |
