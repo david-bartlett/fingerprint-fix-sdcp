@@ -96,6 +96,7 @@ if [[ -z "$ARCHIVE" ]]; then
     info "Using $ARCHIVE"
 fi
 [[ -f "$ARCHIVE" ]] || error "File not found: $ARCHIVE"
+[[ -L "$ARCHIVE" ]] && error "$ARCHIVE is a link: give the export file itself."
 
 # ── fprintd, libfprint and this fix must all be in place ──────────────────────
 # The distro libfprint cannot use SDCP records, so the fix's library and the
@@ -109,8 +110,18 @@ sdcp_available \
 
 SERIAL=$(sensor_serial) || error "EgisTec fingerprint sensor (1c7a:05a5 / 1c7a:05a1) not found."
 
+# ── Copy the archive once: the checks below and the extract use this copy ────
+# The file is often in the user's home: checked there and extracted from there
+# again, it could be swapped in between for one that was never checked (links
+# pointing out of the extract folder, say).
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+# (A leading dot: no user name in the archive can be the same.)
+cat -- "$ARCHIVE" > "$TMP/.archive.tgz" || error "Couldn't read $ARCHIVE"
+SHOWN="$ARCHIVE"; ARCHIVE="$TMP/.archive.tgz"
+
 # ── Check the archive: only <user>/egismoc/<serial>/<finger> files and dirs ───
-tar -tzf "$ARCHIVE" >/dev/null 2>&1 || error "Not a valid .tgz archive: $ARCHIVE"
+tar -tzf "$ARCHIVE" >/dev/null 2>&1 || error "Not a valid .tgz archive: $SHOWN"
 SRC_USER=""
 while read -r perms _ _ _ _ path; do
     path="${path%/}"
@@ -130,7 +141,7 @@ while read -r perms _ _ _ _ path; do
         [[ "${perms:0:1}" == "-" ]] || error "Unexpected entry in archive: $path"
     fi
 done < <(tar -tzvf "$ARCHIVE" 2>/dev/null)
-[[ -n "$SRC_USER" ]] || error "Archive is empty: $ARCHIVE"
+[[ -n "$SRC_USER" ]] || error "Archive is empty: $SHOWN"
 
 # Records exported by another username need their owner rewritten.
 if [[ "$SRC_USER" != "$TARGET_USER" && ! -x "$SENSOR_CHECK" ]]; then
@@ -152,8 +163,7 @@ name_of() { echo "${FINGERS[$((16#$1))]}"; }          # hex: a = right little fi
 list_of() { local n out=""; for n in "$@"; do out+="${out:+, }$(name_of "$n")"; done; echo "$out"; }
 
 # ── Extract to a temporary folder, then install with fprintd's permissions ────
-TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+# (into $TMP, made above with the archive's copy)
 tar -C "$TMP" --no-same-owner --no-same-permissions -xzf "$ARCHIVE"
 SRC="$TMP/${SRC_USER}/egismoc/${SERIAL}"
 shopt -s nullglob

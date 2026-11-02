@@ -224,8 +224,16 @@ class Sensor:
         subprocess.run(["systemctl", "stop", "fprintd"], capture_output=True)
         last = None
         for _ in range(3):
-            ctx = fp_context()
-            devs = [d for d in ctx.get_devices() if d.get_driver() == "egismoc"]
+            try:
+                # Listing can fail too (the reader dropping off USB): fprintd
+                # is started again below whatever went wrong, as __exit__
+                # doesn't run when __enter__ fails.
+                ctx = fp_context()
+                devs = [d for d in ctx.get_devices() if d.get_driver() == "egismoc"]
+            except Exception as e:
+                last = f"libfprint couldn't list the sensors: {e}"
+                time.sleep(0.5)
+                continue
             if not devs:
                 last = "No egismoc sensor found by libfprint."
                 time.sleep(0.5)
@@ -532,6 +540,15 @@ def do_reset_install(_req):
     of the shared slots file. Slots another distro still uses stay."""
     _, serial = sensor_usb()
     keep = used_elsewhere(serial)
+    if keep is None:
+        # Can't tell which slots other installs use: clearing any could break
+        # another distro's fingerprint login, so nothing is changed.
+        # The last line is the heading and the banner; the rest goes above it.
+        raise Fail("The EFI partition, where each Linux install notes the fingerprints it "
+                   "uses, couldn't be found or read, so it isn't possible to tell which "
+                   "fingerprints other installs still use. Check it's mounted (usually at "
+                   "/boot/efi or /boot) and try again.\n\n"
+                   "Nothing has been changed: the EFI partition couldn't be read.")
     records = read_records(serial)
     moved = moved_records(serial)
     prints = [r["print"] for r in records + moved if r["print"] is not None]
@@ -928,6 +945,8 @@ def do_restore_slots(req):
         added = merge_backup(req.get("data"))
     except ValueError as e:
         raise Fail(f"That file isn't a fingerprint records backup ({e}).")
+    except OSError as e:
+        raise Fail(f"Nothing was restored: {e}. The EFI partition may be full or read-only.")
     if added is None:
         raise Fail("The EFI partition wasn't found, so there's nowhere to restore to.")
     return {"added": added}

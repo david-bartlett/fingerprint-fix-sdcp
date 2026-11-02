@@ -162,9 +162,11 @@ def _load(path):
 
 
 def _save(path, data, before):
-    """Write data if it changed (atomically). True when written."""
+    """Write data if it changed (atomically). True when written, None when
+    nothing changed, False when the write failed (a full or read-only EFI
+    partition, say)."""
     if json.dumps(data, sort_keys=True) == before:
-        return False
+        return None
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         tmp = path + ".new"
@@ -331,7 +333,7 @@ def merge_backup(backup):
     installs it doesn't have are added; nothing already there is changed.
     Templates no longer on the sensor drop out the next time the Manager
     reads it. Returns how many records were added, or None without an EFI
-    partition."""
+    partition. Raises OSError when the merged file couldn't be written."""
     path = _path()
     if not path:
         return None
@@ -361,14 +363,26 @@ def merge_backup(backup):
             for k, v in (e.get("installs") or {}).items():
                 if isinstance(v, dict) and k not in inst:
                     inst[k] = v
-    _save(path, data, before)
+    if _save(path, data, before) is False:
+        raise OSError(f"couldn't write {path}")
     return added
 
 
 def used_elsewhere(serial):
-    """Templates on this sensor that another install still uses (state "used")."""
+    """Templates on this sensor that another install still uses (state "used").
+    None when that can't be told - no EFI partition, or a shared file that
+    can't be read - so a caller never takes it as "no other install": that
+    would clear slots other distros still log in with. No shared file yet on
+    the EFI partition is an empty set: no install has noted any template."""
     me, path = install_key(), _path()
-    sensor = ((_load(path).get("sensors") or {}).get(serial) or {}) if path else {}
+    if not path:
+        return None
+    if not os.path.exists(path):
+        return set()
+    data = _load(path)
+    if not data:                                    # unreadable or not ours
+        return None
+    sensor = (data.get("sensors") or {}).get(serial) or {}
     return {tid for tid, e in sensor.items() if isinstance(e, dict)
             and any(k != me and isinstance(v, dict) and v.get("state", "used") == "used"
                     for k, v in (e.get("installs") or {}).items())}

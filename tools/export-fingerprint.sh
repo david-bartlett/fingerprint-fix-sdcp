@@ -72,9 +72,15 @@ shopt -u nullglob
 OUT="${1:-${USER_HOME}/fingerprint-export.tgz}"
 [[ "$OUT" == *.tgz || "$OUT" == *.tar.gz ]] || OUT="${OUT}.tgz"
 
-tar -C /var/lib/fprint -czf "$OUT" "$REL"
-chown "$USER_NAME:" "$OUT"
-chmod 600 "$OUT"
+# Root reads the records; the file is written by the user, never by root
+# (PLAN.md §10). As root, a symlink at $OUT (or a folder swapped along the
+# way) would make it overwrite, and hand over, whatever file it points to.
+# As the user, it can only write where the user could anyway.
+set -o pipefail
+# shellcheck disable=SC2016  # "$1" is for the inner sh
+tar -C /var/lib/fprint -czf - "$REL" \
+    | runuser -u "$USER_NAME" -- sh -c 'umask 077 && cat > "$1" && chmod 600 "$1"' sh "$OUT" \
+    || error "Couldn't save the export to $OUT (the reason is above).\n  It's saved as ${USER_NAME}, so it has to be a folder ${USER_NAME} can write to."
 
 NAMES=()
 for f in "${FILES[@]}"; do
