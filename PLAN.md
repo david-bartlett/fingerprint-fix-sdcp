@@ -268,7 +268,7 @@ Then he closes and reopens the Manager. Give him a short numbered list of what t
 - **Don't trust a missing shared file either:** `used_elsewhere()` returns `None` when it can't tell (no EFI partition, or `fingerprint-slots.json` unreadable or not ours). Never treat that as "no other install": refuse to clear slots. An empty set means the file is there, or not yet made on a found EFI partition, and no other install uses them.
 - **Root never writes a file the user asked for:** `export-fingerprint.sh` pipes `tar` into `runuser -u <user>`, which saves it. Root reads only: `import-fingerprint.sh` copies the export once into its own temporary folder, then checks and unpacks that copy (never the user's file twice), and refuses a link.
 - **`Sensor` starts fprintd again on any failure in `__enter__`:** `__exit__` doesn't run when `__enter__` fails, so everything after stopping fprintd is inside the retry loop's `try`.
-- **PAM:** never leave a user locked out; changes go through `fingerprint-pam.sh`/`arch-pam.sh`, which back up and verify. Uninstalling never turns PAM off.
+- **PAM:** never leave a user locked out; changes go through `fingerprint-pam.sh`, which uses the distro's own tool and checks the result. On Arch that's `arch-pam.sh`, which also keeps a backup and checks its edit can be undone exactly. Uninstalling never turns PAM off.
 - **Package scriptlets:** tidy-up on **removal only**, not upgrade (rpm `$1 == 0`, deb `prerm remove`, Arch `pre_remove`). Never fail a removal.
 - **fish:** CachyOS's default shell is fish; commands in the README and `docs/` must work there (no bash-only loops).
 - **Dual-boot:** Windows Hello wipes Linux templates unless its fingerprint device is disabled; the Manager reminds users.
