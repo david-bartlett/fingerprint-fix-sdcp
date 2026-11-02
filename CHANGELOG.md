@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.11.4 — 2026-11-02
 
 - **Manual split into guides:** the README is now a short summary, with the detail in `docs/`
 - Seven guides: the Manager, fingerprint login, Multi-Distro Mode, install options, the monitor and boot check, how it works and troubleshooting
