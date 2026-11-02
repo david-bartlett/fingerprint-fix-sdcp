@@ -1,6 +1,6 @@
 # Safety fixes from a code review
 
-PR #<number> · Claude · 2026-11-02
+PR #135 · Claude · 2026-11-02
 
 ## What changed
 - `lib/shared_slots.py`: `used_elsewhere()` returns `None` when it can't tell (no EFI partition, `fingerprint-slots.json` unreadable or not version 1); an empty set only when the file is readable, or not made yet on a found EFI partition. `_save()` returns `True` written / `None` unchanged / `False` failed; `merge_backup()` raises `OSError` on a failed write.
