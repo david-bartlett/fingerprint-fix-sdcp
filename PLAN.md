@@ -10,7 +10,7 @@ This is the handover for anyone (people or coding agents such as Codex) working 
 2. **David tests every PR on his laptop before merging.** Say in the PR description what to test and how (see §9). Say plainly what you could not test (anything touching the real sensor, PAM, packages or a real desktop session).
 3. **Never make a release.** Don't change `VERSION`, don't create tags (`v*`), don't create GitHub releases, don't run the release workflow. David releases with his own tool (§8).
 4. **One topic per PR.** Small, focused PRs are easier to test. Before pushing more commits to an existing PR's branch, check it hasn't been merged already (`gh pr view N --json merged` or the REST API); if it has, start a new branch from `main`.
-5. **Every user-visible change gets a CHANGELOG line** under `## Unreleased` (§8.2), and a README update when the README describes the thing you changed.
+5. **Every user-visible change gets a CHANGELOG line** under `## Unreleased` (§8.2), and an update to `README.md` or `docs/` where they describe the thing you changed.
 6. **Don't touch `DRIVER`** (the tested driver commit) unless asked.
 7. **Don't add files you didn't mean to.** Review `git status` before committing, and don't use `git add -A` blindly. Test scripts and their output belong outside the repository (a test once wrote `efi/…/fingerprint-slots.json` into it and it got committed; `.gitignore` now blocks that path).
 8. **Wording:** British English (enrol, colour, licence). Plain words for users; say what happens and what to do. The app is **"Galaxy Book Fingerprint Manager"** in full the first time in a section and in headings, tables and links, then **"the Manager"**.
@@ -66,7 +66,8 @@ The sensor has **10 slots**. Each holds one enrolled fingerprint (a "template");
 
 | File | Purpose |
 | --- | --- |
-| `README.md` | User documentation. Structure: install → updating → uninstall → supported hardware → the Manager → dual-boot → enrolling → PAM → monitor → boot check → **Multi-Distro Mode** (everything for several distros, at the end on purpose) → more details. Keep the top simple; big tables and detail in `<details>`. Images 700px wide files, shown at `width="350"`. |
+| `README.md` | The summary: what it is, install, updating, uninstall, links to the guides, supported hardware, safety, reporting problems. Keep it short, and keep the top simple. |
+| `docs/` | The user guides, one per topic: `manager.md`, `fingerprint-login.md`, `multi-distro.md`, `install-options.md`, `monitoring.md`, `how-it-works.md`, `troubleshooting.md`. Everything for several distros goes in `multi-distro.md`. Each guide starts with its title, a link back to the README and a line on what it covers; aim for 500 to 2,000 words. Collapsible sections only for very long tables. Images 700px wide files, shown at `width="350"`. The packages install only `README.md`, so it links to the guides with full GitHub addresses; links between guides are relative. |
 | `CHANGELOG.md` | One section per release; new work under `## Unreleased` (§8.2). |
 | `PLAN.md` | This file. |
 | `AGENTS.md` | Short rules for coding agents; points here. |
@@ -76,7 +77,7 @@ The sensor has **10 slots**. Each holds one enrolled fingerprint (a "template");
 | `install.sh` | The from-source installer: checks hardware and distro, installs build deps, builds the driver commit from `DRIVER` (applying `lib/patches/` if needed), installs driver + Manager under `/usr/local`, PAM on first install, imports `~/fingerprint-export.tgz` if present, offers to open the Manager. Options: `--driver-only`, `--manager-only`; env `FPRINT_PAM`, `SDCP_COMMIT=latest`, `SDCP_REPO_URL`, `FORCE`, `FPRINT_SDCP_FORCE`, `FPRINT_IMPORT`, `FPRINT_OPEN_MANAGER`. |
 | `uninstall.sh` | Removes an `install.sh` copy (`--driver-only`, `--manager-only`). Never deletes fingerprints; takes this install out of the shared slots file (`lib/shared_slots.py --forget-here`). |
 | `fingerprint-manager.sh` | Launcher for the Manager: checks Python/GTK/libfprint-introspection/pkexec, lists missing packages, then `exec python3 lib/fingerprint-manager.py "$@"`. |
-| `images/` | README screenshots. |
+| `images/` | Screenshots for the guides. |
 
 ### `lib/`
 
@@ -269,7 +270,7 @@ Then he closes and reopens the Manager. Give him a short numbered list of what t
 - **`Sensor` starts fprintd again on any failure in `__enter__`:** `__exit__` doesn't run when `__enter__` fails, so everything after stopping fprintd is inside the retry loop's `try`.
 - **PAM:** never leave a user locked out; changes go through `fingerprint-pam.sh`/`arch-pam.sh`, which back up and verify. Uninstalling never turns PAM off.
 - **Package scriptlets:** tidy-up on **removal only**, not upgrade (rpm `$1 == 0`, deb `prerm remove`, Arch `pre_remove`). Never fail a removal.
-- **fish:** CachyOS's default shell is fish; commands in the README must work there (no bash-only loops).
+- **fish:** CachyOS's default shell is fish; commands in the README and `docs/` must work there (no bash-only loops).
 - **Dual-boot:** Windows Hello wipes Linux templates unless its fingerprint device is disabled; the Manager reminds users.
 
 ---

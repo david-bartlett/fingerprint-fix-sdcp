@@ -30,7 +30,7 @@ galaxybook-fingerprint-manager update
 
 It downloads this release's files for your distro (both packages, or the `PKGBUILD` on Arch), checks them against `SHA256SUMS` and installs them; no `sudo`: it asks for your fingerprint or password when it installs (2.10.3 or newer). Or open the **Galaxy Book Fingerprint Manager** and press **Update**, or run `galaxybook-fingerprint-manager updates check` to see the notification now.
 
-Driver only? Download just the driver's file and install it with the same command as in **1. Install**, leaving out the Manager's file ([Only one part](https://github.com/david-bartlett/fingerprint-fix-sdcp#only-one-part)).
+Driver only? Download just the driver's file and install it with the same command as in **1. Install**, leaving out the Manager's file ([Only one part](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/install-options.md#installing-only-one-package)).
 
 <details>
 <summary>The galaxybook-fingerprint-manager command</summary>

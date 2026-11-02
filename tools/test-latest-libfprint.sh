@@ -30,6 +30,6 @@ echo "Testing upstream $up …"
 sudo SDCP_REPO_URL="$UPSTREAM" bash "$INSTALL"
 echo
 echo "If fprintd-verify works: click 'Sync fork' on GitHub, put the new commit id"
-echo "in DRIVER, raise VERSION and make a release (see the README's maintainer notes)."
+echo "in DRIVER, raise VERSION and make a release (see packaging/README.md)."
 echo "To go back to the tested build meanwhile (enrolments are kept):"
 echo "  sudo bash $INSTALL"

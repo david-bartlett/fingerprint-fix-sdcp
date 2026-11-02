@@ -555,7 +555,7 @@ else
     fi
     if [[ "$_pam" == "1" ]]; then
         bash "$SCRIPT_DIR/tools/fingerprint-pam.sh" enable \
-            || warn "Could not enable it — see README.md for the manual PAM steps"
+            || warn "Could not enable it — see docs/fingerprint-login.md for the manual PAM steps"
     elif [[ -t 0 || -n "${FPRINT_PAM:-}" ]]; then
         info "PAM not changed. To enable later: sudo bash $SCRIPT_DIR/tools/fingerprint-pam.sh enable"
     fi
