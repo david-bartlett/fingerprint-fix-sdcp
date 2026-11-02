@@ -132,6 +132,7 @@ In the `fingerprint-fix-sdcp` folder, `git pull`, then `sudo bash install.sh` ag
 <summary>How the update check works</summary>
 
 - The notification comes once per version, with **Update now** (with the Manager installed from a package: both packages are downloaded, checked against the release's `SHA256SUMS` and installed together) and **What's new** (the release page; the notification comes back afterwards). On GNOME, hover over it to see the buttons, or click it for **What's new**.
+- The notification stays on screen until you close it, or until the new version is installed some other way, such as the Manager's **Update** button or `galaxybook-fingerprint-manager update`.
 - Only one check runs: the driver's own check is skipped while the Manager is installed.
 - A release is only announced once its files are attached, so **Update** always has something to install.
 - With no terminal found, the Manager's **Update** saves the files to `~/Downloads` instead, with the command to paste.
