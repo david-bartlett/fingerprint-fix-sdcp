@@ -543,11 +543,12 @@ def do_reset_install(_req):
     if keep is None:
         # Can't tell which slots other installs use: clearing any could break
         # another distro's fingerprint login, so nothing is changed.
-        raise Fail("Nothing has been changed: the EFI partition, where each Linux install "
-                   "notes the fingerprints it uses, couldn't be found or read, so it isn't "
-                   "possible to tell which fingerprints other installs still use.\n\n"
-                   "Check the EFI partition is mounted (usually at /boot/efi or /boot) and "
-                   "try again.")
+        # The last line is the heading and the banner; the rest goes above it.
+        raise Fail("The EFI partition, where each Linux install notes the fingerprints it "
+                   "uses, couldn't be found or read, so it isn't possible to tell which "
+                   "fingerprints other installs still use. Check it's mounted (usually at "
+                   "/boot/efi or /boot) and try again.\n\n"
+                   "Nothing has been changed: the EFI partition couldn't be read.")
     records = read_records(serial)
     moved = moved_records(serial)
     prints = [r["print"] for r in records + moved if r["print"] is not None]
