@@ -15,7 +15,7 @@ PR #137 · Claude · 2026-11-02
 ## Tested
 - A script moved the text, then every line of the old README was compared with the new files. The only differences are the ones listed in the PR.
 - A script checked every relative link, every full link to `docs/`, their anchors and every picture path.
-- Checked how GitHub renders the README and guides on the branch, including the pictures.
+- Checked GitHub's rendered HTML for the README and guides on the branch: headings, tables and picture tags come through, and each picture file exists. Not seen in a browser.
 - `bash -n` on `install.sh` and `tools/test-latest-libfprint.sh`, and `py_compile` on `lib/*.py`.
 - Not tested: the full links to `docs/` on GitHub, which only work once this is merged. `install.sh`'s changed message only shows when turning on PAM fails.
 
