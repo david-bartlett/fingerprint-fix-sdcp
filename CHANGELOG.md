@@ -9,6 +9,13 @@
 
 ## Unreleased
 
+- **Safer export, import, Reset and restore:** fixes from a review of the code (one more found while checking it)
+- Reset this install no longer clears any fingerprint slots if the EFI partition can't be found or its shared file can't be read: without it, it can't tell which fingerprints other installs still use, so it changes nothing and says why. Before, it took that to mean no other install used them, and could break another distro's fingerprint login
+- Exporting saves `fingerprint-export.tgz` as you, not as root, so a link left at that path can't make it overwrite another file
+- Importing copies the export file once and checks and unpacks that copy, so the file can't be swapped in between for one that was never checked. A link instead of the file is refused
+- Restoring a fingerprint records backup says so when it can't be saved (a full or read-only EFI partition), instead of reporting records added
+- If libfprint fails while listing the reader, the Manager starts fprintd again rather than leaving it stopped
+
 ## 2.11.1 — 2026-11-01
 
 - **Reader keeps working after suspend:** suspending during a scan, usually at the lock screen just after a wake, no longer leaves the reader not responding

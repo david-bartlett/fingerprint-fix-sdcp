@@ -405,7 +405,7 @@ Turned one down? It isn't offered again by itself, but ☰ → **Import from oth
 
 ### Reset
 
-☰ → **Reset <distro>…** deletes that distro's fingerprints for good, and erases from the sensor **the slots no other distro uses**: nothing can bring those fingers back (not an import, not a backup); they have to be enrolled again. Slots other distros also use are kept, and you're asked straight after whether to import them again. The confirmation names which fingers are lost and which are kept. The distro is also taken out of the shared file. You don't need it to reinstall a distro.
+☰ → **Reset <distro>…** deletes that distro's fingerprints for good, and erases from the sensor **the slots no other distro uses**: nothing can bring those fingers back (not an import, not a backup); they have to be enrolled again. Slots other distros also use are kept, and you're asked straight after whether to import them again. The confirmation names which fingers are lost and which are kept. The distro is also taken out of the shared file. If the EFI partition can't be read when you confirm, Reset changes nothing and says why, as it can't tell which slots the other distros use. You don't need it to reinstall a distro.
 
 ### Back Up & Restore
 
