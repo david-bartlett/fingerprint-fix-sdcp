@@ -16,4 +16,3 @@ PR #138 · Claude · 2026-11-02
 - Not tested: a driver-only install on real hardware.
 
 ## For the next person
-- README-only, so no CHANGELOG line.
