@@ -42,6 +42,8 @@ sudo bash /usr/lib/fingerprint-fix-sdcp/pam/fingerprint-pam.sh disable    # enro
 
 With an `install.sh` copy, run `tools/fingerprint-pam.sh` from its folder instead. [Fingerprint login](fingerprint-login.md#turning-fingerprint-login-on-or-off) says what it does on each distro.
 
+Fingerprint works at the login screen, the lock screen, `sudo` and admin prompts on every desktop, except that KDE's login screen doesn't support fingerprints yet.
+
 ## Updating
 
 You're told about each new release, but you install it yourself. See [With only the driver](../README.md#with-only-the-driver).
