@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.11.3 — 2026-11-02
 
 - **Every removed distro is reported:** the Manager names all the distros it finds gone at a start, not just one
 - With two or more removed at once, each replaced the last message, so only one was shown. All of them were always taken out of the shared file correctly
