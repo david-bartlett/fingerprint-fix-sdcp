@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Every removed distro is reported:** the Manager names all the distros it finds gone at a start, not just one
+- With two or more removed at once, each replaced the last message, so only one was shown. All of them were always taken out of the shared file correctly
+
 ## 2.11.2 — 2026-11-02
 
 - **Safer export, import, Reset and restore:** fixes from a review of the code (one more found while checking it)
