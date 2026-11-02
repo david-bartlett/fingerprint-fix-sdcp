@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.11.2 — 2026-11-02
 
 - **Safer export, import, Reset and restore:** fixes from a review of the code (one more found while checking it)
 - Reset this install no longer clears any fingerprint slots if the EFI partition can't be found or its shared file can't be read: without it, it can't tell which fingerprints other installs still use, so it changes nothing and says why. Before, it took that to mean no other install used them, and could break another distro's fingerprint login
