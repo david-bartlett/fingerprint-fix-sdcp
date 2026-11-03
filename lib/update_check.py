@@ -69,11 +69,14 @@ def manager_installed():
 
 
 def update_name():
-    """What an update here is called: the Manager's name with only the Manager,
-    otherwise the driver's package, which is also the release's name."""
-    if manager_installed() and not any(os.path.isfile(m) for m in DRIVER_MARKERS):
+    """What an update here is called: what it will install."""
+    manager = manager_installed()
+    driver = any(os.path.isfile(m) for m in DRIVER_MARKERS)
+    if manager and driver:
+        return "Fingerprint Driver & Manager"
+    if manager:
         return "Galaxy Book Fingerprint Manager"
-    return FIX
+    return "Fingerprint Driver" if driver else FIX
 
 
 def version_key(v):
