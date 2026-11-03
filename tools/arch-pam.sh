@@ -81,6 +81,24 @@ without_rule() {
         { skip = 0; print }' "$1"
 }
 
+# Replace PAM file $2 with the text in file $1, in one step: writing over it
+# directly would leave it empty or cut short if the write failed, and sudo with
+# it. The new copy goes beside it with the same owner, mode and SELinux label,
+# and is only moved into place once it's complete. On failure $2 is untouched.
+write_pam() {
+    local text="$1" f next
+    f=$(readlink -f "$2")
+    [[ -s "$text" ]] || return 1
+    next=$(mktemp "$(dirname "$f")/.$(basename "$f").XXXXXX") || return 1
+    if cat "$text" > "$next" && cmp -s "$text" "$next" \
+            && chown --reference="$f" "$next" && chmod --reference="$f" "$next"; then
+        command -v chcon >/dev/null 2>&1 && chcon --reference="$f" "$next" 2>/dev/null
+        mv -f "$next" "$f" && return 0
+    fi
+    rm -f "$next"
+    return 1
+}
+
 enable_one() {
     local svc="$1" f="/etc/pam.d/$1" vendor="/usr/lib/pam.d/$1" tmp
     if [[ ! -f "$f" ]]; then
@@ -115,7 +133,11 @@ enable_one() {
         warn "$svc: could not edit $f safely — left unchanged"
         return 0
     fi
-    cat "$tmp" > "$f"      # keep the file's owner, mode and SELinux label
+    if ! write_pam "$tmp" "$f"; then
+        rm -f "$tmp"
+        warn "$svc: could not write $f — left unchanged"
+        return 0
+    fi
     rm -f "$tmp"
     info "✓ $svc: fingerprint enabled (backup: $f$BAK)"
 }
@@ -137,7 +159,11 @@ update_one() {
         warn "$svc: could not update $f safely — left unchanged"
         return 0
     fi
-    cat "$tmp" > "$f"
+    if ! write_pam "$tmp" "$f"; then
+        rm -f "$tmp"
+        warn "$svc: could not write $f — left unchanged"
+        return 0
+    fi
     rm -f "$tmp"
     info "✓ $svc: fingerprint line updated ($want)"
 }
@@ -148,7 +174,11 @@ disable_one() {
     if grep -qxF "$MARK" "$f"; then
         tmp=$(mktemp)
         without_rule "$f" > "$tmp"
-        cat "$tmp" > "$f"
+        if ! write_pam "$tmp" "$f"; then
+            rm -f "$tmp"
+            warn "$svc: could not write $f — left unchanged"
+            return 0
+        fi
         rm -f "$tmp"
         info "✓ $svc: fingerprint line removed"
     fi
