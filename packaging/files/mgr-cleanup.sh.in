@@ -2,7 +2,8 @@
 # Samsung Galaxy Book — remove the Galaxy Book Fingerprint Manager installed by
 # install.sh, with its monitor and boot / login checks (runs as root). Used by
 # the packages when they replace an install.sh copy (after the driver's own
-# cleanup). Enrolled fingerprints are kept.
+# cleanup). Enrolled fingerprints are kept, and so are records moved aside, which
+# can still be restored from a package install. Only a full uninstall.sh deletes those.
 rm -rf "@MGR_DIR@"
 rm -f "@MGR_BIN@" "@MGR_DESKTOP@" "@MGR_ICON@" "@MGR_POLICY@"
 # Refresh the icon cache the icon was in, if it has one: a cache that still
@@ -12,7 +13,6 @@ _icons="$(dirname "$(dirname "$(dirname "@MGR_ICON@")")")"
 [[ -f "$_icons/icon-theme.cache" ]] && command -v gtk-update-icon-cache >/dev/null 2>&1 \
     && gtk-update-icon-cache -q -t -f "$_icons" 2>/dev/null || true
 rm -f "/var/lib/samsung-galaxybook/libfprint-system.sha256" "@MGR_MARKER@"
-rm -rf "/var/lib/samsung-galaxybook/removed-fingerprints"
 rmdir "/var/lib/samsung-galaxybook" 2>/dev/null || true
 systemctl disable "samsung-galaxybook-fprint-sdcp-boot-check.service" 2>/dev/null || true
 rm -f "@FPRINT_UNIT_DIR@/samsung-galaxybook-fprint-sdcp-monitor.service" "@FPRINT_UNIT_DIR@/samsung-galaxybook-fprint-sdcp-boot-check.service" \

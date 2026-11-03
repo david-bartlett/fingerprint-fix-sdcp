@@ -273,7 +273,7 @@ Then he closes and reopens the Manager. Give him a short numbered list of what t
 - **Root never writes a file the user asked for:** `export-fingerprint.sh` pipes `tar` into `runuser -u <user>`, which saves it. Root reads only: `import-fingerprint.sh` copies the export once into its own temporary folder, then checks and unpacks that copy (never the user's file twice), and refuses a link.
 - **`Sensor` starts fprintd again on any failure in `__enter__`:** `__exit__` doesn't run when `__enter__` fails, so everything after stopping fprintd is inside the retry loop's `try`.
 - **PAM:** never leave a user locked out; changes go through `fingerprint-pam.sh`, which uses the distro's own tool and checks the result. On Arch that's `arch-pam.sh`, which also keeps a backup and checks its edit can be undone exactly. Uninstalling never turns PAM off.
-- **Package scriptlets:** tidy-up on **removal only**, not upgrade (rpm `$1 == 0`, deb `prerm remove`, Arch `pre_remove`). Never fail a removal.
+- **Package scriptlets:** tidy-up on **removal only**, not upgrade (rpm `$1 == 0`, deb `prerm remove`, Arch `pre_remove`). Never fail a removal. Records moved aside (`removed-fingerprints/`, `replaced-fingerprints/`) survive moving from `install.sh` to a package and `--manager-only`: only a full `uninstall.sh` and a Debian purge delete them.
 - **fish:** CachyOS's default shell is fish; commands in the README and `docs/` must work there (no bash-only loops).
 - **Dual-boot:** Windows Hello wipes Linux templates unless its fingerprint device is disabled; the Manager reminds users.
 
