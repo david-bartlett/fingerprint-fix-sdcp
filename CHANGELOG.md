@@ -10,7 +10,7 @@
 ## Unreleased
 
 - **Notification icon:** the update notification no longer shows a blank icon after the Manager is removed and installed again
-- It now uses the icon's file rather than its name, as a desktop's icon cache could leave the name blank. The login check's plain notification does the same
+- It now uses the icon's file rather than its name, as a running Plasma could show the name as blank until it restarted. The login check's plain notification does the same
 
 ## 2.12.0 — 2026-11-03
 

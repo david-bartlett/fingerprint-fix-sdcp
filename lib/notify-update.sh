@@ -26,7 +26,7 @@ title="${1:?Usage: $0 TITLE MESSAGE URL [VERSION]}"; msg="${2:-}"; url="${3:-}";
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 APPNAME="Samsung Galaxy Book Fixes"; ICON=galaxybook-fingerprint-manager
 # By its file, not its name: after the Manager is removed and installed again,
-# a desktop's icon cache can leave the name showing a blank icon. The theme's
+# a running Plasma can show a blank icon for the name until it restarts. The theme's
 # copy comes with the Manager; the driver's copy of this script has one beside
 # it, for when only the driver is installed.
 DBUS_ICON="$ICON"
