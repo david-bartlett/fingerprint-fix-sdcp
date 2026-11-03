@@ -17,6 +17,8 @@
 
 - **An update can't leave the Manager behind:** with both installed, a release missing the Manager's file is no longer offered as a driver-only update
 
+- **A failed import leaves fingerprint login working:** `import-fingerprint.sh` now starts fprintd again if anything goes wrong after its sensor check
+
 ## 2.13.2 — 2026-11-03
 
 - **Removed fingerprints survive moving to a package:** replacing an `install.sh` copy, or `uninstall.sh --manager-only`, no longer deletes records you can still restore

@@ -115,7 +115,10 @@ SERIAL=$(sensor_serial) || error "EgisTec fingerprint sensor (1c7a:05a5 / 1c7a:0
 # again, it could be swapped in between for one that was never checked (links
 # pointing out of the extract folder, say).
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+# fprintd is stopped for the sensor check: whatever goes wrong after that, it's
+# started again, or fingerprint login stays off.
+FPRINTD_STOPPED=false
+trap 'rm -rf "$TMP"; if $FPRINTD_STOPPED; then systemctl start fprintd 2>/dev/null || true; fi' EXIT
 # (A leading dot: no user name in the archive can be the same.)
 cat -- "$ARCHIVE" > "$TMP/.archive.tgz" || error "Couldn't read $ARCHIVE"
 SHOWN="$ARCHIVE"; ARCHIVE="$TMP/.archive.tgz"
@@ -214,6 +217,7 @@ if [[ "${NO_CHECK:-0}" != "1" ]]; then
     if [[ -x "$SENSOR_CHECK" ]]; then
         mkdir -p "$TMP/store/$TARGET_USER/egismoc/$SERIAL"
         cp "$TMP/ready"/* "$TMP/store/$TARGET_USER/egismoc/$SERIAL/"
+        FPRINTD_STOPPED=true
         systemctl stop fprintd 2>/dev/null || true
         set +e
         CHECK_OUT=$(FPRINT_STORE="$TMP/store" timeout 15 "$SENSOR_CHECK" 2>&1); CHECK_RC=$?
@@ -275,6 +279,7 @@ done
 command -v restorecon >/dev/null 2>&1 && restorecon -R "$DEST" 2>/dev/null || true
 
 systemctl restart fprintd 2>/dev/null || true
+FPRINTD_STOPPED=false
 if [[ "$SRC_USER" == "$TARGET_USER" ]]; then
     info "Imported $(list_of "${NAMES[@]}") for ${TARGET_USER}"
 else
