@@ -1,6 +1,6 @@
 # Don't overwrite a shared file that can't be used
 
-PR #NUMBER · Claude · 2026-11-03
+PR #153 · Claude · 2026-11-03
 
 ## What changed
 - `lib/shared_slots.py`: `_unusable()` and `problem_file()` tell a shared file that's there but can't be used from one that's missing. `share_slots()` returns `None` without writing, and `merge_backup()` raises `SharedFileProblem`.
