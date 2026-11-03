@@ -1,6 +1,6 @@
 # A failed import starts fprintd again
 
-PR #NUMBER · Claude · 2026-11-03
+PR #160 · Claude · 2026-11-03
 
 ## What changed
 - `tools/import-fingerprint.sh`: the `EXIT` trap starts fprintd again if the script stopped it and hasn't restarted it.
