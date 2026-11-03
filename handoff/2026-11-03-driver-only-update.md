@@ -17,9 +17,11 @@ PR #143 · Claude · 2026-11-03
 - `pick_asset()` and `install_command()` give the same results as `main` when the Manager is installed.
 - `install-files.sh` run with a stand-in driver build: the command and helpers land where expected.
 - `bash -n`, `py_compile`, links by script.
-- Not tested: a real rpm, deb or Arch package (this repo's workflow only builds on a tag), real `dnf`, `apt` or `makepkg` runs, or the real notification.
+- David tested it on Fedora with local rpm builds: the command's help and `updates` on, off and status; `updates check` with the Manager and without; the notification with the icon; **Update now** downloading only the driver's rpm and reaching dnf's prompt; and upgrading both packages together.
+- Not tested: the deb and Arch packages (this repo's workflow only builds on a tag), and real `apt` or `makepkg` runs.
 
 ## For the next person
 - A `Recommends` on the Manager doesn't stop the driver's file installing alone, but `.github/workflows/release-packages.yml`'s header still says the driver requires the Manager, which isn't so.
 - The `install.sh` layout has no command, so `FIX_BIN` is only set for the package layout.
 - Driver-only installs on 2.11.4 or older have to update by hand once to get this.
+- `sudo dnf install ./*.rpm` once failed with *cannot install both fingerprint-fix-sdcp-2.11.4-2.fc45 from @commandline and fingerprint-fix-sdcp-2.11.4-2.fc45 from @commandline*, with the Manager installed. Installing the driver alone worked, and upgrading both together worked later. The cause wasn't found, so watch for it at the Manager's next **Update**.
