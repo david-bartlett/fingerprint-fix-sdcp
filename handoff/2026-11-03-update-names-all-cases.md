@@ -1,6 +1,6 @@
 # Update messages say what they'll install
 
-PR #NUMBER · Claude · 2026-11-03
+PR #150 · Claude · 2026-11-03
 
 ## What changed
 - `update_name()` in `lib/update_check.py` now has a name for each case: *Fingerprint Driver*, *Galaxy Book Fingerprint Manager* or *Fingerprint Driver & Manager*. It falls back to `fingerprint-fix-sdcp` if neither marker is there.
