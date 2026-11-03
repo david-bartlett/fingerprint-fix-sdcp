@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **Picture in the driver guide:** the Updating section of `docs/driver-only.md` now shows the update notification
+
 ## 2.12.1 — 2026-11-03
 
 - **Notification icon:** the update notification no longer shows a blank icon after the Manager is removed and installed again

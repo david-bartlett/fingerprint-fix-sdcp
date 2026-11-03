@@ -49,6 +49,8 @@ Fingerprint works at the login screen, the lock screen, `sudo` and admin prompts
 
 You're told about each new release. **Update now** in the notification, or `fingerprint-fix-sdcp update`, installs just the driver. See [With only the driver](../README.md#with-only-the-driver).
 
+<img src="../images/update-notification.png" width="300" alt="Notification: fingerprint-fix-sdcp 2.11.4 is available. You have 2.11.3. Buttons: Update now and What's new">
+
 ## Windows on the same laptop
 
 Disable the fingerprint reader in Windows Device Manager. Otherwise every time Windows starts, it deletes your Linux fingerprints from the sensor.
