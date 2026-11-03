@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.12.2 — 2026-11-03
 
 - **Picture in the driver guide:** the Updating section of `docs/driver-only.md` now shows the update notification
 
