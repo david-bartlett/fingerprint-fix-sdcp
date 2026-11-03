@@ -94,6 +94,8 @@ sudo systemctl daemon-reload && sudo systemctl restart fprintd
 
 ## Updating
 
+### From the update notification
+
 You're told about each new release with a notification, checked 30 seconds after login and then hourly. This works with the driver alone too. Nothing is installed until you choose to, and enrolled fingerprints are always kept.
 
 <img src="images/update-notification-both.png" width="300" alt="Notification: Fingerprint Driver &amp; Manager 2.13.2 is available. You have 2.13.1. Buttons: Update now and What's new">
