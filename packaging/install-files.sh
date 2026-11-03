@@ -57,6 +57,8 @@ driver)
     # the VERSION next to its folder.
     install -Dm755 -t "$D$FIX_UPDATE_DIR" "$REPO/lib/update_check.py" "$REPO/lib/notify-update.sh" "$REPO/lib/notify-dbus.py" \
         "$REPO/lib/terminal.py" "$REPO/lib/update-in-terminal.sh"
+    # The notification's icon, as the icon theme's copy comes with the Manager
+    install -Dm644 "$REPO/lib/$MGR_ID.svg" "$D$FIX_UPDATE_DIR/$MGR_ID.svg"
     install -Dm644 "$REPO/VERSION" "$D$FPRINT_LIB_DIR/VERSION"
     # The command for updates with only the driver
     put fix-command.sh.in "$FIX_BIN" 755

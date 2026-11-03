@@ -5,7 +5,7 @@ PR #143 · Claude · 2026-11-03
 ## What changed
 - A driver installed from a package without the Manager now gets **Update now** in its notification. It downloads just the driver's file (on Arch it builds both packages and installs just the driver).
 - New command `fingerprint-fix-sdcp` (`packaging/files/fix-command.sh.in`): `update` and `updates on|off|status|check`. With the Manager installed it changes nothing and names the Manager's command.
-- The driver's update folder now also ships `terminal.py` and `update-in-terminal.sh`.
+- The driver's update folder now also ships `terminal.py`, `update-in-terminal.sh` and the Manager's icon. `notify-update.sh` uses that icon by its path when the icon theme doesn't have it.
 - `update_check.py`: `manager_installed()`; `installed_package()` looks at the driver's package when there's no Manager; `pick_asset()` and `install_command()` have a driver-only case; `enabled()` reads the driver's timer with no Manager; messages name `GBF_COMMAND`.
 - README, `docs/driver-only.md`, `docs/how-it-works.md`, `.github/release-install.md`, `PLAN.md` and the CHANGELOG.
 

@@ -25,6 +25,13 @@
 title="${1:?Usage: $0 TITLE MESSAGE URL [VERSION]}"; msg="${2:-}"; url="${3:-}"; version="${4:-}"
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 APPNAME="Samsung Galaxy Book Fixes"; ICON=galaxybook-fingerprint-manager
+# The icon theme's copy comes with the Manager: the driver's copy of this
+# script has one beside it, for when only the driver is installed.
+DBUS_ICON="$ICON"
+if [[ ! -e "/usr/share/icons/hicolor/scalable/apps/$ICON.svg" && -f "$HERE/$ICON.svg" ]]; then
+    DBUS_ICON="file://$HERE/$ICON.svg"
+    ICON="$HERE/$ICON.svg"
+fi
 args=(-u critical -t 0 -a "$APPNAME" -i "$ICON")
 
 # The buttons, as KEY=LABEL
@@ -113,7 +120,7 @@ msg="${msg%%$'\n'*}"
 for (( n = 0; n < 20; n++ )); do
     if [[ $way == dbus ]]; then
         choice=$(NOTIFY_WATCH_FILE="$watch" NOTIFY_WATCH_VERSION="$version" \
-                 python3 -I "$HERE/notify-dbus.py" 2 "$APPNAME" "$ICON" "$title" "$msg" "${pairs[@]}")
+                 python3 -I "$HERE/notify-dbus.py" 2 "$APPNAME" "$DBUS_ICON" "$title" "$msg" "${pairs[@]}")
         rc=$?
         if (( rc == 2 )); then plain; break; fi     # couldn't show it that way: plainly, with the URL
         [[ "$choice" == default ]] && choice=whatsnew
