@@ -66,6 +66,7 @@ See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc
 - `/var/lib/samsung-galaxybook/libfprint-system.sha256` — distro libfprint hash, to spot updates
 - `~/.config/systemd/user/fingerprint-fix-sdcp-update-check.{service,timer}` and `galaxybook-fingerprint-manager-update-check.{service,timer}` — the hourly check for new releases (the driver's and the Manager's; only one runs)
 - `/usr/local/lib/libfprint-egismoc-sdcp/update/` — the driver's copy of that check
+- `/usr/bin/fingerprint-fix-sdcp` — the driver's command for updates, from its package only
 - `/usr/local/lib/galaxybook-fingerprint-manager/` — Galaxy Book Fingerprint Manager (root-owned copy of `fingerprint-manager.sh`, `lib/` Python files including the boot-time `sensor-check.py`, and `tools/`)
 - `/usr/local/bin/galaxybook-fingerprint-manager` — link to start it
 - `/usr/share/applications/io.github.david_bartlett.GalaxyBookFingerprintManager.desktop` and `/usr/share/icons/hicolor/scalable/apps/galaxybook-fingerprint-manager.svg` — its menu entry and icon

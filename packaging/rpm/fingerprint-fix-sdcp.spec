@@ -344,6 +344,7 @@ systemctl daemon-reload >/dev/null 2>&1 || :
 %license LICENSE
 %{pkglibdir}/
 %{scriptdir}/
+%{_bindir}/fingerprint-fix-sdcp
 %dir %{_unitdir}/fprintd.service.d
 %{_userunitdir}/fingerprint-fix-sdcp-update-check.service
 %{_userunitdir}/%{fix_update}

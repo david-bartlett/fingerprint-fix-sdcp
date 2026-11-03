@@ -10,7 +10,8 @@ The driver (`fingerprint-fix-sdcp`) is all you need to use the fingerprint reade
 | --- | --- |
 | The reader works, with your desktop's own fingerprint settings | The window to enrol, test and remove fingerprints, and see the sensor's slots |
 | Fingerprint login, turned on at the first install | The switch that turns it on or off |
-| A notification for each new release | **Update now**, and the `galaxybook-fingerprint-manager` command |
+| A notification for each new release, with **Update now** | |
+| The `fingerprint-fix-sdcp` command for updates | The `galaxybook-fingerprint-manager` command |
 | | The monitor (e.g. *your distro now supports the reader*) |
 | | The boot check (warns when Windows deletes your fingerprints) |
 | | Fingerprints shared between distros automatically |
@@ -46,7 +47,7 @@ Fingerprint works at the login screen, the lock screen, `sudo` and admin prompts
 
 ## Updating
 
-You're told about each new release, but you install it yourself. See [With only the driver](../README.md#with-only-the-driver).
+You're told about each new release. **Update now** in the notification, or `fingerprint-fix-sdcp update`, installs just the driver. See [With only the driver](../README.md#with-only-the-driver).
 
 ## Windows on the same laptop
 

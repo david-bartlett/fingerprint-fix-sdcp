@@ -417,6 +417,7 @@ _fp_user_timer() {   # service-template timer-template service-name timer-name
 if $WANT_DRIVER; then
     install -d -m 755 "$FIX_UPDATE_DIR"
     install -m 755 "$SCRIPT_DIR/lib/update_check.py" "$SCRIPT_DIR/lib/notify-update.sh" "$SCRIPT_DIR/lib/notify-dbus.py" "$FIX_UPDATE_DIR/"
+    install -m 644 "$SCRIPT_DIR/lib/${MGR_ID}.svg" "$FIX_UPDATE_DIR/"     # the notification's icon
     install -m 644 "$SCRIPT_DIR/VERSION" "$FPRINT_LIB_DIR/VERSION"
     _fp_user_timer fix-update-check.service.in fix-update-check.timer.in "$FIX_UPDATE_SVC" "$FIX_UPDATE_TIMER" \
         && info "✓ Hourly check for new releases enabled" \

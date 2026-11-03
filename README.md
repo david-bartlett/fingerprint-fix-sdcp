@@ -96,18 +96,18 @@ sudo systemctl daemon-reload && sudo systemctl restart fprintd
 
 You're told about each new release with a notification, checked 30 seconds after login and then hourly. This works with the driver alone too. Nothing is installed until you choose to, and enrolled fingerprints are always kept.
 
-What happens next depends on what you installed:
+<img src="images/update-notification.png" width="300" alt="Notification: fingerprint-fix-sdcp 2.11.4 is available. You have 2.11.3. Buttons: Update now and What's new">
 
-| | Notification | How you update |
+**Update now** does the same as the update command, which depends on what you installed:
+
+| | What's updated | Command |
 | --- | --- | --- |
-| **Driver + Galaxy Book Fingerprint Manager** | **Update now** and **What's new** | One click, or one command |
-| **Driver only** | **What's new** | Download the new file and install it yourself |
+| **Driver + Galaxy Book Fingerprint Manager** | Both packages | `galaxybook-fingerprint-manager update` |
+| **Driver only** | Just the driver | `fingerprint-fix-sdcp update` |
 
 ### With the Galaxy Book Fingerprint Manager
 
 Click the notification's **Update now** (or the Manager's **Update** button): it downloads the new files and installs them in a terminal window, where you confirm with your fingerprint or password.
-
-<img src="images/update-notification.png" width="300" alt="Notification: fingerprint-fix-sdcp 2.11.4 is available. You have 2.11.3. Buttons: Update now and What's new">
 
 From a terminal (no `sudo`; `update` asks for your password when it installs):
 
@@ -122,18 +122,29 @@ From a terminal (no `sudo`; `update` asks for your password when it installs):
 
 ### With only the driver
 
-The `galaxybook-fingerprint-manager` command and **Update now** come with the Manager, so you update by hand: download the driver's new file from the [latest release](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest) and install it as in [Installing only one package](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/install-options.md#installing-only-one-package).
+Click the notification's **Update now**: it downloads the driver's new file and installs it in a terminal window, where you confirm with your password. It doesn't add the Manager. On Arch-based distros, it builds the driver on your laptop first.
 
-Turn the notifications off with `systemctl --user mask fingerprint-fix-sdcp-update-check.timer`, and back on with `systemctl --user unmask fingerprint-fix-sdcp-update-check.timer`. For an `install.sh` copy, use `systemctl --user disable` / `enable`.
+From a terminal (no `sudo`; `update` asks for your password when it installs):
+
+| Command | What it does |
+| --- | --- |
+| `fingerprint-fix-sdcp update` | Install the newest driver: downloads, checks and installs it in this terminal |
+| `fingerprint-fix-sdcp updates on` / `off` | "New version" notifications on or off |
+| `fingerprint-fix-sdcp updates status` | Are they on? (checked hourly) |
+| `fingerprint-fix-sdcp updates check` | Look now; if there's a new version, show the notification |
+
+`fingerprint-fix-sdcp --help` lists them all. If the Manager is installed, this command changes nothing and names the Manager's command to run instead.
+
+**On 2.11.4 or older?** These don't have **Update now** or this command yet, so update once by hand: download the driver's new file from the [latest release](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest) and install it as in [Installing only one package](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/install-options.md#installing-only-one-package). To turn the notifications off on those versions, use `systemctl --user mask fingerprint-fix-sdcp-update-check.timer`, and `unmask` to turn them back on.
 
 ### Installed with install.sh
 
-In the `fingerprint-fix-sdcp` folder, `git pull`, then `sudo bash install.sh` again.
+In the `fingerprint-fix-sdcp` folder, `git pull`, then `sudo bash install.sh` again. The `fingerprint-fix-sdcp` command comes with the package, so with only the driver, use `systemctl --user disable fingerprint-fix-sdcp-update-check.timer` to turn the notifications off, and `enable` to turn them back on.
 
 <details>
 <summary>How the update check works</summary>
 
-- The notification comes once per version, with **Update now** (with the Manager installed from a package: both packages are downloaded, checked against the release's `SHA256SUMS` and installed together) and **What's new** (the release page; the notification comes back afterwards). On GNOME, hover over it to see the buttons, or click it for **What's new**.
+- The notification comes once per version, with **Update now** (when installed from a package: what you have is downloaded, checked against the release's `SHA256SUMS` and installed together) and **What's new** (the release page; the notification comes back afterwards). On GNOME, hover over it to see the buttons, or click it for **What's new**.
 - The notification stays on screen until you close it, or until the new version is installed some other way, such as the Manager's **Update** button or `galaxybook-fingerprint-manager update`.
 - Only one check runs: the driver's own check is skipped while the Manager is installed.
 - A release is only announced once its files are attached, so **Update** always has something to install.

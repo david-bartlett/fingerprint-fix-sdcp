@@ -13,6 +13,13 @@
 
 - **Update notification picture:** the README's Updating section now shows what it looks like
 
+- **Update now with only the driver:** the notification can now update a driver installed without the Manager
+- Its notification also shows the fingerprint icon now, which came only with the Manager
+- It downloads just the driver's file, checks it against `SHA256SUMS` and installs it in a terminal window. On Arch-based distros it builds the driver first. This starts with the next update: 2.11.4 and older update by hand once
+
+- **New `fingerprint-fix-sdcp` command:** `update` and `updates on|off|status|check`, for when the Manager isn't installed
+- With the Manager installed it changes nothing and names the Manager's command, which updates both packages. It comes with the package, not `install.sh`
+
 ## 2.11.4 — 2026-11-02
 
 - **Manual split into guides:** the README is now a short summary, with the detail in `docs/`

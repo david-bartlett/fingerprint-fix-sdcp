@@ -30,7 +30,7 @@ galaxybook-fingerprint-manager update
 
 It downloads this release's files for your distro (both packages, or the `PKGBUILD` on Arch), checks them against `SHA256SUMS` and installs them; no `sudo`: it asks for your fingerprint or password when it installs (2.10.3 or newer). Or open the **Galaxy Book Fingerprint Manager** and press **Update**, or run `galaxybook-fingerprint-manager updates check` to see the notification now.
 
-Driver only? Download just the driver's file and install it with the same command as in **1. Install**, leaving out the Manager's file ([Only one part](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/install-options.md#installing-only-one-package)).
+Driver only? Click **Update now**, or run `fingerprint-fix-sdcp update`. On 2.11.4 or older, download just the driver's file and install it with the same command as in **1. Install**, leaving out the Manager's file ([Only one part](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/install-options.md#installing-only-one-package)).
 
 <details>
 <summary>The galaxybook-fingerprint-manager command</summary>
@@ -43,7 +43,7 @@ Driver only? Download just the driver's file and install it with the same comman
 | `galaxybook-fingerprint-manager updates status` | Are they on? (checked at login and hourly) |
 | `galaxybook-fingerprint-manager updates check` | Look now; if there's a new version, show the notification |
 
-With only the driver installed, turn the notifications off with `systemctl --user mask fingerprint-fix-sdcp-update-check.timer`, and back on with `systemctl --user unmask fingerprint-fix-sdcp-update-check.timer`.
+With only the driver installed, turn the notifications off with `fingerprint-fix-sdcp updates off`, and back on with `fingerprint-fix-sdcp updates on`. On 2.11.4 or older, use `systemctl --user mask fingerprint-fix-sdcp-update-check.timer` and `unmask`.
 
 </details>
 

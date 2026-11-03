@@ -1,0 +1,82 @@
+#!/bin/bash
+# =============================================================================
+# fingerprint-fix-sdcp — the driver's command (installed by its package)
+# =============================================================================
+#   fingerprint-fix-sdcp update                 install the newest driver
+#   fingerprint-fix-sdcp updates on|off|status|check
+#
+# For the driver installed without the Galaxy Book Fingerprint Manager: runs
+# the driver's copy of update_check.py, the same code as the Manager's
+# 'update' and 'updates'. With the Manager installed it changes nothing, and
+# names the Manager's command, which updates both packages together.
+# =============================================================================
+UPDATE_CHECK="@FIX_UPDATE_DIR@/update_check.py"
+MANAGER=galaxybook-fingerprint-manager
+
+# --help: the commands as a table, 80 columns wide (as the Manager's);
+# commands and headings in bold on a terminal.
+show_help() {
+    local B="" N="" w1=35 w2=38 row cmd desc part first i
+    [[ -t 1 ]] && { B=$'\e[1m'; N=$'\e[0m'; }
+    local rows=(
+        "fingerprint-fix-sdcp update|Install the newest driver: downloads, checks and installs it in this terminal"
+        "fingerprint-fix-sdcp updates on/off|\"New version\" notifications on or off"
+        "fingerprint-fix-sdcp updates status|Are they on? (checked hourly)"
+        "fingerprint-fix-sdcp updates check|Look now; if there's a new version, show the notification"
+    )
+    rule() {
+        local a b
+        a="$(printf '─%.0s' $(seq $((w1 + 2))))"; b="$(printf '─%.0s' $(seq $((w2 + 2))))"
+        echo "$1$a$2$b$3"
+    }
+    echo "${B}fingerprint-fix-sdcp${N} - updates for the driver, installed without the"
+    echo "Galaxy Book Fingerprint Manager. Installed as /usr/bin/fingerprint-fix-sdcp"
+    echo "by the driver's package."
+    echo
+    rule ┌ ┬ ┐
+    printf '│ %s%-*s%s │ %s%-*s%s │\n' "$B" "$w1" "Command" "$N" "$B" "$w2" "What it does" "$N"
+    rule ├ ┼ ┤
+    for i in "${!rows[@]}"; do
+        row="${rows[$i]}"; cmd="${row%%|*}"; desc="${row#*|}"
+        cmd="${cmd//on\/off/on|off}"
+        first=1
+        while IFS= read -r part; do
+            part="${part%"${part##*[! ]}"}"          # fold leaves a trailing space
+            if (( first )); then
+                printf '│ %s%-*s%s │ %-*s │\n' "$B" "$w1" "$cmd" "$N" "$w2" "$part"; first=0
+            else
+                printf '│ %-*s │ %-*s │\n' "$w1" "" "$w2" "$part"
+            fi
+        done < <(fold -s -w "$w2" <<<"$desc")
+        (( i < ${#rows[@]} - 1 )) && rule ├ ┼ ┤
+    done
+    rule └ ┴ ┘
+}
+
+case "${1:-}" in
+    ""|-h|--help|help)
+        show_help
+        exit 0 ;;
+    update|updates) ;;
+    *)
+        echo "Unknown command: $1" >&2
+        show_help >&2
+        exit 2 ;;
+esac
+
+if [[ -e "@MGR_PACKAGE_MARKER@" || -e "@MGR_LOCAL_MARKER@" ]]; then
+    echo "The Galaxy Book Fingerprint Manager is installed, so it handles updates:"
+    echo "  $MANAGER $*"
+    exit 1
+fi
+
+if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+    echo "Run this as yourself, not with sudo: it asks for your password when it installs." >&2
+    exit 1
+fi
+
+export GBF_COMMAND=fingerprint-fix-sdcp          # the command its messages name
+case "$1" in
+    update)  exec python3 -I "$UPDATE_CHECK" --update ;;
+    updates) exec python3 -I "$UPDATE_CHECK" --updates "${2:-status}" ;;
+esac
