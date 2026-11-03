@@ -958,6 +958,8 @@ def rec_kind(r):
         return "unknown", "Unreadable"
     if r.get("print_kind", "sdcp") not in ("sdcp", "unknown"):
         return "other", "Other driver"
+    if r["on_sensor"] is None:                  # this driver can't list the sensor
+        return "unknown", "Can't check sensor"
     return ("ok", "On the sensor") if r["on_sensor"] else ("dead", "Gone from sensor")
 
 
@@ -1521,6 +1523,8 @@ class Manager(Gtk.Window):
                          "by Windows. It can never match: remove it, or enrol it again")
             elif kind == "other":
                 where = "Enrolled with a different fingerprint driver: it can't match here"
+            elif r["on_sensor"] is None and not r.get("error"):
+                where = "This driver can't read the sensor's list, so it may still be there"
             else:
                 where = "Its record can't be read"
             stale = stale_note(sh) if sh and kind == "ok" else ""
@@ -1735,6 +1739,9 @@ class Manager(Gtk.Window):
                 self.message(f"{short_finger(rec['name'])} was enrolled with a different fingerprint "
                              "driver, so it can't be tested — right-click → Delete and enrol again.",
                              Gtk.MessageType.WARNING)
+            elif rec["on_sensor"] is None and not rec.get("error"):
+                self.message(f"{short_finger(rec['name'])} can't be tested, as this driver can't "
+                             "read the sensor's list of fingerprints.", Gtk.MessageType.WARNING)
             elif not rec["on_sensor"]:
                 self.message(f"{short_finger(rec['name'])} is no longer on the sensor, so it "
                              "can't be tested — remove it, then import or enrol it again.",
@@ -1849,6 +1856,10 @@ class Manager(Gtk.Window):
                 item(f"Remove from {OS_NAME}…", lambda: self.on_remove_selected(None),
                      tip=f"Its template stays on the sensor; Undo or ☰ → Restore {OS_NAME} "
                          "fingerprints… brings it back", icon="list-remove-symbolic", danger=True)
+            elif rec["on_sensor"] is None and not rec.get("error"):     # can't tell: not dead
+                item(f"Remove from {OS_NAME}…", lambda: self.on_remove_selected(None),
+                     tip=f"Undo or ☰ → Restore {OS_NAME} fingerprints… brings it back",
+                     icon="list-remove-symbolic", danger=True)
             else:
                 if mine:
                     item("Enrol this finger again…", lambda: self.reenrol(rec),
