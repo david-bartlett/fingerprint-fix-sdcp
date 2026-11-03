@@ -1,6 +1,6 @@
 # Records aren't dead when the sensor can't be listed
 
-PR #NUMBER · Claude · 2026-11-03
+PR #157 · Claude · 2026-11-03
 
 ## What changed
 - `do_status()`: with no `STORAGE_LIST`, a record's `on_sensor` is `None`, not `False`.
