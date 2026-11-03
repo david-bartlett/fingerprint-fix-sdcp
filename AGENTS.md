@@ -3,6 +3,7 @@
 Read **[PLAN.md](PLAN.md)** before starting: it explains how the project works, every file, and how changes are made. The essentials:
 
 - **Every change is a pull request** against `main`, from its own branch. Never push to `main`, never merge, never force-push.
+- **Codex reviews:** before reviewing, `git fetch origin main` and review `FETCH_HEAD`, not the copy you started with, which can be hours old (Codex cloud caches its container for up to 12 hours). Say at the top of the report which commit you reviewed. If you can't reach GitHub, say so and stop.
 - **Never release:** don't change `VERSION`, don't create `v*` tags or GitHub releases. David releases himself, after testing the PR on his laptop.
 - **One topic per PR.** Check a PR isn't merged before pushing more to its branch.
 - **User-visible change → a line under `## Unreleased` in `CHANGELOG.md`** (a short bold headline line, then plain detail lines; see PLAN.md §8.2), and update `README.md` or `docs/` where they describe what you changed.
