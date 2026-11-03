@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.13.1 — 2026-11-03
 
 - **Update messages say what they'll install:** Fingerprint Driver, Galaxy Book Fingerprint Manager, or Fingerprint Driver & Manager
 - That's in the notification, the Update button and its dialogs, the terminal's title and the `update` and `updates check` commands. The driver alone and both used to say the same thing
