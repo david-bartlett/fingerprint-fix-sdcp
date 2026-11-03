@@ -220,14 +220,14 @@ if [[ "$DISTRO" == "fedora" ]]; then
     dnf install -y $($WANT_DRIVER && echo \
         git gcc gcc-c++ meson ninja-build pkgconf-pkg-config \
         glib2-devel libgusb-devel cairo-devel openssl-devel systemd-devel) \
-        fprintd fprintd-pam libfprint libnotify python3-gobject \
+        fprintd fprintd-pam libfprint libnotify python3-gobject xdg-utils \
         || error "Failed to install dependencies via dnf.\n  Check your internet connection and that Fedora repos are reachable (dnf repolist)."
 elif [[ "$DISTRO" == "arch" ]]; then
     # shellcheck disable=SC2046
     pacman -S --noconfirm --needed $($WANT_DRIVER && echo \
         git base-devel meson ninja pkgconf \
         glib2 glib2-devel libgusb cairo openssl) systemd \
-        fprintd libfprint libnotify python-gobject \
+        fprintd libfprint libnotify python-gobject xdg-utils \
         || error "Failed to install dependencies via pacman.\n  Check your internet connection and that Arch repos are reachable (pacman -Sy)."
 else
     apt-get update -q \
@@ -236,7 +236,7 @@ else
     apt-get install -y $($WANT_DRIVER && echo \
         git build-essential meson ninja-build pkg-config \
         libglib2.0-dev libgusb-dev libcairo2-dev libssl-dev systemd-dev) \
-        fprintd libfprint-2-2 libpam-fprintd libnotify-bin python3-gi gir1.2-fprint-2.0 \
+        fprintd libfprint-2-2 libpam-fprintd libnotify-bin python3-gi gir1.2-fprint-2.0 xdg-utils \
         || error "Failed to install dependencies via apt-get.\n  Check your internet connection and that the repos are reachable."
 fi
 info "Dependencies installed"
