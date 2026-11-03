@@ -1,6 +1,6 @@
 # Arch: replace PAM files in one step
 
-PR #NUMBER · Claude · 2026-11-03
+PR #159 · Claude · 2026-11-03
 
 ## What changed
 - `tools/arch-pam.sh`: new `write_pam()` writes a copy beside the PAM file with the same owner, mode and SELinux label, checks it, then moves it into place. Enable, update and disable all use it.
