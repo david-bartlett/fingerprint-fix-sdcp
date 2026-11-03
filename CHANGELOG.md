@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.13.3 — 2026-11-03
 
 - **Arch: a failed write can't break `sudo`:** the PAM file is now replaced in one step, so a full disk leaves it as it was, rather than empty
 - This covers turning fingerprint login on or off, and updating its line, for `sudo` and polkit
