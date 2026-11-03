@@ -1,6 +1,6 @@
 # Keep removed records when moving to a package
 
-PR #NUMBER · Claude · 2026-11-03
+PR #155 · Claude · 2026-11-03
 
 ## What changed
 - `packaging/files/mgr-cleanup.sh.in` no longer deletes `removed-fingerprints/`.
