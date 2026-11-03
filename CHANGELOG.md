@@ -12,6 +12,8 @@
 - **Working fingerprints aren't called dead when the sensor can't be listed:** with a driver that can't list the sensor, they now show *Can't check sensor*
 - Before, every fingerprint showed *Gone from sensor*, with an offer to remove it
 
+- **Closing the Manager during a test leaves fingerprint login working:** the running test is now cancelled and tidied up, so fprintd is started again and a distro test turns the fix back on
+
 - **An update can't leave the Manager behind:** with both installed, a release missing the Manager's file is no longer offered as a driver-only update
 
 ## 2.13.2 — 2026-11-03
