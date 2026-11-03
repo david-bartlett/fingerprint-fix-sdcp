@@ -83,6 +83,7 @@ except (ImportError, ValueError) as e:
 
 OUT_LOCK = threading.Lock()
 TEST = {"cancellable": None, "proc": None}   # the fingerprint test that is running, if any
+EXIT_WAIT_S = 20                             # for a running test, when the Manager has gone
 
 
 class Fail(Exception):
@@ -1015,6 +1016,30 @@ def handle(req):
         print(json.dumps(reply), flush=True)
 
 
+def cancel_test():
+    """Stop the fingerprint test or distro test that's running, if any."""
+    c = TEST["cancellable"]
+    if c:
+        c.cancel()
+    p = TEST["proc"]
+    if p and p.poll() is None:
+        p.terminate()
+
+
+def finish_test(worker):
+    """The Manager has gone with a test still running. That test is a daemon
+    thread, so leaving now would skip what puts things back: fprintd started
+    again (Sensor.__exit__) and, for a distro test, the drop-in back on. Cancel
+    it and wait; if it's stuck, do those here."""
+    end = time.monotonic() + EXIT_WAIT_S
+    while worker.is_alive() and time.monotonic() < end:
+        cancel_test()                               # again: it may only just be starting
+        worker.join(timeout=0.5)
+    if worker.is_alive():
+        restore_dropin_left_off()
+        subprocess.run(["systemctl", "start", "fprintd"], capture_output=True)
+
+
 def main():
     if os.geteuid() != 0:
         sys.exit("This is started by fingerprint-manager.py (via pkexec), not by hand.")
@@ -1030,12 +1055,7 @@ def main():
         except ValueError:
             continue
         if req.get("action") == "cancel":            # no reply of its own
-            c = TEST["cancellable"]
-            if c:
-                c.cancel()
-            p = TEST["proc"]
-            if p and p.poll() is None:
-                p.terminate()
+            cancel_test()
             continue
         if req.get("action") in ("test", "test_distro"):
             # Runs alongside this loop, so a "cancel" can still be read.
@@ -1046,7 +1066,7 @@ def main():
             worker.join()
         handle(req)
     if worker and worker.is_alive():
-        worker.join(timeout=5)
+        finish_test(worker)
 
 
 if __name__ == "__main__":
