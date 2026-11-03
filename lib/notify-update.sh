@@ -25,13 +25,17 @@
 title="${1:?Usage: $0 TITLE MESSAGE URL [VERSION]}"; msg="${2:-}"; url="${3:-}"; version="${4:-}"
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 APPNAME="Samsung Galaxy Book Fixes"; ICON=galaxybook-fingerprint-manager
-# The icon theme's copy comes with the Manager: the driver's copy of this
-# script has one beside it, for when only the driver is installed.
+# By its file, not its name: after the Manager is removed and installed again,
+# a running Plasma can show a blank icon for the name until it restarts. The theme's
+# copy comes with the Manager; the driver's copy of this script has one beside
+# it, for when only the driver is installed.
 DBUS_ICON="$ICON"
-if [[ ! -e "/usr/share/icons/hicolor/scalable/apps/$ICON.svg" && -f "$HERE/$ICON.svg" ]]; then
-    DBUS_ICON="file://$HERE/$ICON.svg"
-    ICON="$HERE/$ICON.svg"
-fi
+for f in "/usr/share/icons/hicolor/scalable/apps/$ICON.svg" "$HERE/$ICON.svg"; do
+    [[ -f "$f" ]] || continue
+    DBUS_ICON="file://$f"
+    ICON="$f"
+    break
+done
 args=(-u critical -t 0 -a "$APPNAME" -i "$ICON")
 
 # The buttons, as KEY=LABEL

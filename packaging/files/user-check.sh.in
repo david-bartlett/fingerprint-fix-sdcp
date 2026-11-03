@@ -69,7 +69,7 @@ hint() {
     local shown="$HINTS/$1"; shift
     [[ -f "$shown" ]] && return 0
     systemd-run --user --quiet --collect "@MGR_DIR@/lib/notify-open-manager.sh" "$@" 2>/dev/null \
-        || notify-send -t 0 -a "Samsung Galaxy Book Fixes" -i galaxybook-fingerprint-manager "$@" \
+        || notify-send -t 0 -a "Samsung Galaxy Book Fixes" -i "@MGR_ICON@" "$@" \
         || { logger -t samsung-galaxybook-fprint-sdcp-user-check "notify-send failed: $1"; return 0; }
     mkdir -p "$HINTS" && touch "$shown"
 }
