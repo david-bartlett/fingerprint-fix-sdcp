@@ -107,6 +107,8 @@ What happens next depends on what you installed:
 
 Click the notification's **Update now** (or the Manager's **Update** button): it downloads the new files and installs them in a terminal window, where you confirm with your fingerprint or password.
 
+<img src="images/update-notification.png" width="300" alt="Notification: fingerprint-fix-sdcp 2.11.4 is available. You have 2.11.3. Buttons: Update now and What's new">
+
 From a terminal (no `sudo`; `update` asks for your password when it installs):
 
 | Command | What it does |
