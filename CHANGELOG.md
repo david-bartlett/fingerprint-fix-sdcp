@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.12.0 — 2026-11-03
 
 - **Update notification explained:** the README now says it closes by itself once the new version is installed some other way
 
