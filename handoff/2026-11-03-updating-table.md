@@ -1,6 +1,6 @@
 # Remove the README's duplicate Updating table
 
-PR #NUMBER · Claude · 2026-11-03
+PR #152 · Claude · 2026-11-03
 
 ## What changed
 - README, *Updating*: removed the two-row table and the sentence introducing it. The two sections below it have the same commands.
