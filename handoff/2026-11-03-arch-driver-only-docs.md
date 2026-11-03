@@ -9,4 +9,4 @@ PR #147 · Claude · 2026-11-03
 - David found it confusing: the README says to leave out the Manager's file, but Arch has no separate file, and `makepkg -si` installs both.
 
 ## Tested
-- Links and anchors checked by script. The commands are the ones already in the guide, and David ran them on EndeavourOS.
+- Links and anchors checked by script. The commands are the ones already in the guide. Not confirmed on EndeavourOS when this was written.
