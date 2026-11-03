@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.13.0 — 2026-11-03
 
 - **Update messages name what you have:** with only the Manager, they now say Galaxy Book Fingerprint Manager rather than `fingerprint-fix-sdcp`
