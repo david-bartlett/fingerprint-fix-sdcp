@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **Arch install guide: command before files:** in *Only one package on Arch*, the table now shows the command before the files it needs
+
 ## 2.13.5 — 2026-11-03
 
 - **New-version notification: no second copy:** two rare cases that announced a release twice are fixed

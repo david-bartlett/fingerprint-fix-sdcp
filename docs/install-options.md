@@ -30,10 +30,10 @@ makepkg -si
 
 Each release has a `PKGBUILD` for each package, as well as the one that builds both. Download the two files, put them in an empty folder, and run the command there:
 
-| Install | Files | Command |
+| Install | Command | Files |
 | --- | --- | --- |
-| **Only the driver** | `PKGBUILD-driver`, `fingerprint-fix-sdcp.install` | `makepkg -si -p PKGBUILD-driver` |
-| **Only the Manager** | `PKGBUILD-manager`, `galaxybook-fingerprint-manager.install` | `makepkg -si -p PKGBUILD-manager` |
+| **Only the driver** | `makepkg -si -p PKGBUILD-driver` | `PKGBUILD-driver`, `fingerprint-fix-sdcp.install` |
+| **Only the Manager** | `makepkg -si -p PKGBUILD-manager` | `PKGBUILD-manager`, `galaxybook-fingerprint-manager.install` |
 
 The Manager has nothing to compile, so it builds in seconds.
 
