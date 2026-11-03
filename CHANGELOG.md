@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Removed fingerprints survive moving to a package:** replacing an `install.sh` copy, or `uninstall.sh --manager-only`, no longer deletes records you can still restore
+- This helps `install.sh` copies set up from this release on, as older copies keep the cleanup they were installed with
+
 - **`install.sh` writes your timers as you, not as root:** a link left in `~/.config/systemd/user` can no longer send a root write to another file
 
 - **The shared fingerprint file is never overwritten when it can't be read:** this stops other distros' records being lost, and Reset clearing fingerprints they still use
