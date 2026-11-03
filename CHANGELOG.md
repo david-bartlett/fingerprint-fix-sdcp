@@ -9,6 +9,10 @@
 
 ## Unreleased
 
+- **The shared fingerprint file is never overwritten when it can't be read:** this stops other distros' records being lost, and Reset clearing fingerprints they still use
+- If `fingerprint-slots.json` is damaged or from a newer version, the Manager now leaves it as it is, says so, and keeps sharing and Reset off until it's fixed. Before, the next refresh replaced it
+- A driver that can't list the sensor no longer empties the shared file's list of fingerprints
+
 ## 2.13.1 — 2026-11-03
 
 - **Update messages say what they'll install:** Fingerprint Driver, Galaxy Book Fingerprint Manager, or Fingerprint Driver & Manager

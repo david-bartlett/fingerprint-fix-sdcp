@@ -150,7 +150,8 @@ def short_id(p):
 
 # Slots shared with the laptop's other installs: see shared_slots.py.
 from shared_slots import (share_slots, forget_installs, install_key, used_elsewhere,  # noqa: E402
-                          esp_records, read_file, merge_backup, esp_summary)
+                          esp_records, read_file, merge_backup, esp_summary, problem_file,
+                          SharedFileProblem)
 import io  # noqa: E402
 
 
@@ -450,9 +451,14 @@ def do_status(req):
         st["installs"] = share_slots(serial, st["templates"],
                                      {r["template"]: r for r in st["records"]
                                       if r["template"] and r["on_sensor"]},
-                                     forgotten=st["forgotten"])
+                                     forgotten=st["forgotten"],
+                                     listed=st["features"]["STORAGE_LIST"])
     except Exception:
         st["installs"] = None
+    try:
+        st["shared_problem"] = problem_file()
+    except Exception:
+        st["shared_problem"] = None
     st["pam"] = pam_state()
     try:
         st["esp"] = esp_summary(serial)
@@ -544,6 +550,12 @@ def do_reset_install(_req):
         # Can't tell which slots other installs use: clearing any could break
         # another distro's fingerprint login, so nothing is changed.
         # The last line is the heading and the banner; the rest goes above it.
+        if problem_file():
+            raise Fail("The file on the EFI partition where each Linux install notes the "
+                       "fingerprints it uses can't be read, so it isn't possible to tell which "
+                       "fingerprints other installs still use. The Fingerprint Manager's notice "
+                       "says how to fix it.\n\n"
+                       "Nothing has been changed: the shared file can't be read.")
         raise Fail("The EFI partition, where each Linux install notes the fingerprints it "
                    "uses, couldn't be found or read, so it isn't possible to tell which "
                    "fingerprints other installs still use. Check it's mounted (usually at "
@@ -945,6 +957,9 @@ def do_restore_slots(req):
         added = merge_backup(req.get("data"))
     except ValueError as e:
         raise Fail(f"That file isn't a fingerprint records backup ({e}).")
+    except SharedFileProblem as e:
+        raise Fail(f"Nothing was restored: {e} is there but can't be read, so it's been left "
+                   "as it is.")
     except OSError as e:
         raise Fail(f"Nothing was restored: {e}. The EFI partition may be full or read-only.")
     if added is None:

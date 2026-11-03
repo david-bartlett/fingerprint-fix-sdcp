@@ -1917,6 +1917,7 @@ class Manager(Gtk.Window):
         self._apply_sensor_tab()
         if st.get("forgotten"):                     # found gone at this start
             self.message(forgotten_text(st["forgotten"]))
+        self._warn_shared_problem(st.get("shared_problem"))
         if changed and multi and load_settings().get("multi_known") != "1":
             names = ", ".join(sorted({i["os"] for i in self._other_installs()}))
             self.message(f"Other distros on this laptop use the sensor too ({names}): the Sensor "
@@ -1927,6 +1928,22 @@ class Manager(Gtk.Window):
                                  "they're still installed.")
         if changed or not multi:
             save_setting("multi_known", 1 if multi else 0)
+
+    def _warn_shared_problem(self, path):
+        """Once a run: the shared file is there but can't be used, so nothing
+        writes to it and Reset refuses until it's sorted out."""
+        if not path or getattr(self, "_shared_problem_told", False):
+            return
+        self._shared_problem_told = True
+        self.message("The file that shares fingerprints between distros can't be read, so it's "
+                     "been left as it is. Sharing and Reset are off until that's fixed.",
+                     Gtk.MessageType.WARNING,
+                     details=f"{path} is damaged, or was written by a newer version of the "
+                             "Galaxy Book Fingerprint Manager. Enrolled fingerprints keep "
+                             "working.\n\nIf another distro on this laptop has a newer version, "
+                             "update this one to match. Otherwise, move the file aside, then open "
+                             "the Manager on each distro to write it again:\n\n"
+                             f"sudo mv {path} {path}.bad")
 
     def _apply_sensor_tab(self):
         """Tab buttons with Sensor slots on (or for a visit); just a title without."""
@@ -2412,7 +2429,7 @@ class Manager(Gtk.Window):
 
     def show_status(self, st):
         if SINGLE_DISTRO:                           # --single-distro: no other distros shown
-            st = dict(st, import_offer=None, forgotten=[],
+            st = dict(st, import_offer=None, forgotten=[], shared_problem=None,
                       installs=[i for i in st.get("installs") or [] if i.get("here")])
             for t in st.get("templates") or []:
                 if t.get("shared"):

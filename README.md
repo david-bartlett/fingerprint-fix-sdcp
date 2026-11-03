@@ -18,7 +18,7 @@ Makes the fingerprint reader work on Linux on the **Samsung Galaxy Book4 and Boo
 | [Install options](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/install-options.md) | Arch-based distros, installing only one package, other distros with `install.sh` |
 | [The monitor and boot check](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/monitoring.md) | What the monitor and the boot-time sensor check do, and what they tell you |
 | [How it works](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/how-it-works.md) | What installing does, the problem it fixes, where the driver comes from, security notes, every file |
-| [Troubleshooting](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/troubleshooting.md) | If the reader says it's already in use, dual-boot with Windows |
+| [Troubleshooting](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/troubleshooting.md) | If the reader says it's already in use, if the shared fingerprint file can't be read, dual-boot with Windows |
 
 ## Install
 

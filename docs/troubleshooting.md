@@ -19,6 +19,19 @@ Then press Ctrl+C or enter your password. `kill` won't work, because `sudo` runs
 
 While the reader is held, prompts ask for your password instead. **Go carefully:** after 3 failed passwords, Arch-based distros lock your account for 10 minutes (*The account is locked due to 3 failed logins*), and even the right password fails until then. To clear it early, run `sudo faillock --user $USER --reset` from a root session that's already open, or restart.
 
+## If the Shared Fingerprint File Can't Be Read
+
+The Galaxy Book Fingerprint Manager keeps `EFI/samsung-galaxybook/fingerprint-slots.json` on the EFI partition, so distros can share fingerprints. If that file is damaged, or was written by a newer version, the Manager tells you and leaves it as it is. Sharing and Reset stay off, as it can't tell which fingerprints other distros use. Enrolled fingerprints keep working.
+
+- If another distro on the laptop has a newer version, update this one to match.
+- Otherwise, move the file aside, then open the Manager on each distro to write it again. On Fedora, Ubuntu and Mint it's usually:
+
+  ```bash
+  sudo mv /boot/efi/EFI/samsung-galaxybook/fingerprint-slots.json /boot/efi/EFI/samsung-galaxybook/fingerprint-slots.json.bad
+  ```
+
+  The Manager's **Details…** button shows the path on your system.
+
 ## Dual-Boot With Windows
 
 The sensor has a single template store shared by every OS:
