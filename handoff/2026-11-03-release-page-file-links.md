@@ -13,4 +13,4 @@ PR #166 · Claude · 2026-11-03
 - Rendered the page with `bash .github/release-notes.sh 2.13.5`: all 13 links are real files in the 2.13.5 release.
 
 ## For the next person
-- The 2.13.5 page's body was updated by hand with the same links, so it matches this template.
+- The live 2.13.5 page doesn't have the links until David updates it by hand: Claude sessions can't edit releases. This template gives them to every later release.
