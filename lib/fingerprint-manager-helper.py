@@ -437,7 +437,9 @@ def do_status(req):
                                   "restorable": not here}
         st["templates"].append(tpl)
     for r in records:
-        on = None if r["print"] is None else any(r["print"].equal(p) for p in chip)
+        # None: can't tell. A driver that can't list the sensor says nothing about it.
+        on = (None if r["print"] is None or not st["features"]["STORAGE_LIST"]
+              else any(r["print"].equal(p) for p in chip))
         tid = next((short_id(p) for p in chip
                     if r["print"] is not None and r["print"].equal(p)), None)
         st["records"].append({"user": r["user"], "finger": r["finger"], "name": r["name"],
