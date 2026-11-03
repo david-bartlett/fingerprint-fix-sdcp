@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Update messages name what you have:** with only the Manager, they now say Galaxy Book Fingerprint Manager rather than `fingerprint-fix-sdcp`
+- That covers the notification, the Update button and its dialogs, the terminal's title and the `update` and `updates check` commands. With the driver, alone or with the Manager, they're unchanged
+
 ## 2.12.2 — 2026-11-03
 
 - **Picture in the driver guide:** the Updating section of `docs/driver-only.md` now shows the update notification
