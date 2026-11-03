@@ -1,6 +1,6 @@
 # Closing the Manager during a test
 
-PR #NUMBER · Claude · 2026-11-03
+PR #161 · Claude · 2026-11-03
 
 ## What changed
 - `lib/fingerprint-manager-helper.py`: when stdin closes with a test running, `finish_test()` cancels it and waits up to `EXIT_WAIT_S`. If it's stuck, it restores the drop-in and starts fprintd itself. `cancel_test()` is the old cancel code, now shared.
