@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **`install.sh` writes your timers as you, not as root:** a link left in `~/.config/systemd/user` can no longer send a root write to another file
+
 - **The shared fingerprint file is never overwritten when it can't be read:** this stops other distros' records being lost, and Reset clearing fingerprints they still use
 - If `fingerprint-slots.json` is damaged or from a newer version, the Manager now leaves it as it is, says so, and keeps sharing and Reset off until it's fixed. Before, the next refresh replaced it
 - A driver that can't list the sensor no longer empties the shared file's list of fingerprints

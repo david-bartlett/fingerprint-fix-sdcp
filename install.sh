@@ -401,13 +401,20 @@ _fp_user_systemctl() {
         systemctl --user "$@"
 }
 
+# Everything in their home is written as them, never as root: a link left there
+# would otherwise send root's write to any file on the system.
+_fp_user_file() {    # template destination
+    local text
+    text=$(render "$1") || return 1
+    printf '%s\n' "$text" | runuser -u "$FPRINT_USER" -- sh -c 'cat > "$1"' sh "$2"
+}
+
 # A user timer (and its service) from packaging/files, for the desktop user.
 _fp_user_timer() {   # service-template timer-template service-name timer-name
     [[ -n "$FPRINT_USER" && -n "$FPRINT_USER_ID" ]] || return 1
-    mkdir -p "$FPRINT_USER_SYSTEMD_DIR"
-    render "$1" > "${FPRINT_USER_SYSTEMD_DIR}/$3"
-    render "$2" > "${FPRINT_USER_SYSTEMD_DIR}/$4"
-    chown -R "${FPRINT_USER}:${FPRINT_USER}" "$FPRINT_USER_SYSTEMD_DIR"
+    runuser -u "$FPRINT_USER" -- mkdir -p "$FPRINT_USER_SYSTEMD_DIR" || return 1
+    _fp_user_file "$1" "${FPRINT_USER_SYSTEMD_DIR}/$3" || return 1
+    _fp_user_file "$2" "${FPRINT_USER_SYSTEMD_DIR}/$4" || return 1
     _fp_user_systemctl daemon-reload 2>/dev/null || true
     _fp_user_systemctl enable "$4" >/dev/null 2>&1
 }
@@ -469,12 +476,7 @@ systemctl enable "$FPRINT_BOOT_CHECK_SVC" >/dev/null 2>&1 \
 if [[ -z "$FPRINT_USER" || -z "$FPRINT_USER_ID" ]]; then
     warn "Could not detect logged-in user — skipping user monitor timer install"
 else
-    mkdir -p "$FPRINT_USER_SYSTEMD_DIR"
-    render user-check.service.in > "${FPRINT_USER_SYSTEMD_DIR}/${FPRINT_USER_CHECK_SVC}"
-    render user-check.timer.in > "${FPRINT_USER_SYSTEMD_DIR}/${FPRINT_USER_CHECK_TIMER}"
-    chown -R "${FPRINT_USER}:${FPRINT_USER}" "$FPRINT_USER_SYSTEMD_DIR"
-    _fp_user_systemctl daemon-reload 2>/dev/null || true
-    _fp_user_systemctl enable "${FPRINT_USER_CHECK_TIMER}" \
+    _fp_user_timer user-check.service.in user-check.timer.in "$FPRINT_USER_CHECK_SVC" "$FPRINT_USER_CHECK_TIMER" \
         && info "✓ User timer enabled for $FPRINT_USER" \
         || warn "systemctl --user enable failed for ${FPRINT_USER_CHECK_TIMER}"
     _fp_user_timer mgr-update-check.service.in mgr-update-check.timer.in "$MGR_UPDATE_SVC" "$MGR_UPDATE_TIMER" \
