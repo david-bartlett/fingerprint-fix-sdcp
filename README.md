@@ -98,13 +98,6 @@ You're told about each new release with a notification, checked 30 seconds after
 
 <img src="images/update-notification-both.png" width="300" alt="Notification: Fingerprint Driver &amp; Manager 2.13.2 is available. You have 2.13.1. Buttons: Update now and What's new">
 
-**Update now** does the same as the update command, which depends on what you installed:
-
-| | What's updated | Command |
-| --- | --- | --- |
-| **Driver + Galaxy Book Fingerprint Manager** | Both packages | `galaxybook-fingerprint-manager update` |
-| **Driver only** | Just the driver | `fingerprint-fix-sdcp update` |
-
 ### With the Galaxy Book Fingerprint Manager
 
 Click the notification's **Update now** (or the Manager's **Update** button): it downloads the new files and installs them in a terminal window, where you confirm with your fingerprint or password.
@@ -113,7 +106,7 @@ From a terminal (no `sudo`; `update` asks for your password when it installs):
 
 | Command | What it does |
 | --- | --- |
-| `galaxybook-fingerprint-manager update` | Install the newest release: downloads, checks and installs both packages in this terminal |
+| `galaxybook-fingerprint-manager update` | Install the newest release: downloads, checks and installs what you have installed in this terminal |
 | `galaxybook-fingerprint-manager updates on` / `off` | "New version" notifications on or off (the same as the Manager's switch) |
 | `galaxybook-fingerprint-manager updates status` | Are they on? (checked hourly) |
 | `galaxybook-fingerprint-manager updates check` | Look now; if there's a new version, show the notification |
