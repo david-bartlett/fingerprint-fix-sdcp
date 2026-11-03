@@ -61,11 +61,17 @@ BuildRequires:  systemd-rpm-macros
 # checks) is recommended, not required: dnf installs it too unless told not
 # to, and either package works without the other.
 Recommends:     %{mgrname} = %{version}-%{release}
+# The update check's notification buttons, with or without the Manager
+Recommends:     xdg-utils
+Recommends:     python3-gobject
 Requires:       fprintd
 Requires:       fprintd-pam
 Requires:       libfprint
 Requires:       glib2
 Requires:       usbutils
+# The update check and its notification
+Requires:       python3
+Requires:       libnotify
 %{?systemd_requires}
 
 %description

@@ -82,6 +82,8 @@ package_fingerprint-fix-sdcp() {
     depends=(
         # the driver library and the fprintd it is loaded into
         'fprintd' 'libfprint' 'glib2' 'libgusb' 'openssl' 'bash' 'systemd' 'usbutils'
+        # the update check, its notification and buttons (with or without the Manager)
+        'python' 'libnotify' 'xdg-utils' 'python-gobject'
     )
     install=fingerprint-fix-sdcp.install
     bash "$srcdir/$pkgbase-$pkgver"/packaging/install-files.sh "$pkgdir" "$srcdir/libfprint-egismoc-sdcp" \
