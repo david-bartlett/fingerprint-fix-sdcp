@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Working fingerprints aren't called dead when the sensor can't be listed:** with a driver that can't list the sensor, they now show *Can't check sensor*
+- Before, every fingerprint showed *Gone from sensor*, with an offer to remove it
+
 ## 2.13.2 — 2026-11-03
 
 - **Removed fingerprints survive moving to a package:** replacing an `install.sh` copy, or `uninstall.sh --manager-only`, no longer deletes records you can still restore
