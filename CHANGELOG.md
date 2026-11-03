@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **An update can't leave the Manager behind:** with both installed, a release missing the Manager's file is no longer offered as a driver-only update
+
 ## 2.13.2 — 2026-11-03
 
 - **Removed fingerprints survive moving to a package:** replacing an `install.sh` copy, or `uninstall.sh --manager-only`, no longer deletes records you can still restore

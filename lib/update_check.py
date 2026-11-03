@@ -351,13 +351,11 @@ def pick_asset(assets, version, fmt, dist, fix_installed=True, mgr_installed=Tru
     manager = next((a for a in assets if re.fullmatch(patterns[1], a["name"])), None)
     if not mgr_installed:                             # only the driver: its one file
         return fix if fix_installed else None
-    if manager:                                       # a split release
-        if fix_installed and not fix:
-            return None                               # both are needed together
-        files = [manager] + ([fix] if fix_installed else [])
-        return {"name": folder, "folder": folder, "files": files,
-                "manager_only": not fix_installed}
-    return fix if fix_installed else None
+    if not manager or (fix_installed and not fix):
+        return None                                   # both are needed together
+    files = [manager] + ([fix] if fix_installed else [])
+    return {"name": folder, "folder": folder, "files": files,
+            "manager_only": not fix_installed}
 
 
 def install_command(fmt, path, manager_only=False, driver_only=False):
