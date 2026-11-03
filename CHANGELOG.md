@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Notification icon:** the update notification no longer shows a blank icon after the Manager is removed and installed again
+- It now uses the icon's file rather than its name, as a desktop's icon cache could leave the name blank. The login check's plain notification does the same
+
 ## 2.12.0 — 2026-11-03
 
 - **Update notification explained:** the README now says it closes by itself once the new version is installed some other way
