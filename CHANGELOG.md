@@ -10,6 +10,7 @@
 ## Unreleased
 
 - **Arch install guide: command before files:** in *Only one package on Arch*, the table now shows the command before the files it needs
+- **Release page: command before files:** the Install table now shows the command first, and on Arch makes clear the files go in the folder where you run `makepkg -si`
 
 ## 2.13.5 — 2026-11-03
 
