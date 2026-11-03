@@ -14,8 +14,6 @@
 - **Updates on a minimal install:** the driver's package now brings in what its update check and notification need
 - `python3` and `libnotify` are required, and `xdg-utils` and Python's GObject bindings too on Arch (recommended on Fedora and Debian-based distros). Before, a driver-only install relied on them being there already. `install.sh` adds `xdg-utils`
 
-- **Driver only on Arch explained:** the install guide now has the exact steps, as the release has no separate driver file to download there
-
 - **Separate Arch files for each package:** releases now have `PKGBUILD-driver` and `PKGBUILD-manager`, for `makepkg -si -p PKGBUILD-driver`, as well as the `PKGBUILD` that builds both
 - Installing only the Manager no longer compiles the driver. With one package installed, **Update now** uses that package's file, and older releases work as before
 
