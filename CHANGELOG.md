@@ -14,6 +14,8 @@
 - **Updates on a minimal install:** the driver's package now brings in what its update check and notification need
 - `python3` and `libnotify` are required, and `xdg-utils` and Python's GObject bindings too on Arch (recommended on Fedora and Debian-based distros). Before, a driver-only install relied on them being there already. `install.sh` adds `xdg-utils`
 
+- **Driver only on Arch explained:** the install guide now has the exact steps, as the release has no separate driver file to download there
+
 ## 2.12.1 — 2026-11-03
 
 - **Notification icon:** the update notification no longer shows a blank icon after the Manager is removed and installed again
