@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.13.6 — 2026-11-03
 
 - **Arch install guide: command before files:** in *Only one package on Arch*, the table now shows the command before the files it needs
