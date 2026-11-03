@@ -20,6 +20,8 @@ Open a terminal in the folder you downloaded them to (usually Downloads) and run
 | **Debian 13, MX 25** | `fingerprint-fix-sdcp_@VERSION@-1.debian13_amd64.deb`<br>`galaxybook-fingerprint-manager_@VERSION@-1.debian13_all.deb` | `sudo apt install ./fingerprint-fix-sdcp_@VERSION@-*.debian13_amd64.deb ./galaxybook-fingerprint-manager_@VERSION@-*.debian13_all.deb` |
 | **Arch, CachyOS, EndeavourOS** | `PKGBUILD`<br>`fingerprint-fix-sdcp.install`<br>`galaxybook-fingerprint-manager.install` | In a new, empty folder: `makepkg -si` |
 
+On Arch, for one package alone, use `PKGBUILD-driver` with `fingerprint-fix-sdcp.install`, or `PKGBUILD-manager` with `galaxybook-fingerprint-manager.install`, then `makepkg -si -p PKGBUILD-driver` or `makepkg -si -p PKGBUILD-manager`.
+
 ## 2. Update
 
 Already have the fix? It looks for new releases by itself, at login and then hourly, and tells you once per version: with the Fingerprint Manager, the notification's **Update now** installs it. To update straight away:
