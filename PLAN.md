@@ -77,7 +77,7 @@ The sensor has **10 slots**. Each holds one enrolled fingerprint (a "template");
 | `install.sh` | The from-source installer: checks hardware and distro, installs build deps, builds the driver commit from `DRIVER` (applying `lib/patches/` if needed), installs driver + Manager under `/usr/local`, PAM on first install, imports `~/fingerprint-export.tgz` if present, offers to open the Manager. Options: `--driver-only`, `--manager-only`; env `FPRINT_PAM`, `SDCP_COMMIT=latest`, `SDCP_REPO_URL`, `FORCE`, `FPRINT_SDCP_FORCE`, `FPRINT_IMPORT`, `FPRINT_OPEN_MANAGER`. |
 | `uninstall.sh` | Removes an `install.sh` copy (`--driver-only`, `--manager-only`). Never deletes fingerprints; takes this install out of the shared slots file (`lib/shared_slots.py --forget-here`). |
 | `fingerprint-manager.sh` | Launcher for the Manager: checks Python/GTK/libfprint-introspection/pkexec, lists missing packages, then `exec python3 lib/fingerprint-manager.py "$@"`. |
-| `images/` | Screenshots for the guides. |
+| `images/` | Screenshots for the README and guides. |
 
 ### `lib/`
 
