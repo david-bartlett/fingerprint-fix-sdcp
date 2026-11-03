@@ -38,6 +38,18 @@ for f in "/usr/share/icons/hicolor/scalable/apps/$ICON.svg" "$HERE/$ICON.svg"; d
 done
 args=(-u critical -t 0 -a "$APPNAME" -i "$ICON")
 
+# Told once: update_check.py passes where this user's notified-release is and
+# the version announced. It's written the moment a notification has appeared
+# (notify-send printed its ID, notify-dbus.py's Notify call returned one, or a
+# plain notify-send worked), never before: if this is stopped first (logging
+# out, say), or nothing can be shown, the next check tries again. The same as
+# galaxybook-fan's.
+told_file="${NOTIFY_TOLD_FILE:-}"; told_version="${NOTIFY_TOLD_VERSION:-}"
+told() {
+    [[ -n "$told_file" && -n "$told_version" ]] || return 0
+    mkdir -p "$(dirname "$told_file")" 2>/dev/null && echo "$told_version" > "$told_file"
+}
+
 # The buttons, as KEY=LABEL
 acts=()
 if [[ -n "$version" && -f "$HERE/update_check.py" ]] \
@@ -69,19 +81,25 @@ updated() {
 # notify-send, closed once updated: --print-id gives its ID first (then the
 # button, when one is pressed); every 2 s look at the installed version, and
 # once it's the announced one ask the desktop to close that ID (most allow it
-# for the same user; if not it simply stays). Prints the button pressed.
-# The same as galaxybook-fan's.
+# for the same user; if not it simply stays). Prints the button pressed;
+# returns non-zero if it was never shown (no ID). The same as galaxybook-fan's.
 wait_notify_send() {
-    local out pid id="" i=0 closed=0
+    local out pid id="" i=0 closed=0 rc
     if ! notify-send --help 2>&1 | grep -q -- '--print-id' || ! out="$(mktemp)"; then
-        notify-send "$@" 2>/dev/null; return
+        # Without --print-id it can't say when it appeared: told once it
+        # returns (a button pressed or closed)
+        notify-send "$@" 2>/dev/null || return
+        told; return 0
     fi
     notify-send --print-id "$@" > "$out" 2>/dev/null &
     pid=$!
     while kill -0 "$pid" 2>/dev/null; do
         sleep 0.5                                   # a click is noticed at once...
+        if [[ -z "$id" ]]; then                     # ...and the notification appearing
+            id="$(head -1 "$out")"
+            [[ "$id" =~ ^[0-9]+$ ]] && told
+        fi
         (( ++i % 4 )) && continue                   # ...the version every 2 s
-        [[ -n "$id" ]] || id="$(head -1 "$out")"
         if (( ! closed )) && [[ "$id" =~ ^[0-9]+$ ]] && updated; then
             gdbus call --session --dest org.freedesktop.Notifications \
                 --object-path /org/freedesktop/Notifications \
@@ -89,14 +107,20 @@ wait_notify_send() {
             closed=1
         fi
     done
-    wait "$pid" 2>/dev/null
+    wait "$pid" 2>/dev/null; rc=$?
+    if [[ -z "$id" ]]; then
+        id="$(head -1 "$out")"
+        [[ "$id" =~ ^[0-9]+$ ]] && told
+    fi
     sed -n '2p' "$out"                              # the button (after the ID)
     rm -f "$out"
+    [[ "$id" =~ ^[0-9]+$ ]] || return $(( rc ? rc : 1 ))
+    return 0
 }
 
 full="$msg"
 plain() { notify-send "${args[@]}" "$title" "$full${url:+
-$url}"; }
+$url}" && told; }
 
 way=""
 if (( dbus )) && (( ${#acts[@]} )); then
@@ -124,12 +148,15 @@ msg="${msg%%$'\n'*}"
 for (( n = 0; n < 20; n++ )); do
     if [[ $way == dbus ]]; then
         choice=$(NOTIFY_WATCH_FILE="$watch" NOTIFY_WATCH_VERSION="$version" \
+                 NOTIFY_SHOWN_FILE="$told_file" NOTIFY_SHOWN_TEXT="$told_version" \
                  python3 -I "$HERE/notify-dbus.py" 2 "$APPNAME" "$DBUS_ICON" "$title" "$msg" "${pairs[@]}")
         rc=$?
         if (( rc == 2 )); then plain; break; fi     # couldn't show it that way: plainly, with the URL
         [[ "$choice" == default ]] && choice=whatsnew
     else
         choice=$(wait_notify_send "${args[@]}" "${opts[@]}" "$title" "$msg")
+        # couldn't show the first one with buttons: plainly, with the URL
+        if (( $? != 0 && n == 0 )); then plain; break; fi
     fi
     case "${choice:-}" in
         update)

@@ -85,6 +85,18 @@ def main(argv):
     except (GLib.Error, ValueError):
         return 2
 
+    # NOTIFY_SHOWN_FILE / NOTIFY_SHOWN_TEXT: once it's on screen (Notify gave
+    # its ID), write that text there - how notify-update.sh notes a release as
+    # announced only once it's shown (the same as galaxybook-fan's)
+    shown_file, shown_text = os.environ.get("NOTIFY_SHOWN_FILE"), os.environ.get("NOTIFY_SHOWN_TEXT")
+    if shown_file and shown_text:
+        try:
+            os.makedirs(os.path.dirname(shown_file), exist_ok=True)
+            with open(shown_file, "w") as f:
+                f.write(shown_text + "\n")
+        except OSError:
+            pass
+
     watch, wanted = os.environ.get("NOTIFY_WATCH_FILE"), _version(os.environ.get("NOTIFY_WATCH_VERSION"))
 
     def updated():

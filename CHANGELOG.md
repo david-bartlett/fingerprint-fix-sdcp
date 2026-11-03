@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **New-version notification: never lost:** a release is only counted as announced once its notification is on screen
+- It was counted as soon as the notification was started, so if it then couldn't be shown, or was stopped before it appeared (by logging out, say), you were never told about that release. It's now counted the moment it appears, and otherwise the next hourly check tries again. A second notification for the same version isn't started while the first is still up. This takes effect once this version is installed, as the installed version draws the notification
+
 ## 2.13.3 — 2026-11-03
 
 - **Arch: a failed write can't break `sudo`:** the PAM file is now replaced in one step, so a full disk leaves it as it was, rather than empty
