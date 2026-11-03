@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.13.4 — 2026-11-03
 
 - **New-version notification: never lost:** a release is only counted as announced once its notification is on screen
 - It was counted as soon as the notification was started, so if it then couldn't be shown, or was stopped before it appeared (by logging out, say), you were never told about that release. It's now counted the moment it appears, and otherwise the next hourly check tries again. A second notification for the same version isn't started while the first is still up. This takes effect once this version is installed, as the installed version draws the notification
