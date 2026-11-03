@@ -50,6 +50,10 @@ Either package works on its own. Most desktops have their own fingerprint settin
 
 Install just that file, e.g. `sudo dnf install ./fingerprint-fix-sdcp-*.fc45.x86_64.rpm`, `sudo apt install ./galaxybook-fingerprint-manager_*ubuntu26.04_all.deb`, or on Arch, as in [Only one package on Arch](#only-one-package-on-arch). With `install.sh`: `sudo bash install.sh --driver-only` or `--manager-only`. The other part can be added later the same way. The Manager's **Update** updates whatever is installed: both packages, or only the Manager.
 
+Update notifications name what you have. With only the Manager:
+
+<img src="../images/update-notification-manager.png" width="300" alt="Notification: Galaxy Book Fingerprint Manager 2.13.2 is available. You have 2.13.1. Buttons: Update now and What's new">
+
 ## Other distros: install.sh
 
 For a distro without a package, or for testing. Needs `git` and an internet connection (the installer downloads and builds the driver):
