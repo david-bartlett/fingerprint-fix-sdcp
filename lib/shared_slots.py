@@ -150,7 +150,13 @@ def _path():
     return os.path.join(esp, SHARED_REL) if esp else None
 
 
+class SharedFileProblem(Exception):
+    """The shared file is there but can't be used, so it mustn't be written."""
+
+
 def _load(path):
+    """The shared file's contents; {} when it's missing or can't be used.
+    Before writing, tell the two apart with _unusable()."""
     try:
         with open(path) as f:
             data = json.load(f)
@@ -159,6 +165,19 @@ def _load(path):
     except (OSError, ValueError):
         pass
     return {}
+
+
+def _unusable(path, data):
+    """Whether _load gave nothing for a file that's there: damaged, unreadable
+    or from a newer version. Writing would destroy what the other installs
+    noted, and turn used_elsewhere()'s "can't tell" into "no other install"."""
+    return not data and os.path.exists(path)
+
+
+def problem_file():
+    """The shared file's path if it's there but can't be used, otherwise None."""
+    path = _path()
+    return path if path and _unusable(path, _load(path)) else None
 
 
 def _save(path, data, before):
@@ -234,15 +253,20 @@ def _check_installs(data, me, here, today):
     return gone
 
 
-def share_slots(serial, templates, records_by_tid, forgotten=None):
+def share_slots(serial, templates, records_by_tid, forgotten=None, listed=True):
     """Note this install's templates in the shared file and add what other
     installs noted to each template ("shared"). Returns the installs that
-    share this sensor (see _installs), or None without the file. Installs
-    that no longer exist are forgotten and added to forgotten. Never fails."""
+    share this sensor (see _installs), or None without a usable file (one
+    that's there but can't be used is left as it is). Installs that no longer
+    exist are forgotten and added to forgotten. listed False: the driver can't
+    list the sensor, so templates says nothing about what's on it and no entry
+    is dropped for being missing from it. Never fails."""
     me, path = install_key(), _path()
     if not me or not path or not serial:
         return None
     data = _load(path)
+    if _unusable(path, data):
+        return None
     before = json.dumps(data, sort_keys=True)
     data["version"] = 1
     sensor = data.setdefault("sensors", {}).setdefault(serial, {})
@@ -256,7 +280,7 @@ def share_slots(serial, templates, records_by_tid, forgotten=None):
         forgotten.extend(gone)
     on_chip = {t["id"] for t in templates}
     for tid in list(sensor):
-        if tid not in on_chip or not isinstance(sensor[tid], dict):
+        if not isinstance(sensor[tid], dict) or (listed and tid not in on_chip):
             del sensor[tid]                         # cleared from the sensor
     for t in templates:
         e = sensor.get(t["id"], {})
@@ -333,7 +357,8 @@ def merge_backup(backup):
     installs it doesn't have are added; nothing already there is changed.
     Templates no longer on the sensor drop out the next time the Manager
     reads it. Returns how many records were added, or None without an EFI
-    partition. Raises OSError when the merged file couldn't be written."""
+    partition. Raises OSError when the merged file couldn't be written, and
+    SharedFileProblem when the file there can't be used (it's left as it is)."""
     path = _path()
     if not path:
         return None
@@ -341,6 +366,8 @@ def merge_backup(backup):
             or not isinstance(backup.get("sensors"), dict):
         raise ValueError("not a backup of fingerprint-slots.json")
     data = _load(path)
+    if _unusable(path, data):
+        raise SharedFileProblem(path)
     before = json.dumps(data, sort_keys=True)
     data["version"] = 1
     added = 0
