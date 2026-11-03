@@ -21,6 +21,10 @@
 # mask; install.sh enables them in the user's own folder, where they can be
 # disabled but not masked. So "off" is masked or disabled.
 #
+# With only the driver: the command fingerprint-fix-sdcp (updates on|off and
+# the rest, packaging/files/fix-command.sh.in) runs this file too, and
+# 'updates off' does the same as those lines.
+#
 # The Manager's Download button: this_system() and pick_asset() choose this
 # system's package from the release's files, download() saves and checks it.
 #
@@ -51,6 +55,17 @@ NOTIFIED = os.path.join(CACHE_DIR, "notified-release")          # tag last annou
 SETTINGS = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
                         APP, "settings")
 HERE = os.path.dirname(os.path.realpath(__file__))
+FIX_BIN = "/usr/bin/fingerprint-fix-sdcp"              # the driver's command, from its package
+MANAGER_MARKERS = ("/usr/lib/galaxybook-fingerprint-manager/installed",
+                   "/etc/galaxybook-fingerprint-manager.installed")
+# The command to name in messages (fix-command.sh.in sets it)
+COMMAND = os.environ.get("GBF_COMMAND") or APP
+
+
+def manager_installed():
+    """Is the Manager here, from a package or install.sh? If not, this is the
+    driver's own copy of this file, running with only the driver."""
+    return any(os.path.isfile(m) for m in MANAGER_MARKERS)
 
 
 def version_key(v):
@@ -84,15 +99,17 @@ def _timer_state(timer):
 
 def enabled():
     """False when checking is switched off: the Manager's timer masked (its
-    'Check for new versions' masks both). Before 2.3 the switch was a line in
-    the Manager's settings: such a choice is moved to the timers once."""
+    'Check for new versions' masks both), or the driver's with only the driver.
+    Before 2.3 the switch was a line in the Manager's settings: such a choice
+    is moved to the timers once."""
     _migrate_setting()
-    return _timer_state(MGR_TIMER) not in ("masked", "disabled")
+    return _timer_state(MGR_TIMER if manager_installed() else FIX_TIMER) not in ("masked", "disabled")
 
 
 def set_enabled(on):
     """The Manager's switch: unmask / mask both timers (the driver's too, so
-    removing the Manager later doesn't start checking again)."""
+    removing the Manager later doesn't start checking again; the Manager's
+    too with only the driver, so adding it later doesn't either)."""
     timers = [MGR_TIMER, FIX_TIMER]
     steps = (["unmask", "enable"] if on else ["disable", "mask"])
     for step in steps:              # each may not apply (see above): errors are fine
@@ -276,13 +293,15 @@ FIX = "fingerprint-fix-sdcp"
 MANAGER = "galaxybook-fingerprint-manager"
 
 
-def pick_asset(assets, version, fmt, dist, fix_installed=True):
+def pick_asset(assets, version, fmt, dist, fix_installed=True, mgr_installed=True):
     """This system's download among a release's files, or None. GitHub shows
     the '~' of a .deb's version as '.' in file names, so both are accepted.
 
-    One package file: that asset. Several files (the PKGBUILD and its .install
-    files, or the driver and Manager packages of a split release): one item
-    {name, folder, files: [asset, …], manager_only}, downloaded into one folder."""
+    One package file: that asset, which is also what a split release gives
+    with only the driver (mgr_installed False). Several files (the PKGBUILD and
+    its .install files, or the driver and Manager packages of a split release):
+    one item {name, folder, files: [asset, …], manager_only, driver_only},
+    downloaded into one folder."""
     if platform.machine() not in ("x86_64", "amd64"):
         return None
     folder = f"{FIX}-{version}"
@@ -295,7 +314,8 @@ def pick_asset(assets, version, fmt, dist, fix_installed=True):
         if not fix_installed and not split:
             return None                 # a single-package release can't update the Manager alone
         return {"name": folder, "folder": folder, "files": [pkgbuild] + installs,
-                "manager_only": split and not fix_installed}
+                "manager_only": split and not fix_installed,
+                "driver_only": split and fix_installed and not mgr_installed}
     if not dist:
         return None
     v, d = re.escape(version), re.escape(dist)
@@ -307,6 +327,8 @@ def pick_asset(assets, version, fmt, dist, fix_installed=True):
         return None
     fix = next((a for a in assets if re.fullmatch(patterns[0], a["name"])), None)
     manager = next((a for a in assets if re.fullmatch(patterns[1], a["name"])), None)
+    if not mgr_installed:                             # only the driver: its one file
+        return fix if fix_installed else None
     if manager:                                       # a split release
         if fix_installed and not fix:
             return None                               # both are needed together
@@ -316,16 +338,19 @@ def pick_asset(assets, version, fmt, dist, fix_installed=True):
     return fix if fix_installed else None
 
 
-def install_command(fmt, path, manager_only=False):
+def install_command(fmt, path, manager_only=False, driver_only=False):
     """The command that installs a download over the installed fix: the package
     file; a folder of packages (installed in one go, so the driver's
     dependency on the same Manager version is met); or for pacman the folder
     holding the PKGBUILD (makepkg builds as the user and asks for the password
-    to install — every package it builds, or only the Manager)."""
+    to install — every package it builds, or only the Manager, or only the
+    driver; [0-9] as a '*' could match another package's name)."""
     quoted = "'" + path.replace("'", "'\\''") + "'"
     if fmt == "pacman":
         if manager_only:
             return f"cd {quoted} && makepkg -s && sudo pacman -U ./{MANAGER}-*.pkg.tar.zst"
+        if driver_only:
+            return f"cd {quoted} && makepkg -s && sudo pacman -U ./{FIX}-[0-9]*.pkg.tar.zst"
         return f"cd {quoted} && makepkg -si"
     if os.path.isdir(path):
         ext, tool = {"deb": ("deb", "apt install"), "rpm": ("rpm", "dnf install")}[fmt]
@@ -460,6 +485,8 @@ def show_notification(new):
     first = f"You have {mine}." if mine else ""
     if any(os.access(m, os.X_OK) for m in MANAGER_BINS):
         how = "Open the Fingerprint Manager and click Update to install it, or see the release on GitHub."
+    elif os.access(FIX_BIN, os.X_OK):
+        how = "Run fingerprint-fix-sdcp update to install it, or see the release on GitHub."
     else:
         how = "See the release on GitHub for the files and how to install them."
     msg = f"{first}\n{how}" if first else how
@@ -487,11 +514,12 @@ def show_notification(new):
 
 # ── "Update now" from the notification ────────────────────────────────────────
 # The same steps as the Manager's Update, without opening the Manager:
-# notify-update.sh asks --can-update-now (only a Manager installed from a
-# package, with a terminal to run it in), and on the button runs --update-now,
-# which opens the terminal running --install: download this system's packages
-# into /tmp, check them against SHA256SUMS, then update-in-terminal.sh runs the
-# install command (both packages together, as the Manager does).
+# notify-update.sh asks --can-update-now (only a Manager, or a driver without
+# one, installed from a package, with a terminal to run it in), and on the
+# button runs --update-now, which opens the terminal running --install:
+# download this system's packages into /tmp, check them against SHA256SUMS, then
+# update-in-terminal.sh runs the install command (both packages together, as
+# the Manager does, or the driver's alone when that's all there is).
 DRIVER_MARKERS = ("/usr/lib/fingerprint-fix-sdcp/installed",
                   "/etc/samsung-galaxybook-egismoc-sdcp.installed")
 
@@ -504,18 +532,20 @@ def _run(argv):
 
 
 def installed_package():
-    """How the Manager was installed: ('rpm', 'fc45'), ('deb', 'ubuntu26.04'),
-    ('pacman', ''), or ('', '') when not from a package (install.sh). From the
-    package's own release, e.g. 2.10.2-1~ubuntu26.04 or 1.fc45."""
-    v = _run(["dpkg-query", "-W", "-f=${Status} ${Version}", MANAGER])
+    """How the Manager was installed, or the driver if it's on its own:
+    ('rpm', 'fc45'), ('deb', 'ubuntu26.04'), ('pacman', ''), or ('', '') when
+    not from a package (install.sh). From the package's own release, e.g.
+    2.10.2-1~ubuntu26.04 or 1.fc45."""
+    package = MANAGER if manager_installed() else FIX
+    v = _run(["dpkg-query", "-W", "-f=${Status} ${Version}", package])
     if v.startswith("install ok installed "):
         m = re.search(r"~([a-z]+[0-9.]+)$", v)
         return this_system("deb", m.group(1) if m else "")
-    r = _run(["rpm", "-q", "--qf", "%{RELEASE}", MANAGER])
+    r = _run(["rpm", "-q", "--qf", "%{RELEASE}", package])
     m = re.fullmatch(r"\d+\.(fc\d+)", r)
     if m:
         return this_system("rpm", m.group(1))
-    if _run(["pacman", "-Q", MANAGER]).startswith(MANAGER + " "):
+    if _run(["pacman", "-Q", package]).startswith(package + " "):
         return "pacman", ""
     return "", ""
 
@@ -525,8 +555,9 @@ def _update_files():
 
 
 def can_update_now():
-    """Can the notification's Update now install it? A Manager from a package,
-    this folder's terminal helpers, and a terminal to open."""
+    """Can the notification's Update now install it? A Manager from a package
+    (or the driver from one, on its own), this folder's terminal helpers, and a
+    terminal to open."""
     if not all(os.path.isfile(f) for f in _update_files()):
         return False
     if not installed_package()[0]:
@@ -606,13 +637,15 @@ def install(version):
         return 0
 
     fmt, dist = installed_package()
+    mgr = manager_installed()
     if not fmt:
-        return give_up("the Fingerprint Manager wasn't installed from a package.")
+        return give_up("the Fingerprint Manager wasn't installed from a package." if mgr
+                       else "the driver wasn't installed from a package.")
     assets = release_assets(version)
     if not assets:
         return give_up("the release's files couldn't be read from GitHub (no network?).")
     driver = any(os.path.isfile(m) for m in DRIVER_MARKERS)
-    item = pick_asset(assets, version, fmt, dist, driver)
+    item = pick_asset(assets, version, fmt, dist, driver, mgr)
     if not item:
         return give_up(f"the release has no packages for this system ({fmt} {dist}).")
     try:
@@ -630,8 +663,10 @@ def install(version):
     except (OSError, ValueError) as e:
         return give_up(f"download failed: {e}")
     print(flush=True)
-    cmd = install_command(fmt, path, bool(item.get("manager_only")))
+    cmd = install_command(fmt, path, bool(item.get("manager_only")), bool(item.get("driver_only")))
     os.environ["TITLE_SHOWN"] = "1"
+    if not mgr:
+        os.environ["GBF_DRIVER_ONLY"] = "1"        # no Manager to restart
     os.execvp("bash", ["bash", os.path.join(HERE, "update-in-terminal.sh"), title, folder, cmd])
 
 
@@ -669,14 +704,14 @@ def cmd_updates(what):
         print("\"New version\" notifications are on: GitHub checked at login and hourly, told once per version")
     elif what == "off":
         set_enabled(False)
-        print("No more \"new version\" notifications. Turn them back on: galaxybook-fingerprint-manager updates on")
+        print(f"No more \"new version\" notifications. Turn them back on: {COMMAND} updates on")
     elif what == "status":
         if enabled():
             print("\"New version\" notifications: on (GitHub checked at login and hourly)")
-            print("To turn them off: galaxybook-fingerprint-manager updates off")
+            print(f"To turn them off: {COMMAND} updates off")
         else:
             print("\"New version\" notifications: off")
-            print("To turn them on: galaxybook-fingerprint-manager updates on")
+            print(f"To turn them on: {COMMAND} updates on")
     elif what == "check":
         mine, new = installed_version(), _newest()
         if not new:
@@ -689,11 +724,11 @@ def cmd_updates(what):
             print(f"fingerprint-fix-sdcp {new} is being released - its files aren't attached yet, try again in a few minutes")
             return 0
         print(f"fingerprint-fix-sdcp {new} is available (you have {mine}): {REPO_URL}/releases/tag/v{new}")
-        print("To update, run: galaxybook-fingerprint-manager update")
+        print(f"To update, run: {COMMAND} update")
         if (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")) and show_notification(new):
             print("Notification shown (with Update now / What's new where your desktop has buttons)")
     else:
-        print("Usage: galaxybook-fingerprint-manager updates on|off|status|check", file=sys.stderr)
+        print(f"Usage: {COMMAND} updates on|off|status|check", file=sys.stderr)
         return 2
     return 0
 

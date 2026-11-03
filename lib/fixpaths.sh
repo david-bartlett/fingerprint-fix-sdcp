@@ -69,6 +69,7 @@ fix_layout() {
         FPRINT_CLEANUP=""                       # the package manager removes a package
         FPRINT_ENV_SCRIPT="${FPRINT_SCRIPT_DIR}/fprintd-env.sh"
         FPRINT_OTHER_FIX="${FPRINT_SCRIPT_DIR}/other-fix.sh"
+        FIX_BIN="/usr/bin/fingerprint-fix-sdcp"
         # the Manager
         MGR_ROOT="/usr/lib/galaxybook-fingerprint-manager"
         MGR_MARKER="$MGR_PACKAGE_MARKER"

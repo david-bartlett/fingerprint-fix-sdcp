@@ -5,9 +5,10 @@
 #   notify-update.sh TITLE MESSAGE URL [VERSION]   (as the user, in their desktop)
 #
 # Buttons: "Update now" (when VERSION is given and the Fingerprint Manager was
-# installed from a package: update_check.py --update-now opens a terminal
-# that downloads, checks and installs both packages, as the Manager's Update
-# does) and "What's new" (URL: the release's page; then the notification is
+# installed from a package, or the driver on its own: update_check.py
+# --update-now opens a terminal that downloads, checks and installs both
+# packages, as the Manager's Update does, or just the driver's) and
+# "What's new" (URL: the release's page; then the notification is
 # shown again, so "Update now" is still there). With buttons the text is just
 # MESSAGE's first line ("You have X.Y.Z."); without them it's all of it, and
 # the URL. Critical urgency, so it stays on screen until it's clicked or
@@ -19,7 +20,7 @@
 # "default" action; only on GNOME, as other desktops can draw it as a button
 # of its own), so a stray click never starts an install.
 # Shipped in both packages (the driver's copy is used when only it is
-# installed; it has no "Update now": the release's packages go together).
+# installed).
 # =============================================================================
 title="${1:?Usage: $0 TITLE MESSAGE URL [VERSION]}"; msg="${2:-}"; url="${3:-}"; version="${4:-}"
 HERE="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"

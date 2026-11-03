@@ -55,8 +55,11 @@ driver)
     # The hourly check for new releases, used while the Manager isn't installed
     # (its user timer is skipped when the Manager is): update_check.py reads
     # the VERSION next to its folder.
-    install -Dm755 -t "$D$FIX_UPDATE_DIR" "$REPO/lib/update_check.py" "$REPO/lib/notify-update.sh" "$REPO/lib/notify-dbus.py"
+    install -Dm755 -t "$D$FIX_UPDATE_DIR" "$REPO/lib/update_check.py" "$REPO/lib/notify-update.sh" "$REPO/lib/notify-dbus.py" \
+        "$REPO/lib/terminal.py" "$REPO/lib/update-in-terminal.sh"
     install -Dm644 "$REPO/VERSION" "$D$FPRINT_LIB_DIR/VERSION"
+    # The command for updates with only the driver
+    put fix-command.sh.in "$FIX_BIN" 755
     put fix-update-check.service.in "$FPRINT_USER_UNIT_DIR/$FIX_UPDATE_SVC"
     put fix-update-check.timer.in   "$FPRINT_USER_UNIT_DIR/$FIX_UPDATE_TIMER"
     # Install marker, in install.sh's format (the Manager shows it):

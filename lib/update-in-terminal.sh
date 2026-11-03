@@ -15,6 +15,8 @@
 # after it has downloaded the files: TITLE_SHOWN=1, as it showed the title.
 # GBF_OWN_TERMINAL=1 ('galaxybook-fingerprint-manager update', typed in the
 # user's own terminal): no window title and no waiting before it closes.
+# GBF_DRIVER_ONLY=1: only the driver is installed, so there's no Manager to
+# restart.
 # =============================================================================
 title="${1:?Usage: $0 TITLE FOLDER COMMAND [CLOSED-FILE]}"; folder="${2:?}"; cmd="${3:?}"; closed="${4:-}"
 [[ -n "$closed" ]] && trap 'touch -- "$closed"; exit' EXIT HUP TERM INT
@@ -35,7 +37,11 @@ if [[ $rc -eq 0 ]]; then
     case "$folder" in
         /tmp/galaxybook-update-*) rm -rf -- "$folder" ;;
     esac
-    echo "${green}${bold}Done.${off} If the Fingerprint Manager is open, press Restart in it to use the new version."
+    if [[ -n "${GBF_DRIVER_ONLY:-}" ]]; then
+        echo "${green}${bold}Done.${off}"
+    else
+        echo "${green}${bold}Done.${off} If the Fingerprint Manager is open, press Restart in it to use the new version."
+    fi
     [[ -n "$own" ]] && exit 0
     echo
     read -r -t 10 -p "This window closes in 10 seconds (or press Enter)." _ || true
