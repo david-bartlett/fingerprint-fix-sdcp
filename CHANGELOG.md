@@ -12,6 +12,7 @@
 - **Arch install guide: command before files:** in *Only one package on Arch*, the table now shows the command before the files it needs
 - **Release page: command before files:** the Install table now shows the command first
 - **Release page: download links:** the files in the Install table now link straight to that release's files
+- Each file has a bullet in front, so a row's files are easy to tell apart
 
 ## 2.13.5 — 2026-11-03
 
