@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Update messages say what they'll install:** Fingerprint Driver, Galaxy Book Fingerprint Manager, or Fingerprint Driver & Manager
+- That's in the notification, the Update button and its dialogs, the terminal's title and the `update` and `updates check` commands. The driver alone and both used to say the same thing
+
 ## 2.13.0 — 2026-11-03
 
 - **Update messages name what you have:** with only the Manager, they now say Galaxy Book Fingerprint Manager rather than `fingerprint-fix-sdcp`
