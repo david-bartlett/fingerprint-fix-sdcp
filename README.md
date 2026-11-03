@@ -96,7 +96,7 @@ sudo systemctl daemon-reload && sudo systemctl restart fprintd
 
 You're told about each new release with a notification, checked 30 seconds after login and then hourly. This works with the driver alone too. Nothing is installed until you choose to, and enrolled fingerprints are always kept.
 
-<img src="images/update-notification.png" width="300" alt="Notification: fingerprint-fix-sdcp 2.11.4 is available. You have 2.11.3. Buttons: Update now and What's new">
+<img src="images/update-notification-both.png" width="300" alt="Notification: Fingerprint Driver &amp; Manager 2.13.2 is available. You have 2.13.1. Buttons: Update now and What's new">
 
 **Update now** does the same as the update command, which depends on what you installed:
 
@@ -121,6 +121,8 @@ From a terminal (no `sudo`; `update` asks for your password when it installs):
 `galaxybook-fingerprint-manager --help` lists them all.
 
 ### With only the driver
+
+<img src="images/update-notification-driver.png" width="300" alt="Notification: Fingerprint Driver 2.13.2 is available. You have 2.13.1. Buttons: Update now and What's new">
 
 Click the notification's **Update now**: it downloads the driver's new file and installs it in a terminal window, where you confirm with your password. It doesn't add the Manager. On Arch-based distros, it builds the driver on your laptop first, from the release's `PKGBUILD-driver`.
 
