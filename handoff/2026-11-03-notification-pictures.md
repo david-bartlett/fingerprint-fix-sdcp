@@ -1,6 +1,6 @@
 # Pictures of the three update notifications
 
-PR #NUMBER · Claude · 2026-11-03
+PR #151 · Claude · 2026-11-03
 
 ## What changed
 - New `images/update-notification-driver.png`, `-manager.png` and `-both.png`, replacing `images/update-notification.png`.
