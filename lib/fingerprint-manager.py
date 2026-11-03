@@ -3847,7 +3847,7 @@ class Manager(Gtk.Window):
         shows it, runs it, removes the download and closes the window). False
         when the terminal can't be started: the old dialog is shown instead."""
         term, folder = self._dl_term, self._dl_tmp
-        title = f"Updating fingerprint-fix-sdcp to {self._dl_version}"
+        title = f"Updating {update_check.update_name()} to {self._dl_version}"
         # Made as the terminal window closes: the restart question waits for it.
         self._term_closed = folder + ".closed"
         argv = terminal.command_line(
