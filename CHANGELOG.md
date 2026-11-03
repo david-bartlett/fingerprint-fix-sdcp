@@ -16,6 +16,9 @@
 
 - **Driver only on Arch explained:** the install guide now has the exact steps, as the release has no separate driver file to download there
 
+- **Separate Arch files for each package:** releases now have `PKGBUILD-driver` and `PKGBUILD-manager`, for `makepkg -si -p PKGBUILD-driver`, as well as the `PKGBUILD` that builds both
+- Installing only the Manager no longer compiles the driver. With one package installed, **Update now** uses that package's file, and older releases work as before
+
 ## 2.12.1 — 2026-11-03
 
 - **Notification icon:** the update notification no longer shows a blank icon after the Manager is removed and installed again

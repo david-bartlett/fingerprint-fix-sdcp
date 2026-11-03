@@ -2,7 +2,8 @@
 # that builds the release from source on Arch-based systems, to the GitHub
 # release. From 2.0.0 each format has two packages: the driver
 # (fingerprint-fix-sdcp) and the Manager (galaxybook-fingerprint-manager, which
-# the driver requires at the same version); the PKGBUILD builds both. The Arch package is built too, as a check that it still builds, but
+# the driver recommends at the same version); the PKGBUILD builds both, and
+# PKGBUILD-driver and PKGBUILD-manager build one each. The Arch package is built too, as a check that it still builds, but
 # not attached: Arch is rolling, so users build it against their own libraries.
 #
 # Runs when a tag v<VERSION> is pushed (fingerprint-repo-gui's Release does
@@ -14,7 +15,7 @@
 # distros rename library packages between releases (Ubuntu 26.04: libgusb2 →
 # libgusb2a). The file names say which release each is for (.fc45,
 # ~ubuntu26.04, ~debian13). Mint uses its Ubuntu base's .deb, MX its Debian
-# base's. Arch is rolling: one PKGBUILD, built by makepkg on the user's system.
+# base's. Arch is rolling: PKGBUILDs, built by makepkg on the user's system.
 
 name: Release packages
 
@@ -137,7 +138,7 @@ jobs:
           su builder -c "cd '$GITHUB_WORKSPACE/packaging/arch' && makepkg --nodeps --noconfirm"
           ls packaging/arch/fingerprint-fix-sdcp-*.pkg.tar.zst packaging/arch/galaxybook-fingerprint-manager-*.pkg.tar.zst
           mkdir -p dist
-      - name: Write the release PKGBUILD
+      - name: Write the release PKGBUILDs
         run: |
           version=$(tr -d '[:space:]' < VERSION)
           driver=$(grep -v '^#' DRIVER | tr -d '[:space:]')
@@ -148,9 +149,13 @@ jobs:
             echo "::warning::Release tarball not downloadable (private repository?) — PKGBUILD uses SKIP"
             sha=SKIP
           fi
-          sed -e "s/@VERSION@/$version/g" -e "s/@DRIVER@/$driver/g" -e "s/@SHA256@/$sha/g" \
-            packaging/arch/PKGBUILD.release.in > dist/PKGBUILD
+          bash packaging/arch/write-release-pkgbuilds.sh "$version" "$driver" "$sha" dist
           cp packaging/arch/fingerprint-fix-sdcp.install packaging/arch/galaxybook-fingerprint-manager.install dist/
+          # makepkg reads and checks each one, as it would on a user's system
+          chown -R builder dist
+          for f in PKGBUILD PKGBUILD-driver PKGBUILD-manager; do
+            su builder -c "cd '$GITHUB_WORKSPACE/dist' && makepkg --printsrcinfo -p $f" > /dev/null
+          done
       - uses: actions/upload-artifact@v6
         with:
           name: arch

@@ -19,7 +19,7 @@ Either can be installed without the other. The driver *recommends* the Manager o
 | `make-sources.sh` | source tarballs of this checkout and the driver (rpm, deb) |
 | `rpm/` | `.spec` (the driver, with the Manager as a subpackage) and `build.sh` |
 | `debian/` | `debian/` folder contents (maintainer scripts per package) and `build.sh` |
-| `arch/` | split `PKGBUILD` (this checkout), `PKGBUILD.release.in` (a release), one `.install` per package |
+| `arch/` | split `PKGBUILD` (this checkout), `PKGBUILD.release.in` and `write-release-pkgbuilds.sh` (a release's three PKGBUILDs), one `.install` per package |
 
 Paths come from `lib/fixpaths.sh` (`package` layout): the driver under `/usr/lib/fingerprint-fix-sdcp`, the Manager under `/usr/lib/galaxybook-fingerprint-manager`; on Fedora their scripts are in `/usr/libexec/<package>`.
 
@@ -50,7 +50,7 @@ A package is for the release it was built on: its library dependencies come from
 | `…~ubuntu26.04_amd64.deb` + `…_all.deb` | Ubuntu 26.04, Linux Mint 27 |
 | `…~debian13_amd64.deb` + `…_all.deb` | Debian 13, MX Linux 25 |
 | `…fc44.x86_64.rpm` + `…fc44.noarch.rpm` / the same for `fc45` | Fedora 44 / 45 |
-| `PKGBUILD`, `fingerprint-fix-sdcp.install`, `galaxybook-fingerprint-manager.install` | Arch, CachyOS, EndeavourOS, … (built with `makepkg -si`; CI builds the package only as a check) |
+| `PKGBUILD`, `PKGBUILD-driver`, `PKGBUILD-manager`, `fingerprint-fix-sdcp.install`, `galaxybook-fingerprint-manager.install` | Arch, CachyOS, EndeavourOS, … (built with `makepkg -si`; CI builds the package only as a check) |
 
 ## What install and removal do
 

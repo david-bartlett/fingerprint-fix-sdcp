@@ -24,18 +24,20 @@ makepkg -si
 
 (This works in bash, zsh and fish, CachyOS's default shell.)
 
-`makepkg` installs the build tools it needs, builds the driver commit the release was tested with, and asks for your password to install both packages. **Updating:** the Manager's **Update** fetches the new release's `PKGBUILD` and runs `makepkg -si` in your terminal. With only the driver, **Update now** or `fingerprint-fix-sdcp update` builds it and installs just the driver. On 2.11.4 or older, download the new files and follow the steps below.
+`makepkg` installs the build tools it needs, builds the driver commit the release was tested with, and asks for your password to install both packages. **Updating:** the Manager's **Update** fetches the new release's `PKGBUILD` and runs `makepkg -si` in your terminal. With only the driver, **Update now** or `fingerprint-fix-sdcp update` builds and installs just the driver. On 2.11.4 or older, download the new files and follow the steps below.
 
-### Only the driver on Arch
+### Only one package on Arch
 
-There's no separate driver download on Arch, as the same `PKGBUILD` always builds both packages, and `makepkg -si` then installs both. For just the driver, build them without installing, then install the driver's:
+Each release has a `PKGBUILD` for each package, as well as the one that builds both. Download the two files, put them in an empty folder, and run the command there:
 
-```bash
-makepkg -s
-sudo pacman -U ./fingerprint-fix-sdcp-[0-9]*.pkg.tar.zst
-```
+| Install | Files | Command |
+| --- | --- | --- |
+| **Only the driver** | `PKGBUILD-driver`, `fingerprint-fix-sdcp.install` | `makepkg -si -p PKGBUILD-driver` |
+| **Only the Manager** | `PKGBUILD-manager`, `galaxybook-fingerprint-manager.install` | `makepkg -si -p PKGBUILD-manager` |
 
-That `.pkg.tar.zst` file is one `makepkg` has just built on your laptop, in the same folder. The releases don't include one to download.
+The Manager has nothing to compile, so it builds in seconds.
+
+These files start with 2.12.2. For an older release, build both with `makepkg -s` and the `PKGBUILD` above, then install just one with `sudo pacman -U ./fingerprint-fix-sdcp-[0-9]*.pkg.tar.zst`, or `./galaxybook-fingerprint-manager-*.pkg.tar.zst` for the Manager. Those `.pkg.tar.zst` files are the ones `makepkg` has just built on your laptop, as releases don't include any to download.
 
 ## Installing only one package
 
@@ -46,7 +48,7 @@ Either package works on its own. Most desktops have their own fingerprint settin
 | **The driver** (`fingerprint-fix-sdcp`) | Fingerprints work, and fingerprint login is turned on. Enrol in your desktop's settings (GNOME, KDE, Mint's Fingerprints) | The Galaxy Book Fingerprint Manager's window, the monitor (e.g. *your distro now supports the reader*) and the boot check (warns when Windows deletes your fingerprints) |
 | **The Galaxy Book Fingerprint Manager** (`galaxybook-fingerprint-manager`) | The window, monitor and checks, using whichever driver fprintd has: for when your distro's own libfprint supports the reader with SDCP | The driver: on a distro without SDCP support the Galaxy Book Fingerprint Manager can't use the reader |
 
-Install just that file, e.g. `sudo dnf install ./fingerprint-fix-sdcp-*.fc45.x86_64.rpm`, `sudo apt install ./galaxybook-fingerprint-manager_*ubuntu26.04_all.deb`, or on Arch, as in [Only the driver on Arch](#only-the-driver-on-arch), with the Manager's name for the Manager alone. With `install.sh`: `sudo bash install.sh --driver-only` or `--manager-only`. The other part can be added later the same way. The Manager's **Update** updates whatever is installed: both packages, or only the Manager.
+Install just that file, e.g. `sudo dnf install ./fingerprint-fix-sdcp-*.fc45.x86_64.rpm`, `sudo apt install ./galaxybook-fingerprint-manager_*ubuntu26.04_all.deb`, or on Arch, as in [Only one package on Arch](#only-one-package-on-arch). With `install.sh`: `sudo bash install.sh --driver-only` or `--manager-only`. The other part can be added later the same way. The Manager's **Update** updates whatever is installed: both packages, or only the Manager.
 
 ## Other distros: install.sh
 

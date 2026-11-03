@@ -281,7 +281,9 @@ def release_assets(version):
 
 # Arch-based systems build the release from its PKGBUILD (makepkg), so it is
 # built against the system's current libraries; the PKGBUILD and its .install
-# files are downloaded together into a folder of their own.
+# files are downloaded together into a folder of their own. PKGBUILD builds
+# both packages; with only one installed, PKGBUILD-driver or PKGBUILD-manager
+# builds just that one (releases from 2.12.2), and only the driver compiles.
 #
 # From 2.0.0 a release has two packages built from one source: the driver
 # (fingerprint-fix-sdcp) and the Manager (galaxybook-fingerprint-manager), with
@@ -306,6 +308,15 @@ def pick_asset(assets, version, fmt, dist, fix_installed=True, mgr_installed=Tru
         return None
     folder = f"{FIX}-{version}"
     if fmt == "pacman":
+        own, own_install = None, None                 # only one of the packages
+        if fix_installed and not mgr_installed:
+            own, own_install = "PKGBUILD-driver", f"{FIX}.install"
+        elif mgr_installed and not fix_installed:
+            own, own_install = "PKGBUILD-manager", f"{MANAGER}.install"
+        files = [a for a in assets if a["name"] in (own, own_install)]
+        if len(files) == 2:
+            return {"name": folder, "folder": folder, "files": files,
+                    "manager_only": own == "PKGBUILD-manager", "driver_only": own == "PKGBUILD-driver"}
         pkgbuild = next((a for a in assets if a["name"] == "PKGBUILD"), None)
         installs = [a for a in assets if a["name"].endswith(".install")]
         if not pkgbuild or not installs:
@@ -344,9 +355,13 @@ def install_command(fmt, path, manager_only=False, driver_only=False):
     dependency on the same Manager version is met); or for pacman the folder
     holding the PKGBUILD (makepkg builds as the user and asks for the password
     to install — every package it builds, or only the Manager, or only the
-    driver; [0-9] as a '*' could match another package's name)."""
+    driver; [0-9] as a '*' could match another package's name). A folder with
+    PKGBUILD-driver or PKGBUILD-manager builds that package alone."""
     quoted = "'" + path.replace("'", "'\\''") + "'"
     if fmt == "pacman":
+        one = ("PKGBUILD-manager" if manager_only else "PKGBUILD-driver" if driver_only else "")
+        if one and os.path.isfile(os.path.join(path, one)):
+            return f"cd {quoted} && makepkg -si -p {one}"
         if manager_only:
             return f"cd {quoted} && makepkg -s && sudo pacman -U ./{MANAGER}-*.pkg.tar.zst"
         if driver_only:
