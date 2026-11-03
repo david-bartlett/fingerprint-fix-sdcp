@@ -1,6 +1,6 @@
 # An update can't leave the Manager behind
 
-PR #NUMBER · Claude · 2026-11-03
+PR #158 · Claude · 2026-11-03
 
 ## What changed
 - `pick_asset()` in `lib/update_check.py`: with the Manager installed, a deb or rpm release without its file gives `None`, rather than the driver alone.
