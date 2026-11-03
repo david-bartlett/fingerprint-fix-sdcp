@@ -24,6 +24,8 @@ makepkg -si
 
 (This works in bash, zsh and fish, CachyOS's default shell.)
 
+`makepkg` installs the build tools it needs, builds the driver commit the release was tested with, and asks for your password to install both packages. **Updating:** the Manager's **Update** fetches the new release's `PKGBUILD` and runs `makepkg -si` in your terminal. With only the driver, **Update now** or `fingerprint-fix-sdcp update` builds it and installs just the driver. On 2.11.4 or older, download the new files and follow the steps below.
+
 ### Only the driver on Arch
 
 There's no separate driver download on Arch, as the same `PKGBUILD` always builds both packages, and `makepkg -si` then installs both. For just the driver, build them without installing, then install the driver's:
@@ -34,8 +36,6 @@ sudo pacman -U ./fingerprint-fix-sdcp-[0-9]*.pkg.tar.zst
 ```
 
 That `.pkg.tar.zst` file is one `makepkg` has just built on your laptop, in the same folder. The releases don't include one to download.
-
-`makepkg` installs the build tools it needs, builds the driver commit the release was tested with, and asks for your password to install both packages. **Updating:** the Manager's **Update** fetches the new release's `PKGBUILD` and runs `makepkg -si` in your terminal. With only the driver, **Update now** or `fingerprint-fix-sdcp update` builds it and installs just the driver. On 2.11.4 or older, download the new files and follow the steps below.
 
 ## Installing only one package
 
