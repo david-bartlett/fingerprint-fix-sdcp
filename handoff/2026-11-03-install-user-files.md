@@ -1,6 +1,6 @@
 # install.sh writes into a home as that user
 
-PR #NUMBER · Claude · 2026-11-03
+PR #154 · Claude · 2026-11-03
 
 ## What changed
 - `install.sh`: new `_fp_user_file` writes a rendered unit through `runuser`. `_fp_user_timer` makes the folder as the user too, and stops if a write fails. The `chown -R` calls are gone.
@@ -12,7 +12,7 @@ PR #NUMBER · Claude · 2026-11-03
 
 ## Tested
 - The real functions taken from `install.sh`, as root with a real test user, and `render` and systemctl stood in: a fresh home, a link to a root-owned file, `~/.config` linked to a root folder, a root-owned unit file, and no desktop user. The old code overwrote the link's target; the new code leaves it, warns and carries on.
-- `bash -n`. `shellcheck`: see the PR.
+- `bash -n`. `shellcheck` adds one note, SC2016, on the deliberate single quotes.
 - Not here: a real `install.sh` run, which needs systemd, a Samsung and the sensor.
 
 ## For the next person
