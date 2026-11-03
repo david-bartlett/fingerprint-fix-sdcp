@@ -89,7 +89,10 @@ def main(argv):
     # its ID), write that text there - how notify-update.sh notes a release as
     # announced only once it's shown (the same as galaxybook-fan's)
     shown_file, shown_text = os.environ.get("NOTIFY_SHOWN_FILE"), os.environ.get("NOTIFY_SHOWN_TEXT")
-    if shown_file and shown_text:
+    have = _installed(shown_file) if shown_file else None
+    # never over a newer version (an older release's notification shown
+    # again while a newer one has been announced)
+    if shown_file and shown_text and not (have and _version(shown_text) and have > _version(shown_text)):
         try:
             os.makedirs(os.path.dirname(shown_file), exist_ok=True)
             with open(shown_file, "w") as f:
