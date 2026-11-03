@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.13.2 — 2026-11-03
 
 - **Removed fingerprints survive moving to a package:** replacing an `install.sh` copy, or `uninstall.sh --manager-only`, no longer deletes records you can still restore
 - This helps `install.sh` copies set up from this release on, as older copies keep the cleanup they were installed with
