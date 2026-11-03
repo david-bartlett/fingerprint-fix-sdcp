@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Arch: a failed write can't break `sudo`:** the PAM file is now replaced in one step, so a full disk leaves it as it was, rather than empty
+- This covers turning fingerprint login on or off, and updating its line, for `sudo` and polkit
+
 - **Working fingerprints aren't called dead when the sensor can't be listed:** with a driver that can't list the sensor, they now show *Can't check sensor*
 - Before, every fingerprint showed *Gone from sensor*, with an offer to remove it
 
