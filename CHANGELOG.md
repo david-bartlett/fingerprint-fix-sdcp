@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.12.1 — 2026-11-03
 
 - **Notification icon:** the update notification no longer shows a blank icon after the Manager is removed and installed again
