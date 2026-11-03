@@ -68,6 +68,14 @@ def manager_installed():
     return any(os.path.isfile(m) for m in MANAGER_MARKERS)
 
 
+def update_name():
+    """What an update here is called: the Manager's name with only the Manager,
+    otherwise the driver's package, which is also the release's name."""
+    if manager_installed() and not any(os.path.isfile(m) for m in DRIVER_MARKERS):
+        return "Galaxy Book Fingerprint Manager"
+    return FIX
+
+
 def version_key(v):
     """(major, minor, patch) from '1.2.3' or 'v1.2.3'; None if it isn't one."""
     m = re.fullmatch(r"v?(\d+)\.(\d+)\.(\d+)", (v or "").strip())
@@ -492,7 +500,7 @@ def show_notification(new):
     """The new-version notification for release NEW (the hourly check and
     'galaxybook-fingerprint-manager updates check'), then noted as told.
     False if it couldn't be shown."""
-    title = f"fingerprint-fix-sdcp {new} is available"
+    title = f"{update_name()} {new} is available"
     url = f"{REPO_URL}/releases/tag/v{new}"
     # The first line is all that's shown with buttons (notify-update.sh); the
     # rest is for a notification without them
@@ -617,7 +625,7 @@ def install(version):
     import shutil
     import tempfile
     bold, red, off = "\033[1m", "\033[31m", "\033[0m"
-    title = f"Updating fingerprint-fix-sdcp to {version}"
+    title = f"Updating {update_name()} to {version}"
     print(("" if os.environ.get("GBF_OWN_TERMINAL") == "1" else f"\033]0;{title}\a")
           + f"{bold}{title}{off}\n", flush=True)
     folder = None
@@ -641,7 +649,7 @@ def install(version):
     # replaces the VERSION file this copy reads.
     mine = installed_version()
     if version_key(mine) and version_key(version) and version_key(mine) >= version_key(version):
-        print(f"{bold}fingerprint-fix-sdcp {mine} is already installed{off} - nothing to update.")
+        print(f"{bold}{update_name()} {mine} is already installed{off} - nothing to update.")
         if not own_terminal:
             import select                    # as update-in-terminal.sh: 10 s, or Enter
             print("\nThis window closes in 10 seconds (or press Enter).", end="", flush=True)
@@ -703,12 +711,12 @@ def cmd_update():
         print("Couldn't find the newest release on GitHub (no network?)")
         return 1
     if not (version_key(new) and version_key(mine) and version_key(new) > version_key(mine)):
-        print(f"fingerprint-fix-sdcp {mine} is up to date (newest release: {new})")
+        print(f"{update_name()} {mine} is up to date (newest release: {new})")
         return 0
     if not release_assets(new):
-        print(f"fingerprint-fix-sdcp {new} is being released - its files aren't attached yet, try again in a few minutes")
+        print(f"{update_name()} {new} is being released - its files aren't attached yet, try again in a few minutes")
         return 1
-    print(f"fingerprint-fix-sdcp {new} is available (you have {mine}): {REPO_URL}/releases/tag/v{new}")
+    print(f"{update_name()} {new} is available (you have {mine}): {REPO_URL}/releases/tag/v{new}")
     os.environ["GBF_OWN_TERMINAL"] = "1"
     return install(new)
 
@@ -733,12 +741,12 @@ def cmd_updates(what):
             print("Couldn't find the newest release on GitHub (no network?)")
             return 1
         if not (version_key(new) and version_key(mine) and version_key(new) > version_key(mine)):
-            print(f"fingerprint-fix-sdcp {mine} is up to date (newest release: {new})")
+            print(f"{update_name()} {mine} is up to date (newest release: {new})")
             return 0
         if not release_assets(new):
-            print(f"fingerprint-fix-sdcp {new} is being released - its files aren't attached yet, try again in a few minutes")
+            print(f"{update_name()} {new} is being released - its files aren't attached yet, try again in a few minutes")
             return 0
-        print(f"fingerprint-fix-sdcp {new} is available (you have {mine}): {REPO_URL}/releases/tag/v{new}")
+        print(f"{update_name()} {new} is available (you have {mine}): {REPO_URL}/releases/tag/v{new}")
         print(f"To update, run: {COMMAND} update")
         if (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")) and show_notification(new):
             print("Notification shown (with Update now / What's new where your desktop has buttons)")

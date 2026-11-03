@@ -3484,7 +3484,7 @@ class Manager(Gtk.Window):
     def _show_update(self, new, assets=()):
         self._new_version, self._new_assets = new, list(assets)
         if new:
-            self.update_btn.set_tooltip_text(f"fingerprint-fix-sdcp {new} is available "
+            self.update_btn.set_tooltip_text(f"{update_check.update_name()} {new} is available "
                                              f"(this is {app_version()})")
         self.update_btn.set_visible(bool(new))
         return False
@@ -3721,7 +3721,7 @@ class Manager(Gtk.Window):
                    f"    {tt('git pull')}\n    {tt('sudo bash install.sh')}")
         d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                               buttons=Gtk.ButtonsType.NONE,
-                              text=f"fingerprint-fix-sdcp {new} is available")
+                              text=f"{update_check.update_name()} {new} is available")
         d.format_secondary_markup(how)
         d.add_button("Close", Gtk.ResponseType.CLOSE)
         d.add_button("View on GitHub", 1)
@@ -3847,7 +3847,7 @@ class Manager(Gtk.Window):
         shows it, runs it, removes the download and closes the window). False
         when the terminal can't be started: the old dialog is shown instead."""
         term, folder = self._dl_term, self._dl_tmp
-        title = f"Updating fingerprint-fix-sdcp to {self._dl_version}"
+        title = f"Updating {update_check.update_name()} to {self._dl_version}"
         # Made as the terminal window closes: the restart question waits for it.
         self._term_closed = folder + ".closed"
         argv = terminal.command_line(
@@ -3968,7 +3968,7 @@ class Manager(Gtk.Window):
         # with its Restart button.
         d = MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.INFO,
                           buttons=Gtk.ButtonsType.NONE,
-                          text=f"fingerprint-fix-sdcp {version} has been installed")
+                          text=f"{update_check.update_name()} {version} has been installed")
         d.format_secondary_text("Restart the Fingerprint Manager to use the new version.")
         d.add_button("Later", Gtk.ResponseType.CLOSE)
         d.add_button("Restart", 1)
@@ -3979,7 +3979,7 @@ class Manager(Gtk.Window):
         if resp == 1:
             self._restart_into(command)
             return False
-        self.message(f"fingerprint-fix-sdcp {version} has been installed — restart the "
+        self.message(f"{update_check.update_name()} {version} has been installed — restart the "
                      "Fingerprint Manager to use it.", Gtk.MessageType.INFO,
                      action=("Restart", lambda c=command: self._restart_into(c)))
         return False
