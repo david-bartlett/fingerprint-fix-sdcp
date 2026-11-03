@@ -42,11 +42,22 @@ args=(-u critical -t 0 -a "$APPNAME" -i "$ICON")
 # the version announced. It's written the moment a notification has appeared
 # (notify-send printed its ID, notify-dbus.py's Notify call returned one, or a
 # plain notify-send worked), never before: if this is stopped first (logging
-# out, say), or nothing can be shown, the next check tries again. The same as
-# galaxybook-fan's.
+# out, say), or nothing can be shown, the next check tries again. Never over
+# a newer version: an older release's notification shown again ("What's
+# new"), or closing after a newer one was noted, would otherwise get the newer
+# one announced twice. Stopped in the moment between appearing and being
+# noted (up to 0.5 s; with a notify-send without --print-id, until it's
+# closed), it's announced again at the next check: a rare second notification
+# rather than a missed one. The same as galaxybook-fan's.
 told_file="${NOTIFY_TOLD_FILE:-}"; told_version="${NOTIFY_TOLD_VERSION:-}"
 told() {
+    local have
     [[ -n "$told_file" && -n "$told_version" ]] || return 0
+    have="$(tr -d '[:space:]' < "$told_file" 2>/dev/null)"
+    if [[ -n "$have" && "$have" != "$told_version" \
+            && "$(printf '%s\n%s\n' "$have" "$told_version" | sort -V | tail -1)" == "$have" ]]; then
+        return 0
+    fi
     mkdir -p "$(dirname "$told_file")" 2>/dev/null && echo "$told_version" > "$told_file"
 }
 

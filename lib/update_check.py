@@ -537,11 +537,28 @@ def show_notification(new):
                        check=True, timeout=15, capture_output=True)
         return True                 # notify-update.sh notes it as told once it's shown
     except (OSError, subprocess.SubprocessError):
+        # Another check started it in the same moment (systemd-run refused
+        # the name): that one shows it, so no plain copy
+        try:
+            if subprocess.run(["systemctl", "--user", "is-active", "--quiet", unit],
+                              timeout=15, capture_output=True).returncode == 0:
+                return True
+        except (OSError, subprocess.SubprocessError):
+            pass
         try:
             subprocess.run(["notify-send", "-u", "critical", "-t", "0", "-a", "Samsung Galaxy Book Fixes", "-i", APP,
                             title, f"{msg}\n{url}"], check=True, timeout=15)
         except (OSError, subprocess.SubprocessError):
             return False            # try again next time
+    try:
+        # never over a newer version already noted
+        with open(NOTIFIED) as f:
+            have = f.read().strip()
+        old_key, new_key = version_key(have), version_key(new)
+        if old_key and new_key and old_key > new_key:
+            return True
+    except OSError:
+        pass
     try:
         os.makedirs(CACHE_DIR, exist_ok=True)
         with open(NOTIFIED, "w") as f:
