@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.12.1 — 2026-11-03
 
 - **Notification icon:** the update notification no longer shows a blank icon after the Manager is removed and installed again
 - It now uses the icon's file rather than its name, as a running Plasma could show the name as blank until it restarted. The login check's plain notification does the same
