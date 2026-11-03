@@ -499,8 +499,13 @@ def notify_once():
 
 def show_notification(new):
     """The new-version notification for release NEW (the hourly check and
-    'galaxybook-fingerprint-manager updates check'), then noted as told.
-    False if it couldn't be shown."""
+    'galaxybook-fingerprint-manager updates check'). It's noted as told only
+    once a notification has really appeared: by notify-update.sh itself, which
+    systemd-run only starts (NOTIFY_TOLD_FILE / NOTIFY_TOLD_VERSION), or here
+    after a plain one. If none appears (none could be shown, or it was stopped
+    first, at logout say), the next check tries again. One still waiting to
+    appear or on screen (its unit running) isn't started twice.
+    False if it couldn't be started or shown."""
     title = f"{update_name()} {new} is available"
     url = f"{REPO_URL}/releases/tag/v{new}"
     # The first line is all that's shown with buttons (notify-update.sh); the
@@ -518,9 +523,19 @@ def show_notification(new):
     # installed) the Manager: notify-update.sh, started on its own so this
     # doesn't wait for it; a plain notification if that can't be started.
     helper = os.path.join(HERE, "notify-update.sh")
+    unit = f"fingerprint-fix-sdcp-notify-{new}"
     try:
-        subprocess.run(["systemd-run", "--user", "--quiet", "--collect", helper, title, msg, url, new],
+        if subprocess.run(["systemctl", "--user", "is-active", "--quiet", unit],
+                          timeout=15, capture_output=True).returncode == 0:
+            return True             # that version's notification is already up
+    except (OSError, subprocess.SubprocessError):
+        pass
+    try:
+        subprocess.run(["systemd-run", "--user", "--quiet", "--collect", f"--unit={unit}",
+                        f"--setenv=NOTIFY_TOLD_FILE={NOTIFIED}", f"--setenv=NOTIFY_TOLD_VERSION={new}",
+                        helper, title, msg, url, new],
                        check=True, timeout=15, capture_output=True)
+        return True                 # notify-update.sh notes it as told once it's shown
     except (OSError, subprocess.SubprocessError):
         try:
             subprocess.run(["notify-send", "-u", "critical", "-t", "0", "-a", "Samsung Galaxy Book Fixes", "-i", APP,
