@@ -10,6 +10,7 @@
 ## Unreleased
 
 - **README: the two packages up top:** the Important note now explains the driver and the Manager, and mentions `install.sh`
+- `docs/install-options.md` now explains installing on Fedora, Ubuntu and Debian too, not only Arch and `install.sh`
 - The multi-distro warning moved out of the README into the top of `docs/multi-distro.md`
 
 ## 2.13.6 — 2026-11-03

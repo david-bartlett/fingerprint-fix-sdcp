@@ -16,3 +16,4 @@ PR #? · Claude · 2026-11-09
 
 ## For the next person
 - The README is about the same length as before (the package explanation moved up rather than going). Updating and Uninstall are the bulk left; moving them to `docs/` is David's call.
+- `docs/install-options.md` now has a section for Fedora, Ubuntu, Debian and derivatives (download the two files, the command per distro, `FPRINT_PAM=0`, updating, removing). It only had Arch, one package and `install.sh`.
