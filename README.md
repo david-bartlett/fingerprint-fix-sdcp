@@ -23,6 +23,9 @@ Makes the fingerprint reader work on Linux on the **Samsung Galaxy Book4 and Boo
 | [Galaxy Book Fingerprint Manager](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/manager.md) | The window, its tabs and menu, what slots are, every button |
 | [Fingerprint login](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/fingerprint-login.md) | Enrolling, turning fingerprint login on or off, sudo and admin prompts on Arch-based distros |
 | [Multi-Distro Mode](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/multi-distro.md) | Sharing fingerprints between distros (enrol a finger once, not on each), reinstalling, reset, back up and restore |
+| [Updating](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/updating.md) | The notification, updating with the Manager or only the driver, `install.sh` copies, how the check works |
+| [Uninstalling](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/uninstall.md) | Removing both packages or only one, what's kept, switching the driver off temporarily |
+| [Supported hardware](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/supported-hardware.md) | Confirmed models and distros, test details by reader, the Galaxy Book3 and Book4 Edge |
 | [Install options](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/install-options.md) | Arch-based distros, installing only one package, other distros with `install.sh` |
 | [The monitor and boot check](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/monitoring.md) | What the monitor and the boot-time sensor check do, and what they tell you |
 | [How it works](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/how-it-works.md) | What installing does, the problem it fixes, where the driver comes from, security notes, every file |
@@ -64,113 +67,24 @@ Once installed, **[enrol a fingerprint](https://github.com/david-bartlett/finger
 
 ## Uninstall
 
-Installed from a package — remove both with your package manager:
+Remove both packages with your package manager, or use `uninstall.sh` if you installed with `install.sh`:
 
 ```bash
 sudo dnf remove fingerprint-fix-sdcp galaxybook-fingerprint-manager      # Fedora
 sudo apt remove fingerprint-fix-sdcp galaxybook-fingerprint-manager      # Ubuntu, Mint, Debian, MX
 sudo pacman -R fingerprint-fix-sdcp galaxybook-fingerprint-manager       # Arch, CachyOS
+sudo bash uninstall.sh                                                   # install.sh, from its folder
 ```
 
-Installed with `install.sh` — from its folder:
-
-```bash
-sudo bash uninstall.sh
-```
-
-Enrolled fingerprints are always kept, so reinstalling uses them again, and fingerprint login stays as you set it.
-
-### Removing only one part, and what's kept
-
-**Only the driver** — e.g. once your distro's own libfprint handles the reader with SDCP (the monitor tells you, and the Galaxy Book Fingerprint Manager offers it): `sudo dnf remove fingerprint-fix-sdcp` (or `apt remove` / `pacman -R` the same name), or `sudo bash uninstall.sh --driver-only`. fprintd goes back to your distro's libfprint; the Manager, its checks and fingerprint login stay.
-
-**Only the Manager:** `sudo dnf remove galaxybook-fingerprint-manager` (or `apt remove` / `pacman -R`), or `sudo bash uninstall.sh --manager-only`. The driver, fingerprint login and enrolled fingerprints stay.
-
-Either way, enrolled fingerprints are always kept — fprintd's records and the templates on the sensor — so reinstalling uses them again. To delete fingers, use the Manager before uninstalling (while the driver is still loaded, so the templates leave the sensor too). Both remove the drop-in, the library, the Manager and the monitor; nothing needs reinstalling because the distro libfprint was never replaced. Fingerprint login is left as you set it, on every distro, so it keeps working once your distro's libfprint has SDCP.
-
-To switch an `install.sh` copy off **temporarily** instead:
-
-```bash
-sudo mv /etc/systemd/system/fprintd.service.d/samsung-galaxybook-egismoc-sdcp.conf /root/
-sudo systemctl daemon-reload && sudo systemctl restart fprintd
-```
+Enrolled fingerprints are always kept, so reinstalling uses them again. To remove only the driver or only the Manager, see [Uninstalling](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/uninstall.md).
 
 ## Updating
 
-### From the update notification
-
-You're told about each new release with a notification, checked 30 seconds after login and then hourly. This works with the driver alone too. Nothing is installed until you choose to, and enrolled fingerprints are always kept.
-
-<img src="images/update-notification-both.png" width="300" alt="Notification: Fingerprint Driver &amp; Manager 2.13.2 is available. You have 2.13.1. Buttons: Update now and What's new">
-
-### With the Galaxy Book Fingerprint Manager
-
-Click the notification's **Update now** (or the Manager's **Update** button): it downloads the new files and installs them in a terminal window, where you confirm with your fingerprint or password.
-
-From a terminal (no `sudo`; `update` asks for your password when it installs):
-
-| Command | What it does |
-| --- | --- |
-| `galaxybook-fingerprint-manager update` | Install the newest release: downloads, checks and installs what you have installed in this terminal |
-| `galaxybook-fingerprint-manager updates on` / `off` | "New version" notifications on or off (the same as the Manager's switch) |
-| `galaxybook-fingerprint-manager updates status` | Are they on? (checked hourly) |
-| `galaxybook-fingerprint-manager updates check` | Look now; if there's a new version, show the notification |
-
-`galaxybook-fingerprint-manager --help` lists them all.
-
-### With only the driver
-
-<img src="images/update-notification-driver.png" width="300" alt="Notification: Fingerprint Driver 2.13.2 is available. You have 2.13.1. Buttons: Update now and What's new">
-
-Click the notification's **Update now**: it downloads the driver's new file and installs it in a terminal window, where you confirm with your password. It doesn't add the Manager. On Arch-based distros, it builds the driver on your laptop first, from the release's `PKGBUILD-driver`.
-
-From a terminal (no `sudo`; `update` asks for your password when it installs):
-
-| Command | What it does |
-| --- | --- |
-| `fingerprint-fix-sdcp update` | Install the newest driver: downloads, checks and installs it in this terminal |
-| `fingerprint-fix-sdcp updates on` / `off` | "New version" notifications on or off |
-| `fingerprint-fix-sdcp updates status` | Are they on? (checked hourly) |
-| `fingerprint-fix-sdcp updates check` | Look now; if there's a new version, show the notification |
-
-`fingerprint-fix-sdcp --help` lists them all. If the Manager is installed, this command changes nothing and names the Manager's command to run instead.
-
-**On 2.11.4 or older?** These don't have **Update now** or this command yet, so update once by hand: download the driver's new file from the [latest release](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest) and install it as in [Installing only one package](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/install-options.md#installing-only-one-package). To turn the notifications off on those versions, use `systemctl --user mask fingerprint-fix-sdcp-update-check.timer`, and `unmask` to turn them back on.
-
-### Installed with install.sh
-
-In the `fingerprint-fix-sdcp` folder, `git pull`, then `sudo bash install.sh` again. The `fingerprint-fix-sdcp` command comes with the package, so with only the driver, use `systemctl --user disable fingerprint-fix-sdcp-update-check.timer` to turn the notifications off, and `enable` to turn them back on.
-
-<details>
-<summary>How the update check works</summary>
-
-- The notification comes once per version, with **Update now** (when installed from a package: what you have is downloaded, checked against the release's `SHA256SUMS` and installed together) and **What's new** (the release page; the notification comes back afterwards). On GNOME, hover over it to see the buttons, or click it for **What's new**.
-- The notification stays on screen until you close it, or until the new version is installed some other way, such as the Manager's **Update** button or `galaxybook-fingerprint-manager update`.
-- Only one check runs: the driver's own check is skipped while the Manager is installed.
-- A release is only announced once its files are attached, so **Update** always has something to install.
-- With no terminal found, the Manager's **Update** saves the files to `~/Downloads` instead, with the command to paste.
-- **Turn it off** in the Manager: ☰ → *Check for new versions*, or `galaxybook-fingerprint-manager updates off`.
-- Turning it off in the Manager also turns off the driver's check, and that stays off if you remove the Manager; removing it tells you so, with a **Turn on** button.
-
-</details>
+You're told about each new release with a notification, checked 30 seconds after login and then hourly. Nothing is installed until you choose to: click **Update now**, or run `galaxybook-fingerprint-manager update` in a terminal (`fingerprint-fix-sdcp update` if you only have the driver). Installed with `install.sh`: `git pull`, then `sudo bash install.sh` again. Enrolled fingerprints are always kept. See [Updating](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/updating.md) for the details.
 
 ## Supported Hardware
 
-**Confirmed working:** Galaxy Book5 Pro 14" (940XHA, reader `05a5`) on Fedora 45, Ubuntu 26.04, Linux Mint 22.3 and 27, MX Linux 25 and CachyOS; Galaxy Book4 (reader `05a1`) on Zorin OS 18. Find your reader with `lsusb | grep 1c7a`.
-
-<details>
-<summary>Test details by reader</summary>
-
-| USB ID | Galaxy Book Model | Status |
-| --- | --- | --- |
-| `1c7a:05a5` | Galaxy Book4 / Book5 Pro | **Confirmed working** on Galaxy Book5 Pro 14" (940XHA): Fedora 45, Linux Mint 27 (beta), Linux Mint 22.3 (OpenSSL 3.0.13 — needs commit 3b0ee1f or later), Ubuntu 26.04, MX Linux (Xfce) and CachyOS (KDE), 2026-10-24/25 |
-| `1c7a:05a1` | Galaxy Book4 (ETU905A80-E) | **Confirmed working** on a Galaxy Book4 by [@gabaritei88](https://github.com/gabaritei88) (firmware 9050.1.2.33): Zorin OS 18.1 (Ubuntu 24.04 base, OpenSSL 3.0.13 — needs commit 3b0ee1f or later), driver installed for fprintd only, enrol, verify and PAM login working; the 4 existing Windows Hello templates on the sensor were kept, 2026-10-26. Also tested upstream with this build (597 logins through `pam_fprintd`). On a Galaxy Book4 (960XGL) with Ubuntu 26.04 (libfprint 1.95.1+tod1), Ubuntu's own egismoc driver lists the reader but without SDCP, so it can't keep fingerprints — this fix is needed there too, 2026-10-27 |
-
-</details>
-
-The **Galaxy Book3** can have the `05a1` reader too, but nobody has tested this fix on one, so `install.sh`, the `.rpm`, the `.deb` and the Arch `PKGBUILD` refuse to install there (a Book3 is recognised by its model name, or its model code: the letter after `X` or `Q` is `F` for the Book3, `G` for the Book4 and `H` for the Book5 — e.g. `940XFG`, `960XGL`, `940XHA`). To try it anyway: `FPRINT_SDCP_FORCE=1`. If it works on your Book3, please tell us with the form below.
-
-Only 64-bit Intel/AMD (`x86_64`) Galaxy Books are supported. The ARM-based **Galaxy Book4 Edge** (Snapdragon) isn't: every install method refuses on an ARM processor.
+**Confirmed working:** Galaxy Book5 Pro 14" (940XHA, reader `05a5`) on Fedora 45, Ubuntu 26.04, Linux Mint 22.3 and 27, MX Linux 25 and CachyOS; Galaxy Book4 (reader `05a1`) on Zorin OS 18. Find your reader with `lsusb | grep 1c7a`. The Galaxy Book3 and the ARM-based Galaxy Book4 Edge aren't supported: every install method refuses there. Test details and why: [Supported hardware](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/supported-hardware.md).
 
 Got it working on a model or distro not listed here? Please tell us with the [**It works on my laptop / distro**](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues/new?template=works_on.yml) form — that's how this list grows.
 

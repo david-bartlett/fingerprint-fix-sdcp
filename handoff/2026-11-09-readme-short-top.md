@@ -17,3 +17,5 @@ PR #168 · Claude · 2026-11-09
 ## For the next person
 - The README is about the same length as before (the package explanation moved up rather than going). Updating and Uninstall are the bulk left; moving them to `docs/` is David's call.
 - `docs/install-options.md` now has a section for Fedora, Ubuntu, Debian and derivatives (download the two files, the command per distro, `FPRINT_PAM=0`, updating, removing). It only had Arch, one package and `install.sh`.
+- Shorter README (about 2,180 to 1,200 words): the Updating, Uninstall and Supported Hardware sections moved word for word into new guides `docs/updating.md`, `docs/uninstall.md` and `docs/supported-hardware.md` (headings one level up, links relative, "Test details by reader" no longer collapsed). The README keeps a short version of each with a link. `docs/driver-only.md` and `PLAN.md` point at the new guides, and the Documentation table lists them.
+- Checked by script: every relative link, full `docs/` link, anchor and picture path in the README and guides resolves. Not seen in a browser.

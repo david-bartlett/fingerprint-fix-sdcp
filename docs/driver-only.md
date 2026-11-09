@@ -47,7 +47,7 @@ Fingerprint works at the login screen, the lock screen, `sudo` and admin prompts
 
 ## Updating
 
-You're told about each new release. **Update now** in the notification, or `fingerprint-fix-sdcp update`, installs just the driver. See [With only the driver](../README.md#with-only-the-driver).
+You're told about each new release. **Update now** in the notification, or `fingerprint-fix-sdcp update`, installs just the driver. See [With only the driver](updating.md#with-only-the-driver).
 
 <img src="../images/update-notification-driver.png" width="300" alt="Notification: Fingerprint Driver 2.13.2 is available. You have 2.13.1. Buttons: Update now and What's new">
 
@@ -71,4 +71,4 @@ Install the `galaxybook-fingerprint-manager` file the same way as the driver. Se
 
 ## Removing the driver
 
-See [Uninstall](../README.md#uninstall). Enrolled fingerprints are always kept, and fingerprint login stays as you set it.
+See [Uninstalling](uninstall.md). Enrolled fingerprints are always kept, and fingerprint login stays as you set it.
