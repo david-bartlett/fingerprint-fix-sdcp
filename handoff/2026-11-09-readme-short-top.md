@@ -1,6 +1,6 @@
 # README top: the two packages, no multi-distro warning
 
-PR #? · Claude · 2026-11-09
+PR #168 · Claude · 2026-11-09
 
 ## What changed
 - `README.md`: the Important note lost its multi-distro bullet and now explains the two packages (driver, Galaxy Book Fingerprint Manager) the way the release page does, then says the software can also be installed by cloning the repo and running `install.sh` (links to `docs/install-options.md`).
