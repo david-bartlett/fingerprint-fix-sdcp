@@ -9,6 +9,11 @@
 
 ## Unreleased
 
+- **Shorter README:** updating, uninstalling and supported hardware now have their own guides in `docs/`, with a short summary in the README
+- **README: the two packages up top:** the Important note now explains the driver and the Manager, and mentions `install.sh`
+- `docs/install-options.md` now explains installing on Fedora, Ubuntu and Debian too, not only Arch and `install.sh`
+- The multi-distro warning moved out of the README into the top of `docs/multi-distro.md`
+
 ## 2.13.6 — 2026-11-03
 
 - **Arch install guide: command before files:** in *Only one package on Arch*, the table now shows the command before the files it needs

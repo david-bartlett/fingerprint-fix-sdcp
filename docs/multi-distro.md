@@ -4,6 +4,9 @@
 
 The other guides are all one distro needs. This guide is for laptops with **several Linux distros** using the one sensor.
 
+> [!IMPORTANT]
+> **Don't enrol the same finger on each distro:** that deletes it from the others. Enrol it once and share it: the Galaxy Book Fingerprint Manager offers it on your other distros by itself (see [Sharing Fingerprints](#sharing-fingerprints)).
+
 **The Galaxy Book Fingerprint Manager switches to multi-distro mode by itself.** Each distro that runs it notes itself (and where it's installed: its partition) in one file on the EFI partition, `EFI/samsung-galaxybook/fingerprint-slots.json`, which every OS on the laptop shares and which survives reinstalling a distro. Each time the Manager opens, it reads that file and checks the other distros still exist: one whose partition has been deleted or reformatted (reinstalled) is no longer listed, and a short message says so. A distro on a second drive that isn't connected is left as it is. As soon as another distro is found, the multi-distro parts appear: the **Sensor slots** tab, and in the ☰ menu **Import from other distros…**, **Back up & restore…** and **Reset <distro>…**. When the others are gone, it goes back to single-distro mode. (`galaxybook-fingerprint-manager --single-distro` shows the single-distro layout anyway, e.g. to try it; only what's shown changes.)
 
 ## The ☰ menu with one distro, and in multi-distro mode

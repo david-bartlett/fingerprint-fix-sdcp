@@ -2,7 +2,25 @@
 
 [← Back to the README](../README.md)
 
-Other ways to install: on Arch-based distros, only one of the two packages, or with `install.sh`.
+Other ways to install: Fedora, Ubuntu, Debian and their derivatives, Arch-based distros, only one of the two packages, or with `install.sh`.
+
+## Fedora, Ubuntu, Debian and their derivatives
+
+These get ready-made packages, built for each distro release. In the [latest release](https://github.com/david-bartlett/fingerprint-fix-sdcp/releases/latest), find your distro in the **Install** table and download its two files: the driver (`fingerprint-fix-sdcp`) and the Galaxy Book Fingerprint Manager (`galaxybook-fingerprint-manager`). Open a terminal in the folder you saved them to (usually Downloads) and run the command. It installs both, and your package manager pulls in what they need.
+
+| Distro | Command |
+| --- | --- |
+| Fedora 45 | `sudo dnf install ./fingerprint-fix-sdcp-*.fc45.x86_64.rpm ./galaxybook-fingerprint-manager-*.fc45.noarch.rpm` |
+| Fedora 44 | `sudo dnf install ./fingerprint-fix-sdcp-*.fc44.x86_64.rpm ./galaxybook-fingerprint-manager-*.fc44.noarch.rpm` |
+| Ubuntu 26.04, Linux Mint 27 | `sudo apt install ./fingerprint-fix-sdcp_*ubuntu26.04_amd64.deb ./galaxybook-fingerprint-manager_*ubuntu26.04_all.deb` |
+| Ubuntu 24.04, Linux Mint 22, Zorin OS 18 | `sudo apt install ./fingerprint-fix-sdcp_*ubuntu24.04_amd64.deb ./galaxybook-fingerprint-manager_*ubuntu24.04_all.deb` |
+| Debian 13, MX Linux 25 | `sudo apt install ./fingerprint-fix-sdcp_*debian13_amd64.deb ./galaxybook-fingerprint-manager_*debian13_all.deb` |
+
+Pick the files that match your distro's release, e.g. the `fc45` files on Fedora 45. The `./` in front is needed so `dnf` and `apt` read the files from the folder instead of looking for packages by name.
+
+Fingerprint login (lock screen, `sudo`, admin prompts) is turned on at the first install, and updates leave it as you set it. To install with it off, put `FPRINT_PAM=0` after `sudo`, e.g. `sudo FPRINT_PAM=0 dnf install ./fingerprint-fix-sdcp-*.rpm ./galaxybook-fingerprint-manager-*.rpm`. See [Fingerprint login](fingerprint-login.md#turning-fingerprint-login-on-or-off).
+
+**Updating:** the new-version notification's **Update now** downloads and installs the new files for you, or run `galaxybook-fingerprint-manager update` (see the README's Updating section). Or download the new files and run the same command again. **Removing:** see the README's Uninstall section.
 
 ## Arch-based distros
 
