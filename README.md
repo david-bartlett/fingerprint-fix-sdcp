@@ -84,7 +84,7 @@ You're told about each new release with a notification, checked 30 seconds after
 
 ## Supported Hardware
 
-**Confirmed working:** Galaxy Book5 Pro 14" (940XHA, reader `05a5`) on Fedora 45, Ubuntu 26.04, Linux Mint 22.3 and 27, MX Linux 25 and CachyOS; Galaxy Book4 (reader `05a1`) on Zorin OS 18. Find your reader with `lsusb | grep 1c7a`. The Galaxy Book3 and the ARM-based Galaxy Book4 Edge aren't supported: every install method refuses there. Test details and why: [Supported hardware](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/supported-hardware.md).
+**Confirmed working:** Galaxy Book5 Pro 14" (940XHA, reader `05a5`) on Fedora 45, Ubuntu 26.04, Linux Mint 22.3 and 27, MX Linux 25 and CachyOS; Galaxy Book4 (reader `05a1`) on Zorin OS 18, and Galaxy Book4 Ultra (960XGL, reader `05a1`) on Ubuntu 26.04. Find your reader with `lsusb | grep 1c7a`. The Galaxy Book3 and the ARM-based Galaxy Book4 Edge aren't supported: every install method refuses there. Test details and why: [Supported hardware](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/supported-hardware.md).
 
 Got it working on a model or distro not listed here? Please tell us with the [**It works on my laptop / distro**](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues/new?template=works_on.yml) form — that's how this list grows.
 
