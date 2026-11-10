@@ -22,6 +22,7 @@ The packages and `install.sh` refuse to install when:
 | --- | --- | --- |
 | Not a 64-bit Intel/AMD processor | Refused | Refused |
 | A Galaxy Book3 | Refused | Refused |
+| An immutable system, such as Fedora Silverblue | Refused | Refused |
 | Not a Samsung | Refused | Refused, no override |
 | No `05a5` or `05a1` reader found | Refused | Refused, no override |
 

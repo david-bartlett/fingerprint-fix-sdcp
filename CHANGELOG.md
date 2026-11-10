@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **Immutable distros are refused:** the packages and `install.sh` no longer install on systems like Fedora Silverblue, Kinoite, Bazzite or SteamOS, where they can't work properly
+
 - **Shorter README:** updating, uninstalling and supported hardware now have their own guides in `docs/`, with a short summary in the README
 - **README: the two packages up top:** the Important note now explains the driver and the Manager, and mentions `install.sh`
 - `docs/install-options.md` now explains installing on Fedora, Ubuntu and Debian too, not only Arch and `install.sh`

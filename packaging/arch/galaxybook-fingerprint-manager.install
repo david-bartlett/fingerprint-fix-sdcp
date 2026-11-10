@@ -46,6 +46,12 @@ fix_hardware_problem() {
         *) echo "this computer is not a Samsung (vendor: $(head -n1 /sys/class/dmi/id/sys_vendor 2>/dev/null || echo unknown))"
            return 1 ;;
     esac
+    # Immutable systems (Fedora Silverblue, Kinoite, Bazzite, SteamOS...): the
+    # fix needs a writable /usr and normal package scripts, so it isn't for them.
+    if [ -e /run/ostree-booted ] || ! [ -w /usr ]; then
+        echo "this is an immutable system (such as Fedora Silverblue), which this fix doesn't support"
+        return 1
+    fi
     # Galaxy Book3 laptops can have the same 1c7a:05a1 reader as the Book4, but
     # this fix is only tested on the Book4 and Book5: refused there. Recognised
     # by the family name, or the model code: NP / 3 digits / X (laptop) or Q

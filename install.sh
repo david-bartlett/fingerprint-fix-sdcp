@@ -147,6 +147,14 @@ check_hardware() {
         echo "Unsupported hardware: vendor is '$(head -1 <<< "${_vendor:-unknown}")' — this script is for Samsung Galaxy Book laptops only"
         return 1
     fi
+    # Immutable systems (Fedora Silverblue, Kinoite, Bazzite, SteamOS...): /usr
+    # is read-only and packages are layered into an image, so this script can't
+    # install its build tools or manage the files it adds. FPRINT_SDCP_FORCE=1 overrides.
+    if [[ ( -e /run/ostree-booted || ! -w /usr ) && "${FPRINT_SDCP_FORCE:-0}" != 1 ]]; then
+        echo "This is an immutable system (such as Fedora Silverblue), which fingerprint-fix-sdcp"
+        echo "doesn't support, so it isn't installed here."
+        return 1
+    fi
     # Galaxy Book3: can have the same 1c7a:05a1 reader as the Book4, but this
     # fix is only tested on the Book4 and Book5. Same rule as the packages:
     # the family name, or the model code's generation letter after X (laptop)
