@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **Update on GNOME: one terminal window:** **Update now** in the notification, and the Manager's **Update**, could open Ptyxis twice, once with your saved windows and once with the update. Ptyxis now opens as a window of its own, as the dev tools' buttons already do
+
 ## 2.14.1 — 2026-11-10
 
 - **Arch: updating and installing work again:** 2.14.0's PKGBUILD took every Arch system for an immutable one and stopped, as `makepkg` runs as you and can't write to `/usr`. It now checks how `/usr` is mounted instead

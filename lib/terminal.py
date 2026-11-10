@@ -2,7 +2,8 @@
 
 find_terminal() picks the terminal to run the update in, best first:
   1. the one the desktop's own settings name (KDE, Xfce, Cinnamon, MATE)
-  2. xdg-terminal-exec, the cross-desktop default (newer GNOME, Fedora, Arch)
+  2. xdg-terminal-exec, the cross-desktop default (newer GNOME, Fedora, Arch),
+     except when that's Ptyxis, which is started straight away (below)
   3. the desktop's own terminal (Ptyxis / GNOME Terminal / Console on GNOME,
      Konsole on KDE, …)
   4. x-terminal-emulator (Debian, Ubuntu, Mint)
@@ -10,6 +11,11 @@ find_terminal() picks the terminal to run the update in, best first:
 Each terminal takes a command differently, hence the table. GNOME's own
 "default terminal" setting is left out: it's no longer used and often names a
 terminal that isn't the one in use.
+
+Ptyxis is started with --standalone, as its own instance. Without it, Ptyxis
+hands the command to its shared instance, which can restore the saved windows
+too, so two windows opened. Started by xdg-terminal-exec, the flag is lost, so
+when xdg-terminal-exec would open Ptyxis, Ptyxis is started directly.
 """
 import configparser
 import os
@@ -19,7 +25,7 @@ import subprocess
 # How each terminal runs a command: argv before the command's own arguments.
 # ("str" ones take the command as one string.)
 TERMINALS = {
-    "ptyxis":          (["ptyxis", "--new-window", "--"], "args"),
+    "ptyxis":          (["ptyxis", "--standalone", "--"], "args"),
     "gnome-terminal":  (["gnome-terminal", "--"], "args"),
     "kgx":             (["kgx", "--"], "args"),
     "konsole":         (["konsole", "-e"], "args"),
@@ -125,6 +131,14 @@ def find_terminal():
     if found:
         return found
     if shutil.which("xdg-terminal-exec"):
+        # Ptyxis needs --standalone (see the top), which xdg-terminal-exec
+        # doesn't pass. An older xdg-terminal-exec can't say what it opens
+        # (no --print-id): on GNOME, that's Ptyxis when it's installed.
+        default = _known(_read(["xdg-terminal-exec", "--print-id"]))
+        if default == "ptyxis" or (not default and {"gnome", "ubuntu"} & set(_desktops())):
+            found = ok("ptyxis")
+            if found:
+                return found
         return ("xdg-terminal-exec", ["xdg-terminal-exec"], "args")
     for desk in _desktops():
         for name in NATIVE.get(desk, []):
