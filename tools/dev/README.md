@@ -12,7 +12,9 @@ Manager instead — it does all of this in a window.
 | `snap.sh [file]` | Read-only: a text snapshot of every template on the sensor and which fprintd record uses it (`fpslots.py`), saved to `snapshot-HHMMSS.txt` or the file given — handy to compare before and after, or to paste into an issue |
 | `fpclean.sh` | **Deletes** templates on the sensor that this install has no fprintd record for (another distro's or Windows Hello's are lost too), then runs `fprintd-verify` |
 
-Run them from anywhere, as yourself (they use `sudo`):
+`check-readers.sh` is different: it doesn't touch the sensor or need anything installed. It checks that every reader check in the repo accepts exactly the readers listed in `FPRINT_READERS` in `lib/fixpaths.sh`, and the release workflow runs it before building. When adding a reader, add it to that list, then run the script: it names every file and line still to change.
+
+Run the sensor scripts from anywhere, as yourself (they use `sudo`):
 
 ```bash
 bash tools/dev/snap.sh

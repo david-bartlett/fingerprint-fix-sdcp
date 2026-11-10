@@ -60,7 +60,7 @@ prepare() {
         why="that reader was not found on this computer"
         for d in /sys/bus/usb/devices/*; do
             [[ "$(cat "$d/idVendor" 2>/dev/null)" == 1c7a ]] || continue
-            [[ "$(cat "$d/idProduct" 2>/dev/null)" =~ ^(05a[15]|0582)$ ]] && return 0
+            [[ "$(cat "$d/idProduct" 2>/dev/null)" =~ ^(05a5|05a1|0582)$ ]] && return 0
         done
     fi
     echo >&2

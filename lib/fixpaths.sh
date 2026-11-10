@@ -117,6 +117,12 @@ fix_layout() {
     MGR_UPDATE_SVC="galaxybook-fingerprint-manager-update-check.service"
     MGR_UPDATE_TIMER="galaxybook-fingerprint-manager-update-check.timer"
     FPRINT_BOOT_CHECK_SVC="samsung-galaxybook-fprint-sdcp-boot-check.service"
+    # The readers this fix accepts: the one list every reader check must match.
+    # Each check has its own copy (package scripts run before any file of ours
+    # is installed), so tools/dev/check-readers.sh compares them all with this,
+    # and the release stops if one differs. To add a reader, add it here, then
+    # run that script: it names every file to change.
+    FPRINT_READERS="05a5 05a1 0582"
     HARDWARE_USB_ID="1c7a:05a5|1c7a:05a1|1c7a:0582"
 
     # Galaxy Book Fingerprint Manager — the app itself lives in MGR_DIR

@@ -57,7 +57,7 @@ sensor_serial() {
     local d
     for d in /sys/bus/usb/devices/*; do
         [[ "$(cat "$d/idVendor" 2>/dev/null)" == "1c7a" ]] || continue
-        [[ "$(cat "$d/idProduct" 2>/dev/null)" =~ ^(05a[15]|0582)$ ]] || continue
+        [[ "$(cat "$d/idProduct" 2>/dev/null)" =~ ^(05a5|05a1|0582)$ ]] || continue
         cat "$d/serial" 2>/dev/null && return 0
     done
     return 1
