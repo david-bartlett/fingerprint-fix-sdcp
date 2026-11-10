@@ -1,4 +1,4 @@
-# Testing on Hardware That Isn't Confirmed
+# Testing on hardware that isn't confirmed
 
 [← Back to the README](../README.md)
 
