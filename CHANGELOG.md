@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **The Galaxy Book2 Pro 360's reader (`1c7a:0582`) is now accepted:** the packages and `install.sh` install on it, and the driver is loaded for it
+- A tester confirmed this fix's driver keeps fingerprints on that reader, where the distro's driver lost them
+
 - **Immutable distros are refused:** the packages and `install.sh` no longer install on systems like Fedora Silverblue, Kinoite, Bazzite or SteamOS, where they can't work properly
 
 - **Shorter README:** updating, uninstalling and supported hardware now have their own guides in `docs/`, with a short summary in the README

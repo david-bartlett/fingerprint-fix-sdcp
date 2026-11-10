@@ -9,7 +9,7 @@ How to try the fix on a Galaxy Book that isn't on the [Supported hardware](suppo
 
 ## Before you start
 
-- **Check the reader:** run `lsusb | grep 1c7a`. The fix only drives the Egis readers `1c7a:05a5` and `1c7a:05a1`. If yours is a different reader, the fix can't make it work, so don't force it.
+- **Check the reader:** run `lsusb | grep 1c7a`. The fix only accepts the Egis readers `1c7a:05a5`, `1c7a:05a1` and `1c7a:0582`. If yours is a different reader, the fix can't make it work, so don't force it.
 - **Check what's already on the sensor:** if Windows is on the laptop, or another distro uses the reader, the sensor holds their fingerprints. Disable the reader in Windows Device Manager first, as Windows deletes Linux fingerprints from the sensor each time it starts. See [Dual-Boot With Windows](troubleshooting.md#dual-boot-with-windows).
 - **Enrol a finger you don't use in Windows Hello:** fprintd deletes a fingerprint it doesn't know about from the sensor when you enrol a finger that matches it.
 - **Know how to undo it:** see [Uninstalling](uninstall.md).
@@ -24,7 +24,7 @@ The packages and `install.sh` refuse to install when:
 | A Galaxy Book3 | Refused | Refused |
 | An immutable system, such as Fedora Silverblue | Refused | Refused |
 | Not a Samsung | Refused | Refused, no override |
-| No `05a5` or `05a1` reader found | Refused | Refused, no override |
+| No `05a5`, `05a1` or `0582` reader found | Refused | Refused, no override |
 
 Setting `FPRINT_SDCP_FORCE=1` turns the checks off. It's meant for a Samsung with one of these two readers that the checks refuse, such as a Galaxy Book3:
 

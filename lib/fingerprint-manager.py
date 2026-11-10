@@ -126,7 +126,7 @@ GREEN, RED, AMBER = "#26a269", "#c01c28", "#e5a50a"
 
 
 def reader_present():
-    """True when the Galaxy Book's Egis reader (1c7a:05a5 / 1c7a:05a1) is on USB.
+    """True when the Galaxy Book's Egis reader (1c7a:05a5 / 05a1 / 0582) is on USB.
     The same rule as packaging/files/fprintd-env.sh.in, which keeps fprintd on
     the distro libfprint without it. Read from sysfs: no password needed."""
     for d in glob.glob("/sys/bus/usb/devices/*"):
@@ -135,7 +135,7 @@ def reader_present():
                 if f.read().strip() != "1c7a":
                     continue
             with open(os.path.join(d, "idProduct")) as f:
-                if f.read().strip() in ("05a5", "05a1"):
+                if f.read().strip() in ("05a5", "05a1", "0582"):
                     return True
         except OSError:
             continue
@@ -214,11 +214,11 @@ def no_reader_dialog():
     dlg.set_title(TITLE)
     dlg.set_icon_name(ICON_NAME)
     dlg.format_secondary_text(
-        "This app is for the fingerprint reader in the Samsung Galaxy Book4 and Book5, and "
+        "This app is for the fingerprint reader in the Samsung Galaxy Book2 Pro 360, Book4 and Book5, and "
         "this computer doesn't have one.\n\n"
         "Any other fingerprint reader works with your distro's own driver: set it up in your "
         "desktop's settings.")
-    add_details(dlg, "Looked for the Egis reader, USB 1c7a:05a5 or 1c7a:05a1. On a Galaxy "
+    add_details(dlg, "Looked for the Egis reader, USB 1c7a:05a5, 1c7a:05a1 or 1c7a:0582. On a Galaxy "
                      "Book, it may be switched off in the BIOS.\n\n"
                      f"To remove fingerprint-fix-sdcp and this app:\n{remove_all_command()}")
     dlg.run()
