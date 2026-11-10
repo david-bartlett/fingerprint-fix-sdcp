@@ -1,5 +1,5 @@
 > [!IMPORTANT]
-> **fingerprint-fix-sdcp**: the driver. It makes the fingerprint sensor work on the Samsung Galaxy Book4 and Book5 with the 1c7a:05a1 or 1c7a:05a5 sensor.
+> **fingerprint-fix-sdcp**: the driver. It makes the fingerprint sensor work on the Samsung Galaxy Book2 Pro 360, Book4 and Book5 with the 1c7a:05a1 or 1c7a:05a5 sensor, and the Galaxy Book2 Pro 360 with the 1c7a:0582.
 >
 > **galaxybook-fingerprint-manager**: an app to turn fingerprint for sudo and the lock screen on or off, enrol, test and delete fingerprints, and see which of the sensor's slots are in use. It works with the fingerprint-fix-sdcp driver, or with your distro's own libfprint once that supports the sensor.
 >

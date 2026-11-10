@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **The Galaxy Book2 Pro 360's reader (`1c7a:0582`) is now accepted:** the packages and `install.sh` install on it, and the driver is loaded for it
+- A tester confirmed this fix's driver keeps fingerprints on that reader, where the distro's driver lost them
+
 - **Shorter README:** updating, uninstalling and supported hardware now have their own guides in `docs/`, with a short summary in the README
 - **README: the two packages up top:** the Important note now explains the driver and the Manager, and mentions `install.sh`
 - `docs/install-options.md` now explains installing on Fedora, Ubuntu and Debian too, not only Arch and `install.sh`

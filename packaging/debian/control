@@ -30,7 +30,7 @@ Recommends: galaxybook-fingerprint-manager (= ${binary:Version}),
             python3-gi
 Description: Egis fingerprint reader driver for Samsung Galaxy Book (egismoc SDCP)
  Makes the Egis match-on-chip fingerprint reader (1c7a:05a5 on Galaxy Book 4 /
- Book 5 Pro, 1c7a:05a1 on Book 4) work on Linux. Builds only the
+ Book 5 Pro, 1c7a:05a1 on Book 4, 1c7a:0582 on Book 2 Pro 360) work on Linux. Builds only the
  egismoc SDCP driver of libfprint and points fprintd at it; the distro's
  libfprint is not replaced.
  .

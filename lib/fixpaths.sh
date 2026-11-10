@@ -117,7 +117,7 @@ fix_layout() {
     MGR_UPDATE_SVC="galaxybook-fingerprint-manager-update-check.service"
     MGR_UPDATE_TIMER="galaxybook-fingerprint-manager-update-check.timer"
     FPRINT_BOOT_CHECK_SVC="samsung-galaxybook-fprint-sdcp-boot-check.service"
-    HARDWARE_USB_ID="1c7a:05a5|1c7a:05a1"
+    HARDWARE_USB_ID="1c7a:05a5|1c7a:05a1|1c7a:0582"
 
     # Galaxy Book Fingerprint Manager — the app itself lives in MGR_DIR
     MGR_ID="galaxybook-fingerprint-manager"

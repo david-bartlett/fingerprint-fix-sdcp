@@ -3,7 +3,7 @@
 # (run as root by fprintd's drop-in, as ExecStartPre, each time fprintd starts)
 #
 # The fix's library holds only the egismoc SDCP driver. fprintd uses it only
-# while the Galaxy Book's Egis reader (USB 1c7a:05a5 or 1c7a:05a1) is present;
+# while the Galaxy Book's Egis reader (USB 1c7a:05a5, 1c7a:05a1 or 1c7a:0582) is present;
 # on any other hardware — the disk moved to another laptop, a forced install —
 # fprintd keeps the distro libfprint, with its drivers for every other reader.
 #
@@ -18,7 +18,7 @@ reader_present() {
     local d
     for d in /sys/bus/usb/devices/*; do
         [[ "$(cat "$d/idVendor" 2>/dev/null)" == "1c7a" ]] || continue
-        case "$(cat "$d/idProduct" 2>/dev/null)" in 05a5|05a1) return 0 ;; esac
+        case "$(cat "$d/idProduct" 2>/dev/null)" in 05a5|05a1|0582) return 0 ;; esac
     done
     return 1
 }
@@ -42,7 +42,7 @@ if $found; then
 else
     : > "$tmp"
     logger -t fingerprint-fix-sdcp \
-        "Galaxy Book fingerprint reader (1c7a:05a5 / 1c7a:05a1) not found — fprintd uses the distro libfprint" \
+        "Galaxy Book fingerprint reader (1c7a:05a5 / 05a1 / 0582) not found — fprintd uses the distro libfprint" \
         2>/dev/null || true
 fi
 chmod 644 "$tmp"

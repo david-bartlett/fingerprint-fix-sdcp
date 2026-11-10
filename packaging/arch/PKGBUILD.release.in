@@ -31,7 +31,7 @@ source=("$pkgbase-$pkgver.tar.gz::$url/archive/refs/tags/v$pkgver.tar.gz"
 sha256sums=('@SHA256@'
             'SKIP')            # a git source is pinned by its commit id
 
-# Only for a Samsung with the Galaxy Book's Egis reader (USB 1c7a:05a5 / 05a1):
+# Only for a Samsung with the Galaxy Book's Egis reader (USB 1c7a:05a5 / 05a1 / 0582):
 # elsewhere fprintd needs the distro's drivers, which this driver build lacks.
 # Same rule as packaging/files/fprintd-env.sh.in, the deb / rpm pre-install
 # scripts, install.sh and the Manager. Stops before anything is built;
@@ -57,12 +57,12 @@ prepare() {
         why="that reader was not found on this computer"
         for d in /sys/bus/usb/devices/*; do
             [[ "$(cat "$d/idVendor" 2>/dev/null)" == 1c7a ]] || continue
-            [[ "$(cat "$d/idProduct" 2>/dev/null)" =~ ^05a[15]$ ]] && return 0
+            [[ "$(cat "$d/idProduct" 2>/dev/null)" =~ ^(05a[15]|0582)$ ]] && return 0
         done
     fi
     echo >&2
-    echo "fingerprint-fix-sdcp is only for the Samsung Galaxy Book4 and Book5 (64-bit" >&2
-    echo "Intel/AMD) with the Egis fingerprint reader (USB 1c7a:05a5 or 1c7a:05a1)," >&2
+    echo "fingerprint-fix-sdcp is only for the Samsung Galaxy Book2 Pro 360, Book4 and Book5 (64-bit" >&2
+    echo "Intel/AMD) with the Egis fingerprint reader (USB 1c7a:05a5, 1c7a:05a1 or 1c7a:0582)," >&2
     echo "but $why." >&2
     echo "Nothing was built: any other fingerprint reader works with your distro's own" >&2
     echo "driver. To build anyway (e.g. for a system image for a Galaxy Book):" >&2

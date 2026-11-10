@@ -100,7 +100,7 @@ def calling_user():
 
 
 def sensor_usb():
-    """(product id, serial) of the Egis 05a5/05a1 sensor, or (None, None)."""
+    """(product id, serial) of the Egis 05a5/05a1/0582 sensor, or (None, None)."""
     for d in glob.glob("/sys/bus/usb/devices/*"):
         try:
             with open(f"{d}/idVendor") as f:
@@ -108,7 +108,7 @@ def sensor_usb():
                     continue
             with open(f"{d}/idProduct") as f:
                 pid = f.read().strip()
-            if pid not in ("05a5", "05a1"):
+            if pid not in ("05a5", "05a1", "0582"):
                 continue
             with open(f"{d}/serial") as f:
                 return pid, f.read().strip()
@@ -396,7 +396,7 @@ def do_status(req):
           "mgr_marker": read_marker(MGR_MARKER),
           "records": [], "templates": [], "features": {}}
     if not pid:
-        raise Fail("EgisTec fingerprint sensor (1c7a:05a5 / 1c7a:05a1) not found.")
+        raise Fail("EgisTec fingerprint sensor (1c7a:05a5 / 05a1 / 0582) not found.")
     if marker and not ok:
         raise Fail("fingerprint-fix-sdcp's driver is incomplete here — files are missing.\n"
                    "Reinstall fingerprint-fix-sdcp.")
