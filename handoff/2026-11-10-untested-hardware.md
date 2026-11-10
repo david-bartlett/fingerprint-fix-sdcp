@@ -1,6 +1,6 @@
 # Guide for testing on unconfirmed hardware
 
-PR #NUMBER · Claude · 2026-11-10
+PR #172 · Claude · 2026-11-10
 
 ## What changed
 - New `docs/untested-hardware.md`: an own-risk warning, what to check first, which checks refuse an install and how `FPRINT_SDCP_FORCE=1` turns them off for each install method, how to check it works, and reporting back.
