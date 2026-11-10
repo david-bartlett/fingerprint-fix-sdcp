@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.14.2 — 2026-11-10
 
 - **Update on GNOME: one terminal window:** **Update now** in the notification, and the Manager's **Update**, could open Ptyxis twice, once with your saved windows and once with the update. Ptyxis now opens as a window of its own, as the dev tools' buttons already do
 
