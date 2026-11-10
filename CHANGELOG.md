@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.14.0 — 2026-11-10
 
 - **The Galaxy Book2 Pro 360's reader (`1c7a:0582`) is now accepted:** the packages and `install.sh` install on it, and the driver is loaded for it
 - @xtrails101 confirmed this fix's driver keeps fingerprints on that reader, where the distro's driver lost them.  Thanks @xtrails101
