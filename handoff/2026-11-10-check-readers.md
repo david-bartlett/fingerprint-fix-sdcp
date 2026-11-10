@@ -1,6 +1,6 @@
 # One list of accepted readers, checked at release
 
-PR #NUMBER · Claude · 2026-11-10
+PR #177 · Claude · 2026-11-10
 
 ## What changed
 - `lib/fixpaths.sh`: `FPRINT_READERS="05a5 05a1 0582"`, the list every reader check must match.
