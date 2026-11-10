@@ -14,7 +14,7 @@
 #                 (e.g. /usr/local), or a package from a COPR, a PPA, the AUR
 #                 or a local file — the next distro update may replace it
 #     plain    1  it handles the reader, but without SDCP (the distro's
-#                 egismoc before SDCP: 1c7a:05a1 only, and it can't keep prints)
+#                 egismoc before SDCP, e.g. 1c7a:05a1 or 0582: it can't keep prints)
 #     none     1  no driver for the reader in the distro's libfprint, or the
 #                 reader isn't on USB
 #     error    3  libfprint's Python bindings couldn't be loaded (the detail
@@ -178,7 +178,7 @@ def reader_on_usb():
                 if f.read().strip() != "1c7a":
                     continue
             with open(f"/sys/bus/usb/devices/{d}/idProduct") as f:
-                if f.read().strip() in ("05a5", "05a1"):
+                if f.read().strip() in ("05a5", "05a1", "0582"):
                     return True
         except OSError:
             continue

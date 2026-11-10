@@ -1,14 +1,14 @@
 # Fingerprint Fix for the Samsung Galaxy Book4 and Book5
 
-Makes the fingerprint reader work on Linux on the **Samsung Galaxy Book4 and Book5** (Egis readers `1c7a:05a5` and `1c7a:05a1`): fingerprint login, the lock screen, `sudo` and admin prompts. It adds only the reader's driver, for fprintd alone; **your distro's libfprint is not replaced.**
+Makes the fingerprint reader work on Linux on the **Samsung Galaxy Book4 and Book5**, and the Galaxy Book2 Pro 360 (Egis readers `1c7a:05a5`, `1c7a:05a1` and `1c7a:0582`): fingerprint login, the lock screen, `sudo` and admin prompts. It adds only the reader's driver, for fprintd alone; **your distro's libfprint is not replaced.**
 
 > [!IMPORTANT]
-> - **Only for the Galaxy Book4 and Book5** with an Egis reader: check with `lsusb | grep 1c7a` (`05a5` or `05a1`). Not the Galaxy Book3, nor the ARM-based Book4 Edge: the packages refuse to install there.
+> - **Only for the Galaxy Book4, Book5 and Book2 Pro 360** with an Egis reader: check with `lsusb | grep 1c7a` (`05a5`, `05a1` or `0582`). Not the Galaxy Book3, nor the ARM-based Book4 Edge: the packages refuse to install there.
 > - **Windows on the same laptop?** Disable its fingerprint reader in Windows Device Manager. Otherwise every time Windows starts, it deletes your Linux fingerprints from the sensor.
 >
 > **There are two packages:**
 >
-> - **The driver** (`fingerprint-fix-sdcp`) makes the fingerprint reader work on the Galaxy Book4 and Book5 (`1c7a:05a1` or `1c7a:05a5`). It's all you need to use the reader with your desktop's own fingerprint settings.
+> - **The driver** (`fingerprint-fix-sdcp`) makes the fingerprint reader work on the Galaxy Book4, Book5 and Book2 Pro 360 (`1c7a:05a1`, `1c7a:05a5` or `1c7a:0582`). It's all you need to use the reader with your desktop's own fingerprint settings.
 > - **The [Galaxy Book Fingerprint Manager](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/manager.md)** (`galaxybook-fingerprint-manager`) is optional: an app to turn fingerprint login for `sudo` and the lock screen on or off, enrol, test and delete fingerprints, and see which of the sensor's slots are in use. It works with the driver, or with your distro's own libfprint once that supports the reader.
 >
 > Each works on its own. The install commands below install both; leave out the Manager's file for the driver alone.
@@ -85,7 +85,7 @@ You're told about each new release with a notification, checked 30 seconds after
 
 ## Supported Hardware
 
-**Confirmed working:** Galaxy Book5 Pro 14" (940XHA, reader `05a5`) on Fedora 45, Ubuntu 26.04, Linux Mint 22.3 and 27, MX Linux 25 and CachyOS; Galaxy Book4 (reader `05a1`) on Zorin OS 18, and Galaxy Book4 Ultra (960XGL, reader `05a1`) on Ubuntu 26.04. Find your reader with `lsusb | grep 1c7a`. The Galaxy Book3 and the ARM-based Galaxy Book4 Edge aren't supported: every install method refuses there. Test details and why: [Supported hardware](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/supported-hardware.md).
+**Confirmed working:** Galaxy Book5 Pro 14" (940XHA, reader `05a5`) on Fedora 45, Ubuntu 26.04, Linux Mint 22.3 and 27, MX Linux 25 and CachyOS; Galaxy Book4 (reader `05a1`) on Zorin OS 18, and Galaxy Book4 Ultra (960XGL, reader `05a1`) on Ubuntu 26.04; Galaxy Book2 Pro 360 (930QED, reader `0582`) on Fedora Silverblue 45, with the driver installed by hand. Find your reader with `lsusb | grep 1c7a`. The Galaxy Book3 and the ARM-based Galaxy Book4 Edge aren't supported: every install method refuses there. Test details and why: [Supported hardware](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/supported-hardware.md).
 
 Got it working on a model or distro not listed here? Please tell us with the [**It works on my laptop / distro**](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues/new?template=works_on.yml) form — that's how this list grows.
 

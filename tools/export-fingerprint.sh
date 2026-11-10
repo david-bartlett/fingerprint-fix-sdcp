@@ -39,7 +39,7 @@ sensor_serial() {
     local d
     for d in /sys/bus/usb/devices/*; do
         [[ "$(cat "$d/idVendor" 2>/dev/null)" == "1c7a" ]] || continue
-        [[ "$(cat "$d/idProduct" 2>/dev/null)" =~ ^05a[15]$ ]] || continue
+        [[ "$(cat "$d/idProduct" 2>/dev/null)" =~ ^(05a[15]|0582)$ ]] || continue
         cat "$d/serial" 2>/dev/null && return 0
     done
     return 1
@@ -60,7 +60,7 @@ ldconfig -p 2>/dev/null | grep -q 'libfprint-2\.so\.2 ' \
 sdcp_available \
     || error "fingerprint-fix-sdcp's driver is not installed (or incomplete) here, and your\n  distro's libfprint has no SDCP driver for the reader. Fingerprints enrolled\n  without one can't be used on another install. Install fingerprint-fix-sdcp first."
 
-SERIAL=$(sensor_serial) || error "EgisTec fingerprint sensor (1c7a:05a5 / 1c7a:05a1) not found."
+SERIAL=$(sensor_serial) || error "EgisTec fingerprint sensor (1c7a:05a5 / 05a1 / 0582) not found."
 REL="${USER_NAME}/egismoc/${SERIAL}"
 SRC="/var/lib/fprint/${REL}"
 

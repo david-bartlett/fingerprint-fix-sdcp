@@ -17,7 +17,7 @@ found=false
 for _ in $(seq 1 40); do
     for d in /sys/bus/usb/devices/*; do
         [[ "$(cat "$d/idVendor" 2>/dev/null)" == "1c7a" ]] || continue
-        [[ "$(cat "$d/idProduct" 2>/dev/null)" =~ ^05a[15]$ ]] && found=true && break 2
+        [[ "$(cat "$d/idProduct" 2>/dev/null)" =~ ^(05a[15]|0582)$ ]] && found=true && break 2
     done
     sleep 0.2
 done

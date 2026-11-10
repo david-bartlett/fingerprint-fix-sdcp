@@ -26,6 +26,7 @@ body:
       options:
         - 1c7a:05a5
         - 1c7a:05a1
+        - 1c7a:0582
         - Another 1c7a ID (paste the lsusb line below)
     validations:
       required: true

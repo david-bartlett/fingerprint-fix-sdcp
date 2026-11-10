@@ -58,7 +58,7 @@ Other things it can show:
 
 - **Windows on the same laptop** — a reminder at the bottom of the window to disable the fingerprint reader in Windows (see [Dual-Boot With Windows](troubleshooting.md#dual-boot-with-windows)). **Got it** hides it; ☰ → **Remind me about Windows** (only there when Windows is found) brings it back.
 - **Your distro's libfprint now supports the reader** — when the distro's own, unmodified libfprint gains an SDCP driver for it, a message with **Test your distro's driver** (also in the ☰ menu). If it's an SDCP libfprint from another fix instead, a warning to keep this fix. See [The Monitor](monitoring.md#the-monitor).
-- **No Galaxy Book reader** — started on a computer without `1c7a:05a5` / `1c7a:05a1`, it says what it's for and how to remove the fix, instead of asking for a password.
+- **No Galaxy Book reader** — started on a computer without `1c7a:05a5`, `1c7a:05a1` or `1c7a:0582`, it says what it's for and how to remove the fix, instead of asking for a password.
 
 Records are never deleted: removed ones go to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/`, and are kept while they can still be restored: a copy goes once its slot is cleared or the finger is back in it. Each sensor job stops fprintd for a moment, as the sensor can only be used by one program at a time.
 

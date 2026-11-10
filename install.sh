@@ -139,7 +139,7 @@ check_hardware() {
     local _vendor
     # 64-bit Intel/AMD only: not ARM, e.g. the Snapdragon Galaxy Book4 Edge.
     if [[ "$(uname -m)" != x86_64 && "${FPRINT_SDCP_FORCE:-0}" != 1 ]]; then
-        echo "Unsupported processor: $(uname -m) — fingerprint-fix-sdcp is only for 64-bit Intel/AMD (x86_64) Galaxy Book4 and Book5 laptops"
+        echo "Unsupported processor: $(uname -m) — fingerprint-fix-sdcp is only for 64-bit Intel/AMD (x86_64) Galaxy Book laptops"
         return 1
     fi
     _vendor=$(cat /sys/class/dmi/id/sys_vendor /sys/class/dmi/id/board_vendor 2>/dev/null)
@@ -192,7 +192,7 @@ system_libfprint() {
 detect_distro
 check_hardware || exit 1
 
-SENSOR_ON_BUS=$(lsusb 2>/dev/null | grep -iE "1c7a:05a5|1c7a:05a1" || true)
+SENSOR_ON_BUS=$(lsusb 2>/dev/null | grep -iE "1c7a:05a5|1c7a:05a1|1c7a:0582" || true)
 
 echo
 echo "╔════════════════════════════════════════════════════════════╗"
@@ -209,7 +209,7 @@ info "fingerprint-fix-sdcp ${FIX_VERSION} — driver commit ${DRIVER_COMMIT:0:12
 # ── Step 1: Check sensor is present ──────────────────────────────────────────
 step "Fingerprint Step 1: Checking sensor is present"
 [[ -z "$SENSOR_ON_BUS" ]] && \
-    error "EgisTec SDCP fingerprint sensor not found on USB bus.\nExpected: 1c7a:05a5 (Galaxy Book4 / Book5) or 1c7a:05a1 (Galaxy Book4)\nRun 'lsusb' to check what USB devices are present."
+    error "EgisTec SDCP fingerprint sensor not found on USB bus.\nExpected: 1c7a:05a5 (Galaxy Book4 / Book5), 1c7a:05a1 (Galaxy Book4) or 1c7a:0582 (Galaxy Book2 Pro 360)\nRun 'lsusb' to check what USB devices are present."
 info "✓ Sensor found: $SENSOR_ON_BUS"
 
 # ── Step 2: Install dependencies ─────────────────────────────────────────────

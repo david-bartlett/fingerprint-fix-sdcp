@@ -21,7 +21,7 @@ This is the handover for anyone (people or coding agents such as Codex) working 
 
 ## 2. What the project is
 
-Makes the **Egis fingerprint reader** (USB `1c7a:05a5` and `1c7a:05a1`) of the **Samsung Galaxy Book4 and Book5** work on Linux: fingerprint login, the lock screen, `sudo` and admin prompts.
+Makes the **Egis fingerprint reader** (USB `1c7a:05a5`, `1c7a:05a1` and `1c7a:0582`) of the **Samsung Galaxy Book4 and Book5**, and the Galaxy Book2 Pro 360, work on Linux: fingerprint login, the lock screen, `sudo` and admin prompts.
 
 - These readers are Windows Hello sensors and need Microsoft's **SDCP** protocol. Released libfprint has no SDCP for the `egismoc` driver, so fingerprints aren't kept.
 - The fix builds **only the egismoc driver** from a tested commit of [david-bartlett/libfprint-egismoc-sdcp](https://github.com/david-bartlett/libfprint-egismoc-sdcp) (a fork of Abdallah Alkanani's repo, based on libfprint-TOD v1.95.2 and Joshua Grisham's SDCP driver) and makes **only fprintd** load it, through a systemd drop-in that sets `LD_LIBRARY_PATH`. **The distro's libfprint is never replaced.**
