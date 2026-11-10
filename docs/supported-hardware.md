@@ -18,6 +18,8 @@ The **Galaxy Book3** can have the `05a1` reader too, but nobody has tested this 
 
 The **Galaxy Book2 Pro SE** (`950XGK`) has the `05a1` reader too. It's [reported working](https://github.com/abdallah-alkanani/libfprint-egismoc-sdcp/issues/4) on Ubuntu 26.04 with the same driver this fix builds, but nobody has tested this fix's packages on it. They don't refuse to install there: see [Testing on hardware that isn't confirmed](untested-hardware.md).
 
+Immutable distros, such as Fedora Silverblue, Kinoite, Bazzite and SteamOS, aren't supported: every install method refuses there, as `/usr` is read-only and packages are layered into an image.
+
 Only 64-bit Intel/AMD (`x86_64`) Galaxy Books are supported. The ARM-based **Galaxy Book4 Edge** (Snapdragon) isn't: every install method refuses on an ARM processor.
 
 Got it working on a model or distro not listed here? Please tell us with the [**It works on my laptop / distro**](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues/new?template=works_on.yml) form — that's how this list grows.
