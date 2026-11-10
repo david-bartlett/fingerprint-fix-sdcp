@@ -57,6 +57,8 @@ jobs:
             echo "::error::Tag $TAG does not match VERSION ($version): raise VERSION, or tag v$version."
             exit 1
           fi
+      - name: Check every reader check accepts the same readers
+        run: bash tools/dev/check-readers.sh
 
   rpm:
     name: rpm (Fedora ${{ matrix.fedora }})
