@@ -26,6 +26,7 @@ Makes the fingerprint reader work on Linux on the **Samsung Galaxy Book4 and Boo
 | [Updating](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/updating.md) | The notification, updating with the Manager or only the driver, `install.sh` copies, how the check works |
 | [Uninstalling](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/uninstall.md) | Removing both packages or only one, what's kept, switching the driver off temporarily |
 | [Supported hardware](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/supported-hardware.md) | Confirmed models and distros, test details by reader, the Galaxy Book3 and Book4 Edge |
+| [Testing on hardware that isn't confirmed](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/untested-hardware.md) | Trying the fix on a model that isn't confirmed, at your own risk: what to check first, the `FPRINT_SDCP_FORCE=1` override, and reporting back |
 | [Install options](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/install-options.md) | Arch-based distros, installing only one package, other distros with `install.sh` |
 | [The monitor and boot check](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/monitoring.md) | What the monitor and the boot-time sensor check do, and what they tell you |
 | [How it works](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/how-it-works.md) | What installing does, the problem it fixes, where the driver comes from, security notes, every file |
