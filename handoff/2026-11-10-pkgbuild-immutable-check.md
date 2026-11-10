@@ -1,6 +1,6 @@
 # Fix the PKGBUILD's immutable check
 
-PR #NUMBER · Claude · 2026-11-10
+PR #178 · Claude · 2026-11-10
 
 ## What changed
 - `packaging/arch/PKGBUILD.release.in`: `prepare()` checks `/usr`'s mount options with `findmnt` instead of `! -w /usr`.
