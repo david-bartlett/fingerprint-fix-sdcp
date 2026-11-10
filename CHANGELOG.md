@@ -13,8 +13,6 @@
 
 - **Arch: updating and installing work again:** 2.14.0's PKGBUILD took every Arch system for an immutable one and stopped, as `makepkg` runs as you and can't write to `/usr`. It now checks how `/usr` is mounted instead
 
-## 2.14.0 — 2026-11-10
-
 - **The Galaxy Book2 Pro 360's reader (`1c7a:0582`) is now accepted:** the packages and `install.sh` install on it, and the driver is loaded for it
 - @xtrails101 confirmed this fix's driver keeps fingerprints on that reader, where the distro's driver lost them.  Thanks @xtrails101
 
