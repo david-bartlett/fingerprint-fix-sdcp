@@ -1,6 +1,6 @@
 # Refuse immutable distros
 
-PR #NUMBER · Claude · 2026-11-10
+PR #176 · Claude · 2026-11-10
 
 ## What changed
 - Every hardware check (rpm `%pre` for both packages, both deb preinsts, both Arch `.install` files, the PKGBUILD `prepare()`, `install.sh`) refuses when `/run/ostree-booted` exists or `/usr` isn't writable. The PKGBUILD reads the mount options, as makepkg runs as the user. `FPRINT_SDCP_FORCE=1` overrides it, as for the other checks.
