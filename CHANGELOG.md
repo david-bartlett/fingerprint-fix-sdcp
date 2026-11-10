@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.14.1 — 2026-11-10
 
 - **Arch: updating and installing work again:** 2.14.0's PKGBUILD took every Arch system for an immutable one and stopped, as `makepkg` runs as you and can't write to `/usr`. It now checks how `/usr` is mounted instead
