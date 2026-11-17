@@ -1,6 +1,6 @@
 # Build attestations on release files
 
-PR #<number> · Claude · 2026-11-17
+PR #182 · Claude · 2026-11-17
 
 ## What changed
 - The release workflow's publish job ends with `actions/attest-build-provenance@v3` over `dist/*`, after the release is published, with `continue-on-error: true`. The job has its own permissions (`contents: write`, `id-token: write`, `attestations: write`); job permissions replace the workflow's, hence `contents: write` repeated.
