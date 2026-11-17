@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Release files are attested:** each file on a release now has a build attestation from GitHub, so `gh attestation verify <file> -R david-bartlett/fingerprint-fix-sdcp` shows it was built by this repository's release workflow from the release tag
+- The attestation step comes after the release is published and can't fail the run, so it never holds a release back
+
 ## 2.14.2 — 2026-11-10
 
 - **Update on GNOME: one terminal window:** **Update now** in the notification, and the Manager's **Update**, could open Ptyxis twice, once with your saved windows and once with the update. Ptyxis now opens as a window of its own, as the dev tools' buttons already do
