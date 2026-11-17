@@ -1,6 +1,6 @@
 # Privacy, how it's built, SECURITY.md and CONTRIBUTING.md
 
-PR #<number> · Claude · 2026-11-17
+PR #181 · Claude · 2026-11-17
 
 ## What changed
 - README: two new sections after "How it stays safe": **Your Fingerprints and Privacy** and **How It's Built and Tested**, with links to the two new files.
