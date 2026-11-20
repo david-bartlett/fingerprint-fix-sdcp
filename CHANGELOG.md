@@ -11,6 +11,8 @@
 
 - **Release files are attested:** each file on a release now has a build attestation from GitHub, so `gh attestation verify <file> -R david-bartlett/fingerprint-fix-sdcp` shows it was built by this repository's release workflow from the release tag
 - The attestation step comes after the release is published and can't fail the run, so it never holds a release back
+- **Privacy and how it's made, in the README:** where your fingerprints are kept (on the sensor; the laptop only knows which slot is whose), the only network use, and how the fix is built, reviewed and tested
+- New `SECURITY.md` (report security problems privately, through GitHub's **Report a vulnerability**) and `CONTRIBUTING.md` (testing reports, bug reports and pull requests, including AI-assisted ones)
 
 ## 2.14.2 — 2026-11-10
 
