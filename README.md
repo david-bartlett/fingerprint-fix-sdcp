@@ -99,6 +99,21 @@ Got it working on a model or distro not listed here? Please tell us with the [**
 
 See [How it works](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/how-it-works.md) for the detail.
 
+## Your Fingerprints and Privacy
+
+- **Your fingerprints stay on the sensor.** The reader matches your finger itself; the laptop only keeps fprintd's records saying which sensor slot is whose finger (in `/var/lib/fprint`, plus a shared file on the EFI partition when other distros use the sensor). These hold no fingerprint images, and are useless without this laptop's sensor and your finger.
+- **Records are never thrown away by the Manager:** ones you remove go to `/var/lib/samsung-galaxybook/removed-fingerprints/<date>/`, so they can be restored while the sensor still has that finger.
+- **Nothing about your fingerprints leaves the laptop.** The only network use: installing from a clone downloads the driver's source to build it, and the update check asks GitHub for the newest release's version about once an hour. Turn the check off with ☰ → *Check for new versions* in the Manager, or `galaxybook-fingerprint-manager updates off` (`fingerprint-fix-sdcp updates off` with only the driver; [details](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/updating.md)).
+
+## How It's Built and Tested
+
+- **Written with AI help:** much of the code is written with Claude (Anthropic) under David's direction, and commits credit Claude as co-author.
+- **Reviewed:** each change goes through repeated code reviews by Codex (OpenAI), and every bug found is fixed before release.
+- **Tested on real hardware:** nothing is released until David has installed it, from the same packages you download, on his Galaxy Book5 Pro across Fedora, Ubuntu, Linux Mint, MX Linux and CachyOS. Other models are confirmed by their owners: see [Supported hardware](https://github.com/david-bartlett/fingerprint-fix-sdcp/blob/main/docs/supported-hardware.md).
+- **Open:** every change is a pull request with its test plan, listed in the [changelog](CHANGELOG.md), and the packages are built by GitHub Actions from the release tag, with a `SHA256SUMS` file on each release.
+
+Found a security problem? See [SECURITY.md](SECURITY.md). Want to help? See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Reporting Problems
 
 Use the [**Bug report**](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues/new?template=bug_report.yml) form. It asks for the laptop model, sensor ID, distro, fingerprint-fix-sdcp version and the relevant logs, which usually saves a round of questions. Please check the [existing issues](https://github.com/david-bartlett/fingerprint-fix-sdcp/issues) first.

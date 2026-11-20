@@ -71,6 +71,8 @@ The sensor has **10 slots**. Each holds one enrolled fingerprint (a "template");
 | `CHANGELOG.md` | One section per release; new work under `## Unreleased` (§8.2). |
 | `PLAN.md` | This file. |
 | `AGENTS.md` | Short rules for coding agents; points here. |
+| `SECURITY.md` | How to report a security problem privately (GitHub's private vulnerability reporting); only the newest release gets fixes. |
+| `CONTRIBUTING.md` | For people sending reports or pull requests: the issue forms, the PR rules from this file, AI-assisted contributions. |
 | `VERSION` | The release number (David changes it when releasing). |
 | `DRIVER` | The tested driver commit (full id) the release builds. |
 | `LICENSE` | GPL-2.0-or-later. |

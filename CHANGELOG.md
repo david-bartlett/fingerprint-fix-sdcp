@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Privacy and how it's made, in the README:** where your fingerprints are kept (on the sensor; the laptop only knows which slot is whose), the only network use, and how the fix is built, reviewed and tested
+- New `SECURITY.md` (report security problems privately, through GitHub's **Report a vulnerability**) and `CONTRIBUTING.md` (testing reports, bug reports and pull requests, including AI-assisted ones)
+
 ## 2.14.2 — 2026-11-10
 
 - **Update on GNOME: one terminal window:** **Update now** in the notification, and the Manager's **Update**, could open Ptyxis twice, once with your saved windows and once with the update. Ptyxis now opens as a window of its own, as the dev tools' buttons already do
