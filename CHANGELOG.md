@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **Updates open your chosen terminal on GNOME:** with a terminal the Manager doesn't know set as the default (Ghostty, say), **Update now** and **Update** opened Ptyxis instead when it was installed
+- An unknown answer from `xdg-terminal-exec --print-id` was treated like no answer (an older `xdg-terminal-exec`), which on GNOME means Ptyxis. Now only no answer does; any other terminal is left to `xdg-terminal-exec`
 - **Release files are attested:** each file on a release now has a build attestation from GitHub. The release page gives the `gh attestation verify` command that shows a file was built by this repository's release workflow from that release's tag (`--signer-workflow` and `--source-ref`, as `-R` alone checks only the repository)
 - **Distros with their own EFI partition share fingerprints too:** the shared fingerprint file now goes on the same EFI partition for every distro on the drive, even one that boots from an EFI partition of its own
 - The file is on whichever of the drive's EFI partitions already has `EFI/samsung-galaxybook/fingerprint-slots.json`, or else the first by partition number. Before, each distro used the EFI partition it mounts, so a distro with its own (as some installers make) couldn't see the others, and its **Reset** could clear fingerprints they still use
