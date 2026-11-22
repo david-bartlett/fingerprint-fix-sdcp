@@ -49,4 +49,8 @@ With only the driver installed, turn the notifications off with `fingerprint-fix
 
 </details>
 
-`SHA256SUMS` lists the files' checksums: `sha256sum -c SHA256SUMS --ignore-missing` in the download folder checks the ones you downloaded. Each file also has a build attestation from GitHub: `gh attestation verify <file> -R david-bartlett/fingerprint-fix-sdcp` confirms it was built by this repository's release workflow from this release's tag.
+`SHA256SUMS` lists the files' checksums: `sha256sum -c SHA256SUMS --ignore-missing` in the download folder checks the ones you downloaded. Each file also has a build attestation from GitHub. This checks that a file was built by this repository's release workflow from this release's tag (`-R` alone would only check the repository):
+
+```bash
+gh attestation verify <file> -R david-bartlett/fingerprint-fix-sdcp --signer-workflow david-bartlett/fingerprint-fix-sdcp/.github/workflows/release-packages.yml --source-ref refs/tags/v@VERSION@
+```

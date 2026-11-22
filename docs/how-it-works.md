@@ -81,7 +81,7 @@ See the upstream [`SDCP.md`](https://github.com/david-bartlett/libfprint-egismoc
 - `~/.cache/samsung-galaxybook/fprint-sdcp-boot-shown` — remembers the boot check message was shown this boot
 - `~/.cache/samsung-galaxybook/fprint-sdcp-other-driver-shown` — remembers the "Fingerprints From Another Driver" message was shown
 - `~/.cache/galaxybook-fingerprint-manager/` — the update check's last answer from GitHub and the last version you were told about
-- `EFI/samsung-galaxybook/fingerprint-slots.json` on the EFI system partition (e.g. `/boot/efi` or `/boot`) — each install that runs the Manager (and which partition it's on), what each knows about the sensor's slots, and each slot's fprintd record (an ID and the sensor's signature, never a fingerprint) for the others to import; shared by every install (see [Multi-Distro Mode](multi-distro.md)); removing the Manager takes this install out
+- `EFI/samsung-galaxybook/fingerprint-slots.json` on an EFI system partition on the drive the distro runs from (the one that already has it, otherwise the first; e.g. `/boot/efi` or `/boot`, or one this distro doesn't mount, opened only for each read or save) — each install that runs the Manager (and which partition it's on), what each knows about the sensor's slots, and each slot's fprintd record (an ID and the sensor's signature, never a fingerprint) for the others to import; shared by every install (see [Multi-Distro Mode](multi-distro.md)); removing the Manager takes this install out
 
 ## What's in this repository
 
