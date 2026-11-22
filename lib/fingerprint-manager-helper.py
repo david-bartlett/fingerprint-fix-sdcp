@@ -152,7 +152,7 @@ def short_id(p):
 # Slots shared with the laptop's other installs: see shared_slots.py.
 from shared_slots import (share_slots, forget_installs, install_key, used_elsewhere,  # noqa: E402
                           esp_records, read_file, merge_backup, esp_summary, problem_file,
-                          SharedFileProblem)
+                          problem_dev, rename_others, SharedFileProblem)
 import io  # noqa: E402
 
 
@@ -458,10 +458,15 @@ def do_status(req):
                                      listed=st["features"]["STORAGE_LIST"])
     except Exception:
         st["installs"] = None
+    try:                                            # other copies on the drive: out of the way
+        st["shared_renamed"] = rename_others()
+    except Exception:
+        st["shared_renamed"] = []
     try:
         st["shared_problem"] = problem_file()
+        st["shared_problem_dev"] = problem_dev()   # not mounted here: the fix mounts it first
     except Exception:
-        st["shared_problem"] = None
+        st["shared_problem"] = st["shared_problem_dev"] = None
     st["pam"] = pam_state()
     try:
         st["esp"] = esp_summary(serial)
