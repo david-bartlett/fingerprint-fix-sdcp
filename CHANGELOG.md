@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.15.0 — 2026-11-22
 
 - **Finger names in plain words after importing:** the message said *Imported left-index-finger, right-thumb…*; it now says *Imported left index finger, right thumb…*, as the rest of the Manager does. **Details…** still shows the import's own output
