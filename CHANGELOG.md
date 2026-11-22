@@ -9,6 +9,8 @@
 
 ## Unreleased
 
+- **Finger names in plain words after importing:** the message said *Imported left-index-finger, right-thumb…*; it now says *Imported left index finger, right thumb…*, as the rest of the Manager does. **Details…** still shows the import's own output
+
 - **Updates open your chosen terminal on GNOME:** with a terminal the Manager doesn't know set as the default (Ghostty, say), **Update now** and **Update** opened Ptyxis instead when it was installed
 - An unknown answer from `xdg-terminal-exec --print-id` was treated like no answer (an older `xdg-terminal-exec`), which on GNOME means Ptyxis. Now only no answer does; any other terminal is left to `xdg-terminal-exec`
 
