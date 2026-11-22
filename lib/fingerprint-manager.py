@@ -836,10 +836,11 @@ def renamed_text(renamed):
     distro uses the same one. "" when there were none."""
     if not renamed:
         return ""
-    where = ", ".join(r["dev"] for r in renamed)
-    return (f"Another copy of the file that shares fingerprints between distros was found on "
-            f"{where} and renamed to {renamed[0]['name']}, so every distro uses the same one. "
-            "Nothing was deleted: it's still there under the new name.")
+    each = ", ".join(f"on {r['dev']} (now {r['name']})" for r in renamed)
+    return (f"{'Other copies' if len(renamed) > 1 else 'Another copy'} of the file that shares "
+            f"fingerprints between distros {'were' if len(renamed) > 1 else 'was'} found, {each}, "
+            "and renamed, so every distro uses the same one. What they noted was added to it "
+            "first, and nothing was deleted.")
 
 
 def forgotten_text(gone):
@@ -1937,19 +1938,21 @@ class Manager(Gtk.Window):
         changed = multi != self._multi
         self._multi = multi
         self._apply_sensor_tab()
-        told = " ".join(x for x in (forgotten_text(st["forgotten"]) if st.get("forgotten") else "",
-                                    renamed_text(st.get("shared_renamed"))) if x)
-        if told:                                    # one message: each replaces the one before
-            self.message(told)
-        self._warn_shared_problem(st.get("shared_problem"), st.get("shared_problem_dev"))
+        # One message for all of these: each message replaces the one before.
+        told = [forgotten_text(st["forgotten"]) if st.get("forgotten") else "",
+                renamed_text(st.get("shared_renamed"))]
+        details = None
         if changed and multi and load_settings().get("multi_known") != "1":
             names = ", ".join(sorted({i["os"] for i in self._other_installs()}))
-            self.message(f"Other distros on this laptop use the sensor too ({names}): the Sensor "
-                         "slots tab and ☰ → Import from other distros… are there now.",
-                         details="Distros that run the Galaxy Book Fingerprint Manager note their "
-                                 "fingerprints in a file on the EFI partition, so a finger can be "
-                                 "shared instead of enrolled again on each one. Each start checks "
-                                 "they're still installed.")
+            told.insert(0, f"Other distros on this laptop use the sensor too ({names}): the Sensor "
+                           "slots tab and ☰ → Import from other distros… are there now.")
+            details = ("Distros that run the Galaxy Book Fingerprint Manager note their "
+                       "fingerprints in a file on the EFI partition, so a finger can be "
+                       "shared instead of enrolled again on each one. Each start checks "
+                       "they're still installed.")
+        if any(told):
+            self.message(" ".join(x for x in told if x), details=details)
+        self._warn_shared_problem(st.get("shared_problem"), st.get("shared_problem_dev"))
         if changed or not multi:
             save_setting("multi_known", 1 if multi else 0)
 
@@ -1961,11 +1964,15 @@ class Manager(Gtk.Window):
             return
         self._shared_problem_told = True
         if dev:
-            f = "/mnt/EFI/samsung-galaxybook/fingerprint-slots.json"
+            m = "/run/galaxybook-esp"
+            f = f"{m}/EFI/samsung-galaxybook/fingerprint-slots.json"
             what = (f"EFI/samsung-galaxybook/fingerprint-slots.json on {dev}, an EFI partition "
                     f"{OS_NAME} doesn't mount, couldn't be opened, is damaged, or was written by a "
                     "newer version of the Galaxy Book Fingerprint Manager.")
-            fix = f"sudo mount {dev} /mnt\nsudo mv {f} {f}.bad\nsudo umount /mnt"
+            # One line, &&: nothing runs after a mount that failed. Works in fish too.
+            fix = (f"First shut down every other OS on this laptop fully (not hibernated). Then:"
+                   f"\n\nsudo mkdir -p {m} && sudo mount {dev} {m} && sudo mv {f} {f}.bad "
+                   f"&& sudo umount {m}")
         else:
             what = (f"{path} is damaged, or was written by a newer version of the "
                     "Galaxy Book Fingerprint Manager.")

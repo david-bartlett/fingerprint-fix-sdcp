@@ -29,6 +29,23 @@ PR #185 · Claude · 2026-11-22
 - The window's dialog and messages under Xvfb.
 - **Not tested:** a real vfat mount, because the sandbox kernel has no vfat driver. Also the real `blkid -p` PART_ENTRY_UUID of a GPT partition, `remount,rw` on vfat, the helper with the sensor, and package scriptlets. David's laptop steps are in the PR.
 
+## Codex review of 8ab75af (fixed in this PR)
+- **Renaming lost another copy's notes:** what each copy noted is now added to the chosen file first (`_merge_into`), and nothing is renamed unless that's saved. A copy that can't be read is left alone, and `used_elsewhere()` returns `None` for it.
+- **5-second caches could hide changes or an unmount:** caches now last one helper request (`new_request()`). Changes run under an `flock` lock and read afresh. A mounted partition is checked to still be mounted before each read or write, and a mounted save refuses a changed file.
+- **Discovery:**
+  - An EFI-type partition with no FSTYPE yet is kept.
+  - Drive found but no EFI partition: `None`, not the `esp_dir()` fallback.
+- **`fat_clean()` checks every FAT copy** (FAT32 can use FAT #1).
+- **Two writers:** the lock.
+- **Missing PARTUUID or UUID:** the child isn't run, and refuses `-` itself.
+- **Time-outs:** the child runs in its own process group, killed whole. `--forget-here` has a 60-second limit and is honest about a failed save.
+- **A refusal is kept until a write there works**, so Back up & restore still shows it after the rename step.
+- **Recovery commands:** one `&&` line in `/run/galaxybook-esp`, after shutting other OSes down.
+- **Rename notice:** names each file, and is joined with the multi-distro welcome.
+- Tested with a new scratch test for each finding (24 checks: real loop FAT32 for the FAT-copy case, real `flock` across processes, a process-group kill with a stand-in `unshare`). The earlier tests still pass.
+- The two findings in older code (attestation wording, the Ptyxis/Ghostty choice) are separate PRs.
+
 ## For the next person
-- Codex is to review this PR, especially `_child`, `fat_clean()` and the device checks.
+- A second Codex pass on the fixes would be worth it.
+- **Known limit:** a copy merged in by `rename_others()` can bring back an install that was forgotten (Forget, or package removal) in the chosen file but is still listed in the old copy. That errs on the safe side: it's shown in Other distros, Forget removes it, and install detection drops it if its partition is gone. It can only happen once per old copy, as the copy is then renamed.
 - If a write is refused as `dirty` every time, a partition's Linux dirty flag may have been left set: Linux doesn't clear it on unmount if it was dirty when mounted. `fsck.vfat` at boot (most fstabs have pass 2 for `/boot/efi`) clears it.

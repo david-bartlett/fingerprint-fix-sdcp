@@ -152,7 +152,7 @@ def short_id(p):
 # Slots shared with the laptop's other installs: see shared_slots.py.
 from shared_slots import (share_slots, forget_installs, install_key, used_elsewhere,  # noqa: E402
                           esp_records, read_file, merge_backup, esp_summary, problem_file,
-                          problem_dev, rename_others, SharedFileProblem)
+                          problem_dev, rename_others, new_request, SharedFileProblem)
 import io  # noqa: E402
 
 
@@ -1069,6 +1069,7 @@ def main():
             continue
         if worker and worker.is_alive():
             worker.join()
+        new_request()                               # read the shared file afresh for each request
         handle(req)
     if worker and worker.is_alive():
         finish_test(worker)

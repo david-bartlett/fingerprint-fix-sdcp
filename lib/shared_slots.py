@@ -42,11 +42,14 @@ stop listing this one:
   shared_slots.py --forget-here
 """
 import base64
+import contextlib
 import datetime
+import fcntl
 import hashlib
 import json
 import os
 import shutil
+import signal
 import stat
 import struct
 import subprocess
@@ -59,7 +62,7 @@ IGNORED_NAME = "fingerprint-slots.ignored.json"     # another copy on the drive,
 ESP_PARTTYPES = {"c12a7328-f81f-11d2-ba4b-00a0c93ec93b", "0xef"}   # GPT, MBR
 RUN_DIR = "/run/samsung-galaxybook"                 # the child's mount folders
 CHILD_TIMEOUT = 10                                  # seconds for one child read or write
-CACHE_S = 5                                         # one status read finds the partition once
+LOCK_WAIT = 30                                      # seconds to wait for another session's change
 MAX_FILE = 4 << 20
 
 
@@ -157,8 +160,11 @@ def drive_esps():
     mounts = _vfat_mounts()
     esps = []
     for n in _flat(_lsblk_esp([disk["path"]])):
-        if n.get("type") != "part" or (n.get("fstype") or "") != "vfat" \
-                or (n.get("parttype") or "").lower() not in ESP_PARTTYPES or not n.get("path"):
+        # By partition type only: lsblk may not have the filesystem yet (udev
+        # still probing), and skipping the partition then could pick another
+        # copy. The child checks it's vfat (blkid) before opening it.
+        if n.get("type") != "part" or (n.get("parttype") or "").lower() not in ESP_PARTTYPES \
+                or n.get("fstype") not in (None, "", "vfat") or not n.get("path"):
             continue
         m = mounts.get(os.path.realpath(n["path"]))
         esps.append(_Target(dev=n["path"], partn=_partn(n["path"]),
@@ -176,12 +182,12 @@ def shared_esp():
     lowest partition number if several do: the others are in .others, to be
     renamed), or else the first. A partition that can't be read counts as
     having it, so a copy that can't be read is never passed over for another
-    one. Without the drive (an unusual setup): the EFI partition this install
-    has mounted, as before."""
+    one. The drive found but no EFI partition on it: None. Without the drive
+    (an unusual setup): the EFI partition this install has mounted, as before."""
     disk, esps = drive_esps()
-    if disk is not None and _removable(disk):
-        return None
-    if not esps:
+    if disk is not None and (_removable(disk) or not esps):
+        return None         # (no EFI partition found on the drive: not some other one either)
+    if disk is None:
         mp = esp_dir()
         return _Target(path=os.path.join(mp, SHARED_REL)) if mp else None
     with_file = [t for t in esps if t.read()[0] != "missing"]
@@ -192,14 +198,58 @@ def shared_esp():
 
 
 # ── Reading and writing it ──────────────────────────────────────────────────
-_reads = {}                 # dev → (when, state, text): one status read opens a partition once
-_found = None               # (when, _Target) from shared_esp()
+# Caches last one helper request (new_request()), so one status read opens a
+# partition once. Every change is made under _locked(), which starts afresh.
+_reads = {}                 # dev → (state, text)
+_found = None               # [_Target] from shared_esp()
+_refused = {}               # label → why the last write there didn't happen ("dirty"…)
 
 
-def _forget_cache():
+def new_request():
+    """Forget what was read: the helper calls this before each request."""
     global _found
     _found = None
     _reads.clear()
+
+
+_forget_cache = new_request
+
+
+class SharedBusy(Exception):
+    """Another session of this install is changing the shared file."""
+
+
+@contextlib.contextmanager
+def _locked():
+    """Serialise changes to the shared file between this install's helper
+    sessions (two users logged in) and package removal, and read it afresh.
+    Yields False when another one held it for LOCK_WAIT seconds. Without
+    root (tests) there's no lock: nothing then can write an EFI partition."""
+    fd = None
+    try:
+        os.makedirs(RUN_DIR, mode=0o700, exist_ok=True)
+        fd = os.open(os.path.join(RUN_DIR, "shared-file.lock"),
+                     os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    except OSError:
+        fd = None
+    got = fd is None
+    end = time.monotonic() + LOCK_WAIT
+    while not got:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            got = True
+        except BlockingIOError:
+            if time.monotonic() > end:
+                break
+            time.sleep(0.1)
+        except OSError:
+            got = True                              # can't lock here: carry on as before
+    new_request()
+    try:
+        yield got
+    finally:
+        if fd is not None:
+            os.close(fd)
 
 
 class _Target:
@@ -216,7 +266,6 @@ class _Target:
         self.others = []                            # other copies on the drive (shared_esp)
         self.first = False                          # the drive's first EFI partition
         self.raw = None                             # the text last read (None: no file)
-        self.refused = None                         # why the last write didn't happen ("dirty"…)
         self._state = None
 
     def label(self):
@@ -232,9 +281,21 @@ class _Target:
             self.read()
         return self._state
 
+    def _still_mounted(self):
+        """A mount found earlier is still that partition (not the empty folder
+        under it after an unmount, which would look like "no file")."""
+        if not (self.mount and self.dev):
+            return True                             # a plain path (fallback, tests)
+        try:
+            return os.stat(self.mount).st_dev == os.stat(self.dev).st_rdev
+        except OSError:
+            return False
+
     def read(self):
         """("ok", text) | ("missing", None) | ("error", None)."""
-        if self.mounted:
+        if self.mounted and not self._still_mounted():
+            res = ("error", None)
+        elif self.mounted:
             try:
                 with open(self.path, "rb") as f:
                     res = ("ok", f.read(MAX_FILE).decode("utf-8", "replace"))
@@ -243,14 +304,12 @@ class _Target:
             except OSError:
                 res = ("error", None)
         else:
-            hit = _reads.get(self.dev)
-            if hit and time.monotonic() - hit[0] < CACHE_S:
-                res = hit[1:]
-            else:
+            res = _reads.get(self.dev)
+            if res is None:
                 r = _run_child("read", self)
                 res = (r.get("state"), r.get("text")) if r.get("state") in ("ok", "missing") \
                     else ("error", None)
-                _reads[self.dev] = (time.monotonic(),) + res
+                _reads[self.dev] = res
         self._state, self.raw = res[0], res[1]
         return res
 
@@ -259,8 +318,19 @@ class _Target:
         be (a full or read-only partition; one that isn't clean; a file that
         changed since it was read)."""
         if self.mounted:
+            if not self._still_mounted():
+                _refused[self.label()] = "error"
+                return False
             try:
                 d = os.path.dirname(self.path)
+                try:                                # changed since it was read: refuse
+                    with open(self.path, "rb") as f:
+                        cur = f.read(MAX_FILE).decode("utf-8", "replace")
+                except FileNotFoundError:
+                    cur = None
+                if self._state is not None and cur != self.raw:
+                    _refused[self.label()] = "changed"
+                    return False
                 os.makedirs(d, exist_ok=True)
                 tmp = self.path + ".new"
                 with open(tmp, "w") as f:
@@ -270,15 +340,18 @@ class _Target:
                 os.replace(tmp, self.path)
                 _fsync_dir(d)
                 self._state, self.raw = "ok", text
+                _refused.pop(self.label(), None)
                 return True
             except OSError:
+                _refused[self.label()] = "error"
                 return False
         r = _run_child("write", self, json.dumps({"text": text, "expect": self.raw}))
         _reads.pop(self.dev, None)
-        self.refused = None if r.get("state") == "ok" else r.get("state") or "error"
         if r.get("state") == "ok":
             self._state, self.raw = "ok", text
+            _refused.pop(self.label(), None)
             return True
+        _refused[self.label()] = r.get("state") or "error"
         return False
 
     def rename_ignored(self):
@@ -326,16 +399,30 @@ def _t(p):
 def _run_child(op, t, stdin=None):
     """Run _child() for op on t's partition, in a mount namespace of its own;
     its JSON answer, or {"state": "error"}."""
+    if not (t.dev and t.partuuid and t.uuid):
+        return {"state": "error"}                   # can't be sure which partition it is
     unshare = shutil.which("unshare") or "/usr/bin/unshare"
     argv = [unshare, "--mount", "--propagation", "private", sys.executable or "python3", "-I",
-            os.path.abspath(__file__), f"--esp-{op}", t.dev, t.partuuid or "-", t.uuid or "-"]
+            os.path.abspath(__file__), f"--esp-{op}", t.dev, t.partuuid, t.uuid]
     try:
-        r = subprocess.run(argv, input=stdin, capture_output=True, text=True,
-                           timeout=CHILD_TIMEOUT)    # killed when it runs out: the mount goes too
-        lines = r.stdout.strip().splitlines()
+        # Its own process group, so a time-out kills its mount or umount too:
+        # the namespace (and the mount in it) goes when the last of them does.
+        p = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.DEVNULL, text=True, start_new_session=True)
+    except OSError:
+        return {"state": "error"}
+    try:
+        out, _ = p.communicate(stdin, timeout=CHILD_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        with contextlib.suppress(OSError):
+            os.killpg(p.pid, signal.SIGKILL)
+        p.wait()
+        return {"state": "error"}
+    try:
+        lines = out.strip().splitlines()
         res = json.loads(lines[-1]) if lines else {}
         return res if isinstance(res, dict) else {"state": "error"}
-    except (OSError, ValueError, subprocess.SubprocessError):
+    except ValueError:
         return {"state": "error"}
 
 
@@ -356,16 +443,23 @@ def fat_clean(dev):
             if bps not in (512, 1024, 2048, 4096) or not spc or not rsv or not nfats:
                 return None
             fat32 = fatsz16 == 0
+            fatsz = struct.unpack_from("<I", bs, 0x24)[0] if fat32 else fatsz16
+            if not fatsz:
+                return None
             if bs[0x41 if fat32 else 0x25] & 0x01:     # Linux: FAT_STATE_DIRTY
                 return False
-            f.seek(rsv * bps)
-            fat = f.read(8)
-            if fat32:
-                return bool(struct.unpack_from("<I", fat, 4)[0] & 0x08000000)
-            data = (tot16 or tot32) - rsv - nfats * fatsz16 - (root_ents * 32 + bps - 1) // bps
-            if data // spc < 4085:                  # FAT12 has no clean-shutdown bit
-                return True
-            return bool(struct.unpack_from("<H", fat, 2)[0] & 0x8000)
+            if not fat32:
+                data = (tot16 or tot32) - rsv - nfats * fatsz - (root_ents * 32 + bps - 1) // bps
+                if data // spc < 4085:              # FAT12 has no clean-shutdown bit
+                    return True
+            for i in range(nfats):                  # every copy: FAT32 may use one other than #0
+                f.seek((rsv + i * fatsz) * bps)
+                fat = f.read(8)
+                if fat32 and not struct.unpack_from("<I", fat, 4)[0] & 0x08000000:
+                    return False
+                if not fat32 and not struct.unpack_from("<H", fat, 2)[0] & 0x8000:
+                    return False
+            return True
     except (OSError, struct.error, IndexError):
         return None
 
@@ -414,9 +508,11 @@ def _child(op, dev, partuuid, uuid):
         done(state="error", why=str(e))
     if not stat.S_ISBLK(st.st_mode):
         done(state="error", why="not a block device")
+    if "-" in (partuuid, uuid) or not partuuid or not uuid:
+        done(state="error", why="no PARTUUID or UUID to check it by")
     info = _probe(dev)                              # what's on the partition itself, now
-    if info.get("TYPE") != "vfat" or (info.get("PART_ENTRY_UUID") or "-").lower() != partuuid.lower() \
-            or (info.get("UUID") or "-").lower() != uuid.lower():
+    if info.get("TYPE") != "vfat" or (info.get("PART_ENTRY_UUID") or "").lower() != partuuid.lower() \
+            or (info.get("UUID") or "").lower() != uuid.lower():
         done(state="error", why="not the partition expected")
     if os.path.realpath(dev) in _vfat_mounts(trigger=False):
         done(state="error", why="mounted already")
@@ -575,14 +671,12 @@ def install_state(where, disks=None):
 
 
 def _path():
-    """Where the shared file is (a _Target), or None. Found once per status
-    read (CACHE_S), not once per function that uses it."""
+    """Where the shared file is (a _Target), or None. Found once per helper
+    request (new_request()), not once per function that uses it."""
     global _found
-    if _found and time.monotonic() - _found[0] < CACHE_S:
-        return _found[1]
-    t = shared_esp()
-    _found = (time.monotonic(), t)
-    return t
+    if _found is None:
+        _found = [shared_esp()]
+    return _found[0]
 
 
 class SharedFileProblem(Exception):
@@ -616,18 +710,27 @@ def _unusable(path, data):
     return not data and _t(path).state() != "missing"
 
 
-def problem_file():
-    """Where the shared file is (_Target.label()) if it's there but can't be
-    used, otherwise None."""
+def _problem():
+    """The copy that can't be used: the shared file, or another copy on the
+    drive that couldn't be read (it may list installs still using slots, so
+    it isn't renamed and Reset can't tell). None when there's none."""
     t = _target()
-    return t.label() if t and _unusable(t, _load(t)) else None
+    if not t:
+        return None
+    return next((c for c in [t] + list(t.others) if _unusable(c, _load(c))), None)
+
+
+def problem_file():
+    """Where a copy that can't be used is (_Target.label()), otherwise None."""
+    c = _problem()
+    return c.label() if c else None
 
 
 def problem_dev():
-    """The partition holding a shared file that can't be used, when this
-    install doesn't mount it (so the fix needs mounting it first), else None."""
-    t = _target()
-    return t.dev if t and not t.mounted and _unusable(t, _load(t)) else None
+    """The partition holding a copy that can't be used, when this install
+    doesn't mount it (so the fix needs mounting it first), else None."""
+    c = _problem()
+    return c.dev if c and not c.mounted else None
 
 
 def _save(path, data, before):
@@ -704,6 +807,11 @@ def share_slots(serial, templates, records_by_tid, forgotten=None, listed=True):
     exist are forgotten and added to forgotten. listed False: the driver can't
     list the sensor, so templates says nothing about what's on it and no entry
     is dropped for being missing from it. Never fails."""
+    with _locked() as got:
+        return _share_slots(serial, templates, records_by_tid, forgotten, listed) if got else None
+
+
+def _share_slots(serial, templates, records_by_tid, forgotten, listed):
     me, path = install_key(), _path()
     if not me or not path or not serial:
         return None
@@ -792,25 +900,40 @@ def esp_summary(serial):
     n = sum(1 for e in sensor.values() if isinstance(e, dict) and e.get("record"))
     return {"path": t.label() if t else None, "records": n, "dev": t.dev if t else "",
             "mounted": bool(t and t.mounted), "first": bool(t and t.first),
-            "refused": t.refused if t else None}
+            "refused": _refused.get(t.label()) if t else None}
 
 
 def rename_others():
     """Rename the other copies of the shared file on this drive (shared_esp()
     uses the one with the lowest partition number) to fingerprint-slots.
-    ignored.json, so no install picks them up again. Only when the one in use
-    can be read: if it can't, the other may be the good one, so nothing is
-    renamed. Returns [{"dev", "name"}] for what was renamed."""
-    t = _target()
-    if not t or not t.others or not _load(t):
-        return []
-    out = []
-    for o in t.others:
-        name = o.rename_ignored()
-        if name:
-            out.append({"dev": o.dev or o.label(), "name": name})
-    _forget_cache()
-    return out
+    ignored.json, so no install picks them up again. What each one noted is
+    added to the one in use first (missing entries only, as a restore does),
+    and nothing is renamed unless that's saved: an install noted only in the
+    other copy would otherwise lose its slots' protection from Reset. Only
+    when the one in use can be read; a copy that can't be read is left alone
+    (see _problem()). Returns [{"dev", "name"}] for what was renamed."""
+    with _locked() as got:
+        t = _target()
+        if not got or not t or not t.others:
+            return []
+        data = _load(t)
+        if not data:
+            return []
+        before = json.dumps(data, sort_keys=True)
+        readable = []
+        for o in t.others:
+            od = _load(o)
+            if od and isinstance(od.get("sensors", {}), dict):
+                _merge_into(data, od)
+                readable.append(o)
+        if not readable or _save(t, data, before) is False:
+            return []
+        out = []
+        for o in readable:
+            name = o.rename_ignored()
+            if name:
+                out.append({"dev": o.dev or o.label(), "name": name})
+        return out
 
 
 def read_file():
@@ -832,16 +955,32 @@ def merge_backup(backup):
     if not isinstance(backup, dict) or backup.get("version") != 1 \
             or not isinstance(backup.get("sensors"), dict):
         raise ValueError("not a backup of fingerprint-slots.json")
-    data = _load(path)
-    if _unusable(path, data):
-        raise SharedFileProblem(_t(path).label())
-    before = json.dumps(data, sort_keys=True)
+    with _locked() as got:
+        if not got:
+            raise OSError("another session was changing the shared file")
+        path = _path()
+        if not path:
+            return None
+        data = _load(path)
+        if _unusable(path, data):
+            raise SharedFileProblem(_t(path).label())
+        before = json.dumps(data, sort_keys=True)
+        added = _merge_into(data, backup)
+        if _save(path, data, before) is False:
+            raise OSError(f"couldn't write {_t(path).label()}")
+        return added
+
+
+def _merge_into(data, backup):
+    """Add what backup (a backup, or another copy of the file) has and data
+    doesn't: templates, records, installs. Nothing in data is changed.
+    Returns how many records were added."""
     data["version"] = 1
     added = 0
     for k, v in (backup.get("installs") or {}).items():
         if isinstance(v, dict):
             data.setdefault("installs", {}).setdefault(str(k), v)
-    for serial, tpls in backup["sensors"].items():
+    for serial, tpls in (backup.get("sensors") or {}).items():
         if not isinstance(tpls, dict):
             continue
         sensor = data.setdefault("sensors", {}).setdefault(str(serial), {})
@@ -857,8 +996,6 @@ def merge_backup(backup):
             for k, v in (e.get("installs") or {}).items():
                 if isinstance(v, dict) and k not in inst:
                     inst[k] = v
-    if _save(path, data, before) is False:
-        raise OSError(f"couldn't write {_t(path).label()}")
     return added
 
 
@@ -871,8 +1008,11 @@ def used_elsewhere(serial):
     me, path = install_key(), _path()
     if not path:
         return None
-    data = _load(path)
-    if _t(path).state() == "missing":
+    t = _t(path)
+    if any(_unusable(o, _load(o)) for o in t.others):
+        return None             # another copy on the drive can't be read: it may list some
+    data = _load(t)
+    if t.state() == "missing":
         return set()
     if not data:                                    # unreadable or not ours
         return None
@@ -885,10 +1025,18 @@ def used_elsewhere(serial):
 def forget_installs(keys, serial=None):
     """Take installs (by key) out of the shared file, on one sensor or all.
     Their templates' finger and user stay, so the others can still say whose
-    they were. Returns how many entries went."""
-    path = _path()
+    they were. Returns how many entries went (0 when the file couldn't be
+    saved)."""
     keys = {k for k in keys if k}
-    if not path or not keys:
+    if not keys:
+        return 0
+    with _locked() as got:
+        return _forget_installs(keys, serial) if got else 0
+
+
+def _forget_installs(keys, serial):
+    path = _path()
+    if not path:
         return 0
     data = _load(path)
     if not data:
@@ -907,8 +1055,7 @@ def forget_installs(keys, serial=None):
                 for k in keys & set(installs):
                     del installs[k]
                     gone += 1
-    _save(path, data, before)
-    return gone
+    return 0 if _save(path, data, before) is False else gone
 
 
 if __name__ == "__main__":
@@ -918,10 +1065,17 @@ if __name__ == "__main__":
         sys.exit(f"Usage: {sys.argv[0]} --forget-here")
     if os.geteuid() != 0:
         sys.exit("Run as root.")
+
+    def _too_long(*_):
+        raise TimeoutError
+
+    signal.signal(signal.SIGALRM, _too_long)        # never hang a removal (an automount, say)
+    signal.alarm(60)
     try:
         n = forget_installs([install_key()])
-    except Exception:                               # never fail a removal
+    except BaseException:                           # never fail a removal
         n = 0
+    signal.alarm(0)
     if n:
         print(f"Took this {os_label()} out of the fingerprint slots file shared with the "
               "laptop's other installs.")
