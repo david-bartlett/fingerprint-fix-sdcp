@@ -9,6 +9,13 @@
 
 ## Unreleased
 
+- **Distros with their own EFI partition share fingerprints too:** the shared fingerprint file now goes on the same EFI partition for every distro on the drive, even one that boots from an EFI partition of its own
+- The file is on whichever of the drive's EFI partitions already has `EFI/samsung-galaxybook/fingerprint-slots.json`, or else the first by partition number. Before, each distro used the EFI partition it mounts, so a distro with its own (as some installers make) couldn't see the others, and its **Reset** could clear fingerprints they still use
+- A distro that doesn't mount that partition opens it only for each read or save, in a short-lived process of its own that the rest of the system doesn't see, read-only unless it's saving. It saves only if no other OS left the partition in use (hibernated, or not shut down properly), and only if the file hasn't changed since it was read
+- Other copies of the file on the drive are renamed to `fingerprint-slots.ignored.json`, so every distro uses the same one. What they noted is added to the one in use first; a copy that can't be read is left alone, and Reset then won't clear slots. The Manager says what was renamed once
+- Changes to the file are made one at a time, even with two users logged in, and always from a fresh read
+- ☰ → **Back up & restore…** shows which partition holds the file. Distros running from a USB drive don't share fingerprints
+
 - **Release files are attested:** each file on a release now has a build attestation from GitHub, so `gh attestation verify <file> -R david-bartlett/fingerprint-fix-sdcp` shows it was built by this repository's release workflow from the release tag
 - The attestation step comes after the release is published and can't fail the run, so it never holds a release back
 - **Privacy and how it's made, in the README:** where your fingerprints are kept (on the sensor; the laptop only knows which slot is whose), the only network use, and how the fix is built, reviewed and tested

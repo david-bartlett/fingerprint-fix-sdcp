@@ -39,6 +39,16 @@ Turned one down? It isn't offered again by itself, but ☰ → **Import from oth
 
 ☰ → **Reset <distro>…** deletes that distro's fingerprints for good, and erases from the sensor **the slots no other distro uses**: nothing can bring those fingers back (not an import, not a backup); they have to be enrolled again. Slots other distros also use are kept, and you're asked straight after whether to import them again. The confirmation names which fingers are lost and which are kept. The distro is also taken out of the shared file. If the EFI partition can't be read when you confirm, Reset changes nothing and says why, as it can't tell which slots the other distros use. You don't need it to reinstall a distro.
 
+## Distros With Their Own EFI Partition
+
+Some installers make a new EFI partition for their distro, instead of using the one Windows and the other distros share. The fingerprints are still shared through **one file**: on the EFI partition that already has `EFI/samsung-galaxybook/fingerprint-slots.json`, or, if none has it yet, the drive's first EFI partition (usually the one Windows made, `nvme0n1p1`). Every distro on the drive picks the same one, by its partition number.
+
+- A distro that doesn't mount that partition still uses it: the Manager opens it for a moment each time it reads or saves the file, out of sight of the rest of the system (it doesn't appear in your file manager), and closes it straight away.
+- It's opened read-only to read. It's only written when something changed, and only if no other OS still has it in use (one that's hibernated, or wasn't shut down properly). If one does, the Manager still reads it, and ☰ → **Back up & restore…** says changes can't be saved until that OS is shut down fully.
+- If more than one EFI partition already has a copy (made by an older version), the one on the lowest-numbered partition is used. The others are renamed to `fingerprint-slots.ignored.json`, so no distro picks them up again, and the Manager says so once. Nothing in them is deleted.
+- ☰ → **Back up & restore…** shows which partition holds the file.
+- The file always stays on the drive the distro runs from. A distro running from a USB drive doesn't share fingerprints.
+
 ## Back Up & Restore
 
 The file on the EFI partition holds every distro's records. Formatting that partition (reinstalling Windows can) loses them: your fingerprints are still on the sensor, but no distro knows which slot is whose. A backup puts them back.
@@ -57,7 +67,7 @@ A backup holds no fingerprints, only which slot is whose: it's useless without t
 | ☰ menu | Import from other distros… | The fingers this install could use from the other distros on the laptop (also ones you turned down before), ticked ones imported through `import-fingerprint.sh` with all its checks |
 | ☰ menu | Reset <distro>… | Deletes this distro's fingerprints for good: clears the slots only it uses (they have to be enrolled again), keeps the ones other distros also use and offers them back, and takes it out of the shared slots file. The confirmation names the fingers lost and kept. Not needed to reinstall a distro |
 | Sensor slots | Other distros… | Every distro in the shared slots file, with the date it last opened the Manager and its slots. **Forget…** takes a wiped or reinstalled one out; **Forget and clear N slots** also erases the slots only it used. Also in the ⓘ dialog. Only shown when other distros are listed |
-| ☰ menu | Back up & restore… | Says how many records the EFI partition has; **Back up…** saves a copy of `fingerprint-slots.json` from the EFI partition (every distro's records) as a `.json` file; **Restore…** merges one back (adds what's missing, changes nothing there) and the Manager offers the fingers again |
+| ☰ menu | Back up & restore… | Says how many records the EFI partition has, and which partition holds the file; **Back up…** saves a copy of `fingerprint-slots.json` from the EFI partition (every distro's records) as a `.json` file; **Restore…** merges one back (adds what's missing, changes nothing there) and the Manager offers the fingers again |
 
 ## Without the Manager
 

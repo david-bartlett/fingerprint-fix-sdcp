@@ -1,6 +1,6 @@
 # Plan: one shared file on the drive's EFI partition
 
-Status: **plan only, nothing built.** The idea is in PLAN.md §11. The decisions are at the end.
+Status: **built** (`fix/one-efi-file`). PLAN.md §6 and §10 describe how it works now; this is the plan as it was agreed. One change while building: the child checks the partition with `blkid -p` (what's on it now, not udev's cache) instead of lsblk.
 
 This replaces the first version of this plan (PR #180). That version kept a copy on every EFI partition in step, with merge rules, tombstones and a multi-file restore. After talking it through, David chose something simpler:
 

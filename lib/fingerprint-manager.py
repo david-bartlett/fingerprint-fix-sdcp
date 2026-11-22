@@ -831,6 +831,18 @@ def _uniq(xs):
     return list(dict.fromkeys(xs))
 
 
+def renamed_text(renamed):
+    """Other copies of the shared file on the drive, renamed (once) so every
+    distro uses the same one. "" when there were none."""
+    if not renamed:
+        return ""
+    each = ", ".join(f"on {r['dev']} (now {r['name']})" for r in renamed)
+    return (f"{'Other copies' if len(renamed) > 1 else 'Another copy'} of the file that shares "
+            f"fingerprints between distros {'were' if len(renamed) > 1 else 'was'} found, {each}, "
+            "and renamed, so every distro uses the same one. What they noted was added to it "
+            "first, and nothing was deleted.")
+
+
 def forgotten_text(gone):
     """The one message for installs found gone at this start. It's one because
     a message replaces the one before it, so one each would show only the last.
@@ -1926,35 +1938,52 @@ class Manager(Gtk.Window):
         changed = multi != self._multi
         self._multi = multi
         self._apply_sensor_tab()
-        if st.get("forgotten"):                     # found gone at this start
-            self.message(forgotten_text(st["forgotten"]))
-        self._warn_shared_problem(st.get("shared_problem"))
+        # One message for all of these: each message replaces the one before.
+        told = [forgotten_text(st["forgotten"]) if st.get("forgotten") else "",
+                renamed_text(st.get("shared_renamed"))]
+        details = None
         if changed and multi and load_settings().get("multi_known") != "1":
             names = ", ".join(sorted({i["os"] for i in self._other_installs()}))
-            self.message(f"Other distros on this laptop use the sensor too ({names}): the Sensor "
-                         "slots tab and ☰ → Import from other distros… are there now.",
-                         details="Distros that run the Galaxy Book Fingerprint Manager note their "
-                                 "fingerprints in a file on the EFI partition, so a finger can be "
-                                 "shared instead of enrolled again on each one. Each start checks "
-                                 "they're still installed.")
+            told.insert(0, f"Other distros on this laptop use the sensor too ({names}): the Sensor "
+                           "slots tab and ☰ → Import from other distros… are there now.")
+            details = ("Distros that run the Galaxy Book Fingerprint Manager note their "
+                       "fingerprints in a file on the EFI partition, so a finger can be "
+                       "shared instead of enrolled again on each one. Each start checks "
+                       "they're still installed.")
+        if any(told):
+            self.message(" ".join(x for x in told if x), details=details)
+        self._warn_shared_problem(st.get("shared_problem"), st.get("shared_problem_dev"))
         if changed or not multi:
             save_setting("multi_known", 1 if multi else 0)
 
-    def _warn_shared_problem(self, path):
+    def _warn_shared_problem(self, path, dev=None):
         """Once a run: the shared file is there but can't be used, so nothing
-        writes to it and Reset refuses until it's sorted out."""
+        writes to it and Reset refuses until it's sorted out. dev: it's on an
+        EFI partition this distro doesn't mount, so the fix mounts it first."""
         if not path or getattr(self, "_shared_problem_told", False):
             return
         self._shared_problem_told = True
+        if dev:
+            m = "/run/galaxybook-esp"
+            f = f"{m}/EFI/samsung-galaxybook/fingerprint-slots.json"
+            what = (f"EFI/samsung-galaxybook/fingerprint-slots.json on {dev}, an EFI partition "
+                    f"{OS_NAME} doesn't mount, couldn't be opened, is damaged, or was written by a "
+                    "newer version of the Galaxy Book Fingerprint Manager.")
+            # One line, &&: nothing runs after a mount that failed. Works in fish too.
+            fix = (f"First shut down every other OS on this laptop fully (not hibernated). Then:"
+                   f"\n\nsudo mkdir -p {m} && sudo mount {dev} {m} && sudo mv {f} {f}.bad "
+                   f"&& sudo umount {m}")
+        else:
+            what = (f"{path} is damaged, or was written by a newer version of the "
+                    "Galaxy Book Fingerprint Manager.")
+            fix = f"sudo mv {path} {path}.bad"
         self.message("The file that shares fingerprints between distros can't be read, so it's "
                      "been left as it is. Sharing and Reset are off until that's fixed.",
                      Gtk.MessageType.WARNING,
-                     details=f"{path} is damaged, or was written by a newer version of the "
-                             "Galaxy Book Fingerprint Manager. Enrolled fingerprints keep "
+                     details=f"{what} Enrolled fingerprints keep "
                              "working.\n\nIf another distro on this laptop has a newer version, "
                              "update this one to match. Otherwise, move the file aside, then open "
-                             "the Manager on each distro to write it again:\n\n"
-                             f"sudo mv {path} {path}.bad")
+                             "the Manager on each distro to write it again:\n\n" + fix)
 
     def _apply_sensor_tab(self):
         """Tab buttons with Sensor slots on (or for a visit); just a title without."""
@@ -3300,6 +3329,21 @@ class Manager(Gtk.Window):
         esp = (self.status or {}).get("esp") or {}
         n = esp.get("records", 0)
         where = esp.get("path")
+        recs = f"<b>Now:</b> {n} record{'s' if n != 1 else ''} in "
+        if not where:
+            now = "<b>Now:</b> the EFI partition wasn't found, so there's nothing to back up."
+        elif esp.get("mounted", True):
+            now = f"{recs}<tt>{GLib.markup_escape_text(where)}</tt>."
+        else:                                       # on an EFI partition this distro doesn't mount
+            now = (f"{recs}<tt>EFI/samsung-galaxybook/fingerprint-slots.json</tt> on "
+                   f"<tt>{GLib.markup_escape_text(esp.get('dev') or '')}</tt>, "
+                   + ("the drive's first EFI partition" if esp.get("first") else "an EFI partition")
+                   + f". {GLib.markup_escape_text(OS_NAME)} doesn't mount it, so the Manager "
+                   "opens it when needed.")
+            if esp.get("refused") == "dirty":
+                now += ("\n<b>Changes can't be saved there now:</b> another OS on this laptop "
+                        "still has that partition in use (it's hibernated, or wasn't shut down "
+                        "properly). Shut that OS down fully, then open the Manager again.")
         d = MessageDialog(transient_for=self, modal=True, buttons=Gtk.ButtonsType.NONE,
                           message_type=Gtk.MessageType.INFO, text="Back up & restore")
         d.format_secondary_markup(
@@ -3307,9 +3351,7 @@ class Manager(Gtk.Window):
             "fingerprint records in one file on the EFI partition. That's how a new or reinstalled "
             "distro is offered the fingers the others already use, with no enrolling. The records "
             "only point to the sensor's slots: your fingerprints never leave the sensor.\n\n"
-            + (f"<b>Now:</b> {n} record{'s' if n != 1 else ''} in "
-               f"<tt>{GLib.markup_escape_text(where)}</tt>.\n\n" if where else
-               "<b>Now:</b> the EFI partition wasn't found, so there's nothing to back up.\n\n")
+            + now + "\n\n"
             + "<b>Back up…</b> saves a copy of that file, e.g. to your home folder or a USB stick.\n"
             "<b>Restore…</b> puts a backup's records back, should the EFI partition ever be "
             "formatted (by reinstalling Windows, say). Records already there are kept as they "
