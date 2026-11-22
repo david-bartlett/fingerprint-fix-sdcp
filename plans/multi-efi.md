@@ -1,6 +1,6 @@
 # Plan: one shared file on the drive's EFI partition
 
-Status: **plan only, nothing built.** The idea is in PLAN.md §11. Answer the question at the end before the first PR.
+Status: **plan only, nothing built.** The idea is in PLAN.md §11. The decisions are at the end.
 
 This replaces the first version of this plan (PR #180). That version kept a copy on every EFI partition in step, with merge rules, tombstones and a multi-file restore. After talking it through, David chose something simpler:
 
@@ -63,22 +63,30 @@ If the root filesystem's disk can't be found (an unusual setup), fall back to to
 EndeavourOS needs this on David's laptop: the file is on `p1`, which EndeavourOS doesn't mount.
 
 1. **Mounted already** (Fedora's `/boot/efi`): use that mount, and never mount it a second time.
-2. **Not mounted:** this only happens when the shared file is on an EFI partition this distro doesn't use itself (EndeavourOS and `p1` on David's laptop). A distro that mounts the partition holding the file (Fedora, and every distro on a laptop with one EFI partition) never does any of this. Nothing in the running distro is using that partition, so the helper can mount it briefly without affecting anything. The helper (root):
-   - **Moves into its own mount namespace** when it starts: `os.unshare(os.CLONE_NEWNS)` (Python 3.12 or newer, which every supported distro has), then `mount --make-rslave /`.
-     - Its mounts are **invisible to the rest of the system**: no drive appears in Files or Dolphin, and nothing else can start using it.
-     - "Slave" rather than "private", so automounts outside (a systemd automount on `/boot/efi`, say) still reach the helper.
-     - When the helper exits, or crashes, the kernel drops the mount. It can't be left mounted.
-   - **Mounts read-only** the first time the file is needed:
+2. **Not mounted:** this only happens when the shared file is on an EFI partition this distro doesn't use itself (EndeavourOS and `p1` on David's laptop). A distro that mounts the partition holding the file (Fedora, and every distro on a laptop with one EFI partition) never does any of this. Nothing in the running distro is using that partition, so it can be mounted briefly without affecting anything.
+
+   **The safest way, decided by David on 22 Nov 2026:** mount only for the moment the file is read or written, in a short-lived child process with its own mount namespace. The helper itself never changes namespace and never holds a mount between requests.
+   - The helper runs:
      ```
-     mount -t vfat -o ro,nosuid,nodev,noexec,umask=0077 <dev> /run/samsung-galaxybook/esp
+     unshare --mount --propagation private python3 -I <lib>/shared_slots.py --esp-read <dev> <partuuid>
+     unshare --mount --propagation private python3 -I <lib>/shared_slots.py --esp-write <dev> <partuuid>
      ```
-     The folder is root's, mode 0700. Most status reads change nothing, so most sessions never mount read-write.
-   - **Read-write only to save:**
-     - check the partition is clean (below)
-     - `mount -o remount,rw`
-     - write `fingerprint-slots.json.new`, `fsync`, rename, `fsync` the folder (today's atomic write, plus the syncs)
-     - `mount -o remount,ro`, which flushes the write and marks the partition clean again
-   - **Unmounts** when the helper exits normally.
+     The file comes back on stdout, or goes in on stdin. That's `unshare` from util-linux, which every distro has. A fresh process is safer than forking the helper, which runs jobs in threads.
+   - **Private:** the child's mount exists only in its own namespace, so the desktop, file manager and other programs never see it. No drive appears in Files or Dolphin, and nothing else can open it. When the child exits, normally or not, the kernel drops the mount, so **it can't be left mounted**, not even if the helper or the child crashes.
+   - **Check it's the right partition:** before mounting, the child checks the device still has the PARTUUID and vfat UUID lsblk gave. After mounting, it checks that the mount is that device.
+   - **Reading:** mount read-only, read, unmount, exit:
+     ```
+     mount -t vfat -o ro,nosuid,nodev,noexec,umask=0077 <dev> <private folder>
+     ```
+     Most status reads change nothing, so most of the time the partition is only ever mounted read-only, for a moment.
+   - **Writing**, only when the file really changed:
+     1. Do the clean check (below) on the raw partition, before mounting.
+     2. Mount read-only, then check that the file there is still exactly what was read (it hasn't changed since).
+     3. `mount -o remount,rw,errors=remount-ro`.
+     4. Write `fingerprint-slots.json.new`, `fsync`, rename, `fsync` the folder (today's atomic write, plus the syncs).
+     5. Unmount. That flushes everything and marks the partition clean again.
+   - Never `fsck` or repair the partition: a partition that won't mount, or isn't clean, is left alone.
+   - Each child has a time limit (10 seconds). If it runs out, the child is killed and the kernel drops its mount.
 3. **Clean check before writing:** if another OS has the partition mounted and is hibernated, or didn't shut down cleanly, it may have its own cached copy. Writing under it could damage the partition when it resumes. FAT records this:
    - Linux marks the volume dirty while it's mounted read-write: the state byte in the boot sector (offset `0x41` on FAT32, `0x25` on FAT16), bit `0x01`.
    - Windows clears the clean-shutdown bit in the second FAT entry: bit `0x08000000` on FAT32, `0x8000` on FAT16.
@@ -86,7 +94,7 @@ EndeavourOS needs this on David's laptop: the file is on `p1`, which EndeavourOS
    If either says dirty, the helper **reads but doesn't write**. Sharing still reads, but nothing new is noted until that OS is shut down properly.
 
    This check is skipped for a partition this distro has mounted itself, which is dirty because of that mount. Windows doesn't normally mount the EFI partition at all.
-4. **`shared_slots.py --forget-here`** (package removal and `uninstall.sh`) does the same in its own process: unshare, mount, write, unmount. Each mount has a time limit, and it never fails a removal.
+4. **`shared_slots.py --forget-here`** (package removal and `uninstall.sh`) uses the same child process to write. It has the same time limit, and never fails a removal.
 
 The window never sends a device path: the helper finds it with lsblk.
 
@@ -102,11 +110,10 @@ The window never sends a device path: the helper finds it with lsblk.
 | `share_slots`, `used_elsewhere`, `esp_records`, `esp_summary`, `problem_file`, `read_file`, `merge_backup`, `forget_installs` | Unchanged apart from going through `_path()` and `_save()`. |
 | `esp_summary()` | Also returns which partition it is (`dev`, `partn`, mounted or not). |
 | New | `rename_others()`: renames other copies on the drive to `fingerprint-slots.ignored.json` (§6), and returns what it renamed for the once-only message. |
-| New | `EspMount`: the namespace, mount and remount handling, used by the helper and `--forget-here`. |
+| New | `--esp-read` and `--esp-write`: the child process (§4): check the device, mount in its own namespace, read or write, unmount. `_path()`/`_save()` call it through `unshare` for a partition this distro hasn't mounted. |
 
 `lib/fingerprint-manager-helper.py`:
-- Unshares its mount namespace at start (§4), and unmounts on exit (in the same place `finish_test()` runs).
-- Mount and remount only under `/run/samsung-galaxybook/esp`.
+- No change to how it runs: the child processes do all the mounting (§4).
 
 `lib/fingerprint-manager.py`: the Back up & restore dialog shows where the file is (§7).
 
@@ -152,10 +159,11 @@ Packaging: no new files.
   - a root filesystem on LUKS and on LVM
   - a disk that can't be found (the fallback)
 - **The clean check** on real vfat images made with `mkfs.vfat` in a scratch folder: clean, then with the Linux and Windows dirty flags set by hand, on FAT16 and FAT32. This needs no root.
-- **`EspMount`** with `mount` replaced:
-  - read-only first, read-write only to save, read-only again after
-  - no write when dirty
-  - unmounted on exit
+- **`--esp-read` and `--esp-write`** with `mount` replaced:
+  - read-only first, read-write only to save
+  - no write when dirty, or when the file changed since it was read
+  - refuses a device whose PARTUUID or UUID doesn't match
+  - always unmounted, also after an error, and killed after the time limit
 - If the session has root and loop devices, a real mount in a namespace. Otherwise, say so in the PR.
 - **Window:** Xvfb mock-ups of the Back up & restore dialog.
 
@@ -168,7 +176,7 @@ Packaging: no new files.
    - The dialog says `nvme0n1p1`, not mounted.
    - `findmnt` in a terminal shows no new mount, and nothing appears in the file manager.
 4. If EndeavourOS's old copy is still there, it's renamed to `fingerprint-slots.ignored.json`, and the Manager says so.
-5. Close the Manager (and once, `sudo pkill -f fingerprint-manager-helper`). Then `sudo mount | grep esp` shows nothing.
+5. While the Manager is open, and after closing it, `findmnt | grep nvme0n1p1` on EndeavourOS shows nothing: the mounts only last a moment, in their own namespace.
 6. Back on Fedora: Fedora sees EndeavourOS.
 7. Remove the Manager on EndeavourOS. Fedora no longer lists it (`--forget-here` reached `p1`).
 
@@ -176,8 +184,9 @@ Packaging: no new files.
 
 One PR: **find the shared file on this drive and open it safely.** §3 to §6, the dialog line, docs, and PLAN.md §6 and §10. That fixes the Reset danger.
 
-## 10. Questions for David
+## 10. Decisions
 
-1. **The helper's private mount** (§4), used only when the shared file is on an EFI partition this distro doesn't mount: moving the helper into its own mount namespace, mounting the partition read-only, and remounting read-write only to save, with the clean check first. OK?
-
-Decided on 22 Nov 2026: no Move button; other copies on the drive are renamed (§6).
+None left. Decided on 22 Nov 2026:
+- No Move button.
+- Other copies on the drive are renamed (§6).
+- The private mount uses the safest design (§4): a short-lived child process for each read or write, never holding a mount.
