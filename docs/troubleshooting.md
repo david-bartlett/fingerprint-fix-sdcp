@@ -32,6 +32,14 @@ The Galaxy Book Fingerprint Manager keeps `EFI/samsung-galaxybook/fingerprint-sl
 
   The Manager's **Details…** button shows the path on your system.
 
+- If the file is on an EFI partition this distro doesn't mount (see [Distros with their own EFI partition](multi-distro.md#distros-with-their-own-efi-partition)), mount it first. Shut down every other OS on the laptop fully first (not hibernated), then run the one line **Details…** gives, for example:
+
+  ```bash
+  sudo mkdir -p /run/galaxybook-esp && sudo mount /dev/nvme0n1p1 /run/galaxybook-esp && sudo mv /run/galaxybook-esp/EFI/samsung-galaxybook/fingerprint-slots.json /run/galaxybook-esp/EFI/samsung-galaxybook/fingerprint-slots.json.bad && sudo umount /run/galaxybook-esp
+  ```
+
+  Each step runs only if the one before worked, so nothing is moved if the partition doesn't mount. It works in fish too.
+
 ## Dual-Boot With Windows
 
 The sensor has a single template store shared by every OS:
