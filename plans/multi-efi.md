@@ -1,6 +1,6 @@
 # Plan: one shared file on the drive's EFI partition
 
-Status: **plan only, nothing built.** The idea is in PLAN.md §11. Answer the questions at the end before the first PR.
+Status: **plan only, nothing built.** The idea is in PLAN.md §11. Answer the question at the end before the first PR.
 
 This replaces the first version of this plan (PR #180). That version kept a copy on every EFI partition in step, with merge rules, tombstones and a multi-file restore. After talking it through, David chose something simpler:
 
@@ -30,12 +30,13 @@ So each writes a different `EFI/samsung-galaxybook/fingerprint-slots.json`, and 
 
 The shared file lives on an EFI partition **on the same drive as this distro's root filesystem**:
 
-1. If one of that drive's EFI partitions already has `EFI/samsung-galaxybook/fingerprint-slots.json`, **use it.** If more than one has it, use the one with the **lowest partition number**, and ignore the others (§6).
+1. If one of that drive's EFI partitions already has `EFI/samsung-galaxybook/fingerprint-slots.json`, **use it.** If more than one has it, use the one with the **lowest partition number**, and rename the others (§6).
 2. If none has it, **create it on the drive's first EFI partition**: the lowest partition number (`p1` on David's laptop, the one Windows made).
 
 Why it works:
 - **Every distro on the drive picks the same partition,** without any of them storing a choice. Partition numbers are in the partition table, so they're the same from every distro, unlike `/dev/nvme0n1`, whose name the kernel picks at boot.
-- **The file stays wherever it is.** Once it's there, the rule always finds it, even if it ended up on a partition that isn't the first (after a Move, §7).
+- **The file stays wherever it is.** Once it's there, the rule always finds it, even if it isn't on the first partition (made by an older version, say).
+- **No Move button.** Someone who changes their EFI partition can move everything across to the new one themselves, `EFI/samsung-galaxybook/` included.
 
 **Why not keep the location in `~/.config/galaxybook-fingerprint-manager/settings`:** that file belongs to one user on one distro. The location has to be the same for every distro on the laptop, and the root helper writes the file for every user. If two distros' settings disagreed, there would be two files again. Letting the file mark its own location avoids storing anything.
 
@@ -62,7 +63,7 @@ If the root filesystem's disk can't be found (an unusual setup), fall back to to
 EndeavourOS needs this on David's laptop: the file is on `p1`, which EndeavourOS doesn't mount.
 
 1. **Mounted already** (Fedora's `/boot/efi`): use that mount, and never mount it a second time.
-2. **Not mounted:** then nothing in the running distro is using it, so the helper can mount it briefly without affecting anything. The helper (root):
+2. **Not mounted:** this only happens when the shared file is on an EFI partition this distro doesn't use itself (EndeavourOS and `p1` on David's laptop). A distro that mounts the partition holding the file (Fedora, and every distro on a laptop with one EFI partition) never does any of this. Nothing in the running distro is using that partition, so the helper can mount it briefly without affecting anything. The helper (root):
    - **Moves into its own mount namespace** when it starts: `os.unshare(os.CLONE_NEWNS)` (Python 3.12 or newer, which every supported distro has), then `mount --make-rslave /`.
      - Its mounts are **invisible to the rest of the system**: no drive appears in Files or Dolphin, and nothing else can start using it.
      - "Slave" rather than "private", so automounts outside (a systemd automount on `/boot/efi`, say) still reach the helper.
@@ -99,7 +100,8 @@ The window never sends a device path: the helper finds it with lsblk.
 | `_path()` | Gives a usable path to the file: the existing mount, or the helper's read-only mount (§4). |
 | `_save()` | Remounts read-write and back when the mount is the helper's; refuses on a dirty partition; adds the `fsync`s. |
 | `share_slots`, `used_elsewhere`, `esp_records`, `esp_summary`, `problem_file`, `read_file`, `merge_backup`, `forget_installs` | Unchanged apart from going through `_path()` and `_save()`. |
-| `esp_summary()` | Also returns which partition it is (`dev`, `partn`, mounted or not) and any `others` (§6). |
+| `esp_summary()` | Also returns which partition it is (`dev`, `partn`, mounted or not). |
+| New | `rename_others()`: renames other copies on the drive to `fingerprint-slots.ignored.json` (§6), and returns what it renamed for the once-only message. |
 | New | `EspMount`: the namespace, mount and remount handling, used by the helper and `--forget-here`. |
 
 `lib/fingerprint-manager-helper.py`:
@@ -116,7 +118,7 @@ Packaging: no new files.
 | --- | --- |
 | One EFI partition (most laptops) | Exactly as today. |
 | Several on the drive, one has the file | That one. |
-| Several have the file (like David's laptop today, before he deletes EndeavourOS's copy) | The lowest partition number. The others are left as they are, never read or written. Back up & restore names them, so they can be deleted. There's no joining: the files have to be sorted out by hand. |
+| Several have the file (like David's laptop today, before he deletes EndeavourOS's copy) | The lowest partition number is used. The others are **renamed** to `fingerprint-slots.ignored.json` (the same mount and clean check as a save), so no distro picks them up again. They aren't joined. The rename happens only when the chosen file is usable: if it's damaged or from a newer version, nothing is renamed, as the other copy may be the good one. The Manager says once what it renamed, and where. The `.json` ending is kept, so the file can still be restored with Back up & restore → Restore… after copying it somewhere readable. |
 | None has the file | Created on the first EFI partition. |
 | The partition holding the file is dirty | Read, not written (§4). |
 | The partition can't be mounted | As today when the EFI partition can't be read: `used_elsewhere()` returns `None`, so Reset and Clear refuse. |
@@ -133,8 +135,7 @@ Packaging: no new files.
   or, from EndeavourOS:
   > … on `nvme0n1p1` (the drive's first EFI partition; this distro doesn't mount it, so the Manager opens it when needed).
 
-  plus a line for any other copy that's being ignored.
-- **Move…** (a later PR, question 2): moves the file to another EFI partition on the same drive. It writes the new file, checks it, then renames the old one to `fingerprint-slots.json.moved`. Every other distro finds the new one next time, because of rule 1.
+- When another copy was renamed (§6), a message says so once.
 - With one EFI partition, nothing visible changes apart from that line.
 
 `docs/multi-distro.md` and `docs/troubleshooting.md` get a short section: distros with their own EFI partition, where the file goes, and how to remove an old copy.
@@ -166,18 +167,17 @@ Packaging: no new files.
    - It shows Fedora as another distro, and offers Fedora's fingers.
    - The dialog says `nvme0n1p1`, not mounted.
    - `findmnt` in a terminal shows no new mount, and nothing appears in the file manager.
-4. With EndeavourOS's old copy still there, the dialog names it as ignored.
+4. If EndeavourOS's old copy is still there, it's renamed to `fingerprint-slots.ignored.json`, and the Manager says so.
 5. Close the Manager (and once, `sudo pkill -f fingerprint-manager-helper`). Then `sudo mount | grep esp` shows nothing.
 6. Back on Fedora: Fedora sees EndeavourOS.
 7. Remove the Manager on EndeavourOS. Fedora no longer lists it (`--forget-here` reached `p1`).
 
-## 9. Order of PRs
+## 9. PRs
 
-1. **Find the shared file on this drive and open it safely.** §3 to §6, the dialog line, docs, and PLAN.md §6 and §10. That fixes the Reset danger.
-2. **Move…** (if wanted).
+One PR: **find the shared file on this drive and open it safely.** §3 to §6, the dialog line, docs, and PLAN.md §6 and §10. That fixes the Reset danger.
 
 ## 10. Questions for David
 
-1. **The helper's private mount** (§4): moving the helper into its own mount namespace, mounting the EFI partition read-only, and remounting read-write only to save, with the clean check first. OK?
-2. **Move…:** wanted, or is "first EFI partition, or wherever the file already is" enough on its own? I'd leave it out of the first PR.
-3. **Several copies on the drive:** ignore all but the lowest-numbered one and name them in the dialog (my suggestion), or also offer to delete them?
+1. **The helper's private mount** (§4), used only when the shared file is on an EFI partition this distro doesn't mount: moving the helper into its own mount namespace, mounting the partition read-only, and remounting read-write only to save, with the clean check first. OK?
+
+Decided on 22 Nov 2026: no Move button; other copies on the drive are renamed (§6).

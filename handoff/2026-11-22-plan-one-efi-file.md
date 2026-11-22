@@ -7,6 +7,7 @@ PR #184 · Claude · 2026-11-22
   - It's on the drive the distro runs from, on whichever of the drive's EFI partitions already has it, or else the first by partition number.
   - A partition this distro doesn't mount is opened read-only in the helper's own mount namespace, and remounted read-write only to save, after a FAT clean check.
   - No joining of existing copies; no other drives.
+  - Other copies on the drive are renamed to `fingerprint-slots.ignored.json`. There's no Move button: someone changing their EFI partition moves everything across themselves (both David's decisions, 22 Nov).
 - PLAN.md §11: the multi-EFI bullet now describes the new plan.
 
 ## Why
@@ -17,5 +18,5 @@ PR #184 · Claude · 2026-11-22
 - Nothing to run: documents only. Checked that util-linux 2.39 lsblk gives the columns the plan uses.
 
 ## For the next person
-- Three questions at the end of the plan; get answers before starting.
+- One question left at the end of the plan (the private mount); get an answer before starting.
 - The notes in the PR #180 handoff note about merge rules and the older plan are out of date.
