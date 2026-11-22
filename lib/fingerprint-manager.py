@@ -983,7 +983,10 @@ def summarise(text):
     pick = (tagged or lines or [""])[-1]
     for tag in ("[INFO]", "[ERROR]", "[WARN]"):
         pick = pick.replace(tag, "").strip()
-    return pick
+    # The scripts name fingers as fprintd does (right-index-finger): plain
+    # words in the message (right index finger), as everywhere else.
+    return re.sub(r"\b(left|right)-(thumb|index-finger|middle-finger|ring-finger|little-finger)\b",
+                  lambda m: m.group(0).replace("-", " "), pick)
 
 
 class Manager(Gtk.Window):
