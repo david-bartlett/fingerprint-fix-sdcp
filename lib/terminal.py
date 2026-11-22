@@ -133,9 +133,12 @@ def find_terminal():
     if shutil.which("xdg-terminal-exec"):
         # Ptyxis needs --standalone (see the top), which xdg-terminal-exec
         # doesn't pass. An older xdg-terminal-exec can't say what it opens
-        # (no --print-id): on GNOME, that's Ptyxis when it's installed.
-        default = _known(_read(["xdg-terminal-exec", "--print-id"]))
-        if default == "ptyxis" or (not default and {"gnome", "ubuntu"} & set(_desktops())):
+        # (no --print-id, so no answer): on GNOME, that's Ptyxis when it's
+        # installed. An answer we don't know (Ghostty, say) is the user's
+        # choice, so it's left to xdg-terminal-exec.
+        answer = _read(["xdg-terminal-exec", "--print-id"])
+        default = _known(answer)
+        if default == "ptyxis" or (not answer and {"gnome", "ubuntu"} & set(_desktops())):
             found = ok("ptyxis")
             if found:
                 return found

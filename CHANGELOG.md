@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Updates open your chosen terminal on GNOME:** with a terminal the Manager doesn't know set as the default (Ghostty, say), **Update now** and **Update** opened Ptyxis instead when it was installed
+- An unknown answer from `xdg-terminal-exec --print-id` was treated like no answer (an older `xdg-terminal-exec`), which on GNOME means Ptyxis. Now only no answer does; any other terminal is left to `xdg-terminal-exec`
+
 - **Release files are attested:** each file on a release now has a build attestation from GitHub, so `gh attestation verify <file> -R david-bartlett/fingerprint-fix-sdcp` shows it was built by this repository's release workflow from the release tag
 - The attestation step comes after the release is published and can't fail the run, so it never holds a release back
 - **Privacy and how it's made, in the README:** where your fingerprints are kept (on the sensor; the laptop only knows which slot is whose), the only network use, and how the fix is built, reviewed and tested
