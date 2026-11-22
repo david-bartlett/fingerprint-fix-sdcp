@@ -228,9 +228,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
       # Signs a statement, kept by GitHub, that each attached file was built by
-      # this workflow from this tag: `gh attestation verify FILE -R david-bartlett/fingerprint-fix-sdcp`
-      # checks a download (see .github/release-install.md). Last, and allowed to
-      # fail, so it can never hold back a release.
+      # this workflow from this tag. `gh attestation verify FILE -R <repo>
+      # --signer-workflow <repo>/.github/workflows/release-packages.yml
+      # --source-ref refs/tags/vX.Y.Z` checks a download (the full command is in
+      # .github/release-install.md; -R alone checks only the repository). Last,
+      # and allowed to fail, so it can never hold back a release.
       - name: Attest the files (build provenance)
         continue-on-error: true
         uses: actions/attest-build-provenance@v3
