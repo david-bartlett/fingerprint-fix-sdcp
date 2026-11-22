@@ -9,6 +9,7 @@
 
 ## Unreleased
 
+- **Release files are attested:** each file on a release now has a build attestation from GitHub. The release page gives the `gh attestation verify` command that shows a file was built by this repository's release workflow from that release's tag (`--signer-workflow` and `--source-ref`, as `-R` alone checks only the repository)
 - **Distros with their own EFI partition share fingerprints too:** the shared fingerprint file now goes on the same EFI partition for every distro on the drive, even one that boots from an EFI partition of its own
 - The file is on whichever of the drive's EFI partitions already has `EFI/samsung-galaxybook/fingerprint-slots.json`, or else the first by partition number. Before, each distro used the EFI partition it mounts, so a distro with its own (as some installers make) couldn't see the others, and its **Reset** could clear fingerprints they still use
 - A distro that doesn't mount that partition opens it only for each read or save, in a short-lived process of its own that the rest of the system doesn't see, read-only unless it's saving. It saves only if no other OS left the partition in use (hibernated, or not shut down properly), and only if the file hasn't changed since it was read
