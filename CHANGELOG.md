@@ -7,7 +7,7 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
-## Unreleased
+## 2.15.1 — 2026-11-25
 
 - **Nothing runs on the login screen:** the login check and the new-version checks now skip the login screen's own session
 - The packages turn these checks on for every user, and the login screen runs as a user of its own (`gdm` or `sddm`). So they also ran there, before anyone had logged in, and a new-version notification could appear on the login screen. They now skip system accounts like these
