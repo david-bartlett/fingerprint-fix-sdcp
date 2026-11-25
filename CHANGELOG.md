@@ -7,6 +7,8 @@
      Plain lines: the full detail, shown only in Full changelog.
      Every release, even a small one: at least one bold line. -->
 
+## Unreleased
+
 ## 2.15.1 — 2026-11-25
 
 - **Nothing runs on the login screen:** the login check and the new-version checks now skip the login screen's own session
