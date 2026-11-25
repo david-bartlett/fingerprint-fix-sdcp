@@ -2,6 +2,10 @@
 Description=Galaxy Book Fingerprint Manager — check GitHub for a new release (30 s after login, then hourly)
 PartOf=graphical-session.target
 After=graphical-session.target
+# Not for system accounts: the login screen's own session (gdm, sddm) is a
+# user session too, and with the packages' "systemctl --global enable" this
+# would run there, before anyone has logged in.
+ConditionUser=!@system
 
 [Timer]
 OnActiveSec=30s

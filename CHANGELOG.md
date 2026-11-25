@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **Nothing runs on the login screen:** the login check and the new-version checks now skip the login screen's own session
+- The packages turn these checks on for every user, and the login screen runs as a user of its own (`gdm` or `sddm`). So they also ran there, before anyone had logged in, and a new-version notification could appear on the login screen. They now skip system accounts like these
+
 ## 2.15.0 — 2026-11-22
 
 - **Finger names in plain words after importing:** the message said *Imported left-index-finger, right-thumb…*; it now says *Imported left index finger, right thumb…*, as the rest of the Manager does. **Details…** still shows the import's own output
