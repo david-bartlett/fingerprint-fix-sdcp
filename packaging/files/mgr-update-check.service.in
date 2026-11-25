@@ -1,5 +1,9 @@
 [Unit]
 Description=Galaxy Book Fingerprint Manager — check GitHub for a new fingerprint-fix-sdcp release
+# Not for system accounts: the login screen's own session (gdm, sddm) is a
+# user session too, and with the packages' "systemctl --global enable" this
+# would run there, before anyone has logged in.
+ConditionUser=!@system
 
 [Service]
 Type=oneshot
