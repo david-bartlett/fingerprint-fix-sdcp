@@ -9,6 +9,9 @@
 
 ## Unreleased
 
+- **The suspend fix is now in the driver itself:** the driver is libfprint-egismoc-sdcp `f0234b3`, which includes the fix for the reader stopping after a suspend during a scan. That fix was applied here as a build-time patch until it went into the driver, so nothing changes in how it works
+- `lib/patches/0001-close-while-suspended.patch` removed: the driver commit has the same change, plus its tests
+
 ## 2.15.1 — 2026-11-25
 
 - **Nothing runs on the login screen:** the login check and the new-version checks now skip the login screen's own session
