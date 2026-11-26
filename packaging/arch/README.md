@@ -30,7 +30,7 @@ Install enables the boot check and the per-user login check (they start at the n
 2. `cd packaging/arch && makepkg -si`
 3. fprintd uses the driver: `fprintd-list "$USER"`, then `sudo grep fingerprint-fix-sdcp /proc/$(pidof fprintd)/maps`
 4. `fprintd-verify` matches the existing fingerprints.
-5. The Manager opens from the app menu; *About* shows the version and driver `3b0ee1f`; the fingerprint-login switch works.
+5. The Manager opens from the app menu; *About* shows the version and the driver commit from `DRIVER`; the fingerprint-login switch works.
 6. `systemctl is-enabled samsung-galaxybook-fprint-sdcp-boot-check.service` and `systemctl --user is-enabled samsung-galaxybook-fprint-sdcp-user-check.timer` both say `enabled`.
 7. Reboot: `journalctl -b -u samsung-galaxybook-fprint-sdcp-boot-check` shows the check ran; with no fingers enrolled, a notification points to the Manager about 10 s after login.
 8. Upgrade: raise `pkgrel`, `makepkg -si` — fingerprints still verify.
